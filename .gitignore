@@ -1,0 +1,76 @@
+# JavaScript dependencies and generated builds (all project folders)
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# Python dependencies, virtual environments and generated files
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local environment and secret files
+.env
+.env.*
+!.env.example
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+credentials.json
+secrets.json
+
+# Local database files and exports
+*.sqlite
+*.sqlite3
+*.db
+*.sql.gz
+/backups/
+# Keep SQL schema and migration source files versioned.
+
+# Logs, temporary files and caches
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+.npm/
+npm-cache/
+.pnpm-store/
+tmp/
+temp/
+/work/
+
+# Operating-system and editor-local files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+# Dependency manifests and lockfiles are intentionally NOT ignored:
+# package.json, package-lock.json, yarn.lock, pnpm-lock.yaml,
+# requirements*.txt, pyproject.toml, poetry.lock, uv.lock, Pipfile.lock.
