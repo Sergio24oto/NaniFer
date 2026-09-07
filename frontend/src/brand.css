@@ -1,0 +1,49 @@
+/* Identidad NaniFer: originales conservados en public/brand. */
+:root { --brand-pink: #ca105b; --brand-teal: #256e69; }
+header { background: #fff; min-height: 104px; height: auto; padding-top: 6px; padding-bottom: 6px; border-bottom: 1px solid #eee5e8; }
+.brand-frame { display: block; width: 142px; height: 104px; overflow: hidden; flex-shrink: 0; }
+.brand-frame img { display: block; width: 142px; height: auto; max-width: none; transform: translateY(-14px); }
+.brand { flex-shrink: 0; }
+.primary, .category-tabs button.selected { background: var(--brand-pink); color: white; }
+.primary:hover:not(:disabled) { background: #ae0c4d; }
+nav button.active { background: #fce9f1; color: #a5104b; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--brand-teal); outline-offset: 3px; }
+.menu-hero.brand-hero { padding: 0; display: grid; grid-template-columns: 0.9fr 1.1fr; background: #fff6ed; min-height: 340px; border: 1px solid #eee2d6; border-radius: 24px; margin-bottom: 24px; }
+.brand-hero > div:first-child { padding: 32px 36px; }
+.brand-hero h1 { font-size: clamp(38px, 4.2vw, 56px); color: #45372f; }
+.brand-hero h1 em { color: var(--brand-pink); }
+.brand-hero p { color: #716055; font-size: 14px; }
+.brand-hero .hero-label { display: block; color: var(--brand-teal); font-size: 9px; letter-spacing: 1.5px; margin-top: 22px; }
+.hero-photo { position: relative; align-self: stretch; min-height: 340px; overflow: hidden; }
+.hero-photo img { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; object-position: 52% 50%; }
+.hero-photo span { position: absolute; bottom: 20px; right: 20px; padding: 10px 16px; border-radius: 30px; background: #fffaf3; color: #285c52; font-size: 12px; box-shadow: 0 4px 20px #183d3426; }
+.login.brand-login { max-width: 970px; margin: 40px auto; display: grid; grid-template-columns: 1.1fr 1fr; padding: 0; border-radius: 24px; overflow: hidden; background: #fff; border: 1px solid #eee2d6; }
+.brand-login .panel { border: 0; border-radius: 0; margin: 0; padding: 32px 40px 40px; background: #fff; }
+.brand-login .brand-frame { margin-bottom: 18px; }
+.brand-login .eyebrow { color: var(--brand-teal); font-size: 10px; letter-spacing: 1.5px; }
+.login-photo { position: relative; min-height: 480px; }
+.login-photo img { position: absolute; width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; }
+.login-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 40%, #16382ee8); }
+.login-photo > div { position: absolute; z-index: 1; left: 32px; bottom: 36px; color: #fff; }
+.login-photo span { font-size: 10px; letter-spacing: 2px; }
+.login-photo h2 { font-family: Georgia, serif; font-weight: 400; font-size: 36px; line-height: 1.2; margin-top: 12px; }
+@media (max-width: 720px) {
+  header { padding: 4px 18px 10px; gap: 10px; }
+  .brand-frame { width: 120px; height: 88px; }
+  .brand-frame img { width: 120px; transform: translateY(-11px); }
+  header .demo { font-size: 9px; max-width: 140px; text-align: right; }
+  .menu-hero.brand-hero { grid-template-columns: 1fr; border-radius: 20px; }
+  .brand-hero > div:first-child { padding: 24px; }
+  .brand-hero h1 { font-size: 40px; margin: 12px 0; }
+  .brand-hero .hero-label { margin-top: 14px; font-size: 8px; }
+  .hero-photo { min-height: 205px; }
+  .hero-photo img { object-position: 50% 48%; }
+  .hero-photo span { bottom: 12px; right: 12px; padding: 8px 12px; font-size: 11px; }
+  .login.brand-login { display: block; margin: 22px 18px; }
+  .login-photo { min-height: 210px; }
+  .login-photo > div { left: 24px; bottom: 20px; }
+  .login-photo h2 { font-size: 27px; }
+  .brand-login .panel { padding: 24px; }
+  .brand-login .brand-frame { display: none; }
+}
+

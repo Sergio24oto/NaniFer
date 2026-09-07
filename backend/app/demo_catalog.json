@@ -1,0 +1,169 @@
+{
+  "products": [
+    {
+      "id": "helado",
+      "name": "Tu helado favorito",
+      "description": "Hecho acá, con ingredientes de verdad.",
+      "category": "Helados",
+      "emoji": "🍨",
+      "price": 3800,
+      "sizes": [
+        {
+          "name": "2 bochas",
+          "price": 0,
+          "max": 2
+        },
+        {
+          "name": "3 bochas",
+          "price": 1200,
+          "max": 3
+        }
+      ],
+      "extras": [
+        {
+          "name": "Salsa de chocolate",
+          "price": 500
+        },
+        {
+          "name": "Crocante",
+          "price": 400
+        }
+      ],
+      "available": true
+    },
+    {
+      "id": "copa",
+      "name": "Copa NaniFer",
+      "description": "Tres sabores, crema y un momento feliz.",
+      "category": "Helados",
+      "emoji": "🍧",
+      "price": 6500,
+      "sizes": [
+        {
+          "name": "Clásica",
+          "price": 0,
+          "max": 3
+        }
+      ],
+      "extras": [
+        {
+          "name": "Brownie",
+          "price": 900
+        }
+      ],
+      "available": true
+    },
+    {
+      "id": "latte",
+      "name": "Café con leche",
+      "description": "Espresso suave y leche cremosa.",
+      "category": "Cafetería",
+      "emoji": "☕",
+      "price": 2800,
+      "sizes": [
+        {
+          "name": "Mediano",
+          "price": 0
+        },
+        {
+          "name": "Grande",
+          "price": 600
+        }
+      ],
+      "extras": [
+        {
+          "name": "Leche de almendras",
+          "price": 700
+        },
+        {
+          "name": "Shot extra",
+          "price": 600
+        }
+      ],
+      "available": true
+    },
+    {
+      "id": "espresso",
+      "name": "Espresso",
+      "description": "Pequeño, intenso, recién molido.",
+      "category": "Cafetería",
+      "emoji": "☕",
+      "price": 2100,
+      "available": true
+    },
+    {
+      "id": "torta",
+      "name": "Cheesecake de frutos rojos",
+      "description": "Una porción para disfrutar sin apuro.",
+      "category": "Tortas",
+      "emoji": "🍰",
+      "price": 4600,
+      "available": true
+    },
+    {
+      "id": "brownie",
+      "name": "Brownie de chocolate",
+      "description": "Húmedo por dentro, irresistible siempre.",
+      "category": "Tortas",
+      "emoji": "🍫",
+      "price": 3500,
+      "available": false
+    },
+    {
+      "id": "bombones",
+      "name": "Trío de bombones",
+      "description": "Tres bocaditos de chocolate artesanal.",
+      "category": "Chocolates",
+      "emoji": "🍬",
+      "price": 2400,
+      "available": true
+    },
+    {
+      "id": "agua",
+      "name": "Agua mineral",
+      "description": "500 ml · bien fresca.",
+      "category": "Bebidas",
+      "emoji": "💧",
+      "price": 1800,
+      "available": true
+    },
+    {
+      "id": "limonada",
+      "name": "Limonada de la casa",
+      "description": "Limón, menta y un toque de jengibre.",
+      "category": "Bebidas",
+      "emoji": "🍋",
+      "price": 2900,
+      "available": true
+    }
+  ],
+  "categories": [
+    "Helados",
+    "Cafetería",
+    "Tortas",
+    "Chocolates",
+    "Bebidas"
+  ],
+  "flavors": [
+    {
+      "name": "Dulce de leche",
+      "available": true
+    },
+    {
+      "name": "Chocolate amargo",
+      "available": true
+    },
+    {
+      "name": "Frutilla",
+      "available": true
+    },
+    {
+      "name": "Vainilla",
+      "available": true
+    },
+    {
+      "name": "Pistacho",
+      "available": false
+    }
+  ]
+}

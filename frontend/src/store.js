@@ -1,33 +1,22 @@
 import { useSyncExternalStore } from "react";
-import { emptyState, transition } from "./domain.js";
-const KEY = "nanifer.demo.v1";
-function read() {
-  const raw = localStorage.getItem(KEY);
-  if (!raw) return emptyState();
-  const s = JSON.parse(raw);
-  if (s.version !== 1 || !Array.isArray(s.orders) || !Array.isArray(s.accounts))
-    throw Error("Datos locales incompatibles.");
-  return s;
-}
-let state;
-try {
-  state = read();
-} catch {
-  state = emptyState();
-}
+import { operationId } from "./domain.js";
+const blank = { accounts: [], orders: [], payments: [], staff: [] };
+let state = {
+  ...blank,
+  catalog: { products: [], categories: [], flavors: [] },
+  user: null,
+  csrf: "",
+  connected: null,
+  loading: true,
+  error: "",
+  mode: "public",
+  table: null,
+};
 const listeners = new Set();
-const channel =
-  typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(KEY) : null;
-function refresh() {
-  try {
-    state = read();
-    listeners.forEach((f) => f());
-  } catch {}
+function update(patch) {
+  state = { ...state, ...patch };
+  listeners.forEach((f) => f());
 }
-window.addEventListener("storage", (e) => {
-  if (e.key === KEY) refresh();
-});
-if (channel) channel.onmessage = refresh;
 export function useStore() {
   return useSyncExternalStore(
     (f) => {
@@ -37,20 +26,138 @@ export function useStore() {
     () => state,
   );
 }
-export async function dispatch(action) {
-  if (!navigator.locks)
-    throw Error(
-      "Usá una versión actual de Chrome, Edge o Firefox en localhost para sincronizar con seguridad.",
+export async function request(path, { method = "GET", body, key } = {}) {
+  let response;
+  try {
+    response = await fetch("/api" + path, {
+      method,
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "NaniFer",
+        "X-CSRF-Token": state.csrf,
+        ...(key ? { "Idempotency-Key": key } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch {
+    update({ connected: false });
+    const e = new Error(
+      "Sin conexión. No se pudo confirmar la operación. Reintentá cuando vuelva el servicio.",
     );
-  return navigator.locks.request(KEY, () => {
-    const next = transition(
-      action.type === "reset" ? emptyState() : read(),
-      action,
+    e.uncertain = true;
+    throw e;
+  }
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    update({ connected: false });
+    const error = new Error(
+      "No se pudo interpretar la respuesta del servidor. Reintentá la misma operación.",
     );
-    localStorage.setItem(KEY, JSON.stringify(next));
-    state = next;
-    listeners.forEach((f) => f());
-    channel?.postMessage("updated");
-    return next;
+    error.uncertain = true;
+    throw error;
+  }
+  if (!response.ok) {
+    const e = new Error(
+      typeof data.detail === "string"
+        ? data.detail
+        : "Revisá los datos del formulario.",
+    );
+    e.status = response.status;
+    e.uncertain = response.status >= 500;
+    if (e.uncertain) update({ connected: false });
+    if (response.status === 401) update({ user: null, csrf: "", ...blank });
+    throw e;
+  }
+  return data;
+}
+let revision = 0;
+export async function refresh() {
+  const rev = ++revision;
+  const { mode, table } = state;
+  try {
+    const catalog = await request("/catalog");
+    let auth = { user: state.user, csrf: state.csrf };
+    let data = blank;
+    if (mode === "staff") {
+      try {
+        auth = await request("/auth/me");
+        data = await request("/state");
+      } catch (e) {
+        if (e.status !== 401) throw e;
+        auth = { user: null, csrf: "" };
+      }
+    } else if (table) {
+      data = await request("/public/mesa/" + table);
+    }
+    if (rev === revision)
+      update({
+        ...data,
+        ...auth,
+        catalog,
+        connected: true,
+        loading: false,
+        error: "",
+      });
+  } catch (e) {
+    if (rev === revision)
+      update({ connected: false, loading: false, error: e.message });
+  }
+}
+export function configure(mode, table) {
+  revision++;
+  update({ ...blank, mode, table, loading: true, error: "" });
+  void refresh();
+}
+setInterval(() => void refresh(), 4000);
+window.addEventListener("online", () => void refresh());
+window.addEventListener("offline", () => update({ connected: false }));
+window.addEventListener("focus", () => void refresh());
+export async function login(username, password) {
+  const auth = await request("/auth/login", {
+    method: "POST",
+    body: { username, password },
   });
+  update(auth);
+  await refresh();
+}
+export async function logout() {
+  await request("/auth/logout", { method: "POST" });
+  update({ ...blank, user: null, csrf: "" });
+}
+export async function mutate(path, body, method = "POST") {
+  const result = await request(path, { method, body });
+  await refresh();
+  return result;
+}
+// Keep the exact payload/key after an uncertain response, including across reloads.
+export function pendingOperation(scope) {
+  try {
+    return JSON.parse(sessionStorage.getItem("nf.pending." + scope) || "null");
+  } catch {
+    return null;
+  }
+}
+export async function submitOnce(scope, path, body) {
+  let pending = pendingOperation(scope);
+  if (!pending) {
+    pending = { key: operationId(), path, body };
+    sessionStorage.setItem("nf.pending." + scope, JSON.stringify(pending));
+  }
+  try {
+    const result = await request(pending.path, {
+      method: "POST",
+      body: pending.body,
+      key: pending.key,
+    });
+    sessionStorage.removeItem("nf.pending." + scope);
+    await refresh();
+    return result;
+  } catch (e) {
+    if (!e.uncertain) sessionStorage.removeItem("nf.pending." + scope);
+    throw e;
+  }
 }
