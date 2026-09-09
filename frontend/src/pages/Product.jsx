@@ -2,9 +2,10 @@ import React, { useState, useRef } from "react";
 import { Modal, Badge } from "../components";
 import { money, estimate } from "../domain";
 import { useStore } from "../store";
-export default function Product({ product: p, onClose, onAdd }) {
+export default function Product({ product: initialProduct, onClose, onAdd }) {
   const { catalog } = useStore();
-  const [size, setSize] = useState(p.sizes?.[0]?.name || "");
+  const p = catalog.products.find(x => x.id === initialProduct.id) || initialProduct;
+  const [size, setSize] = useState(p.sizes?.find(s => s.available !== false)?.name || "");
   const [chosen, setChosen] = useState([]);
   const [extras, setExtras] = useState([]);
   const [notes, setNotes] = useState("");
@@ -25,12 +26,13 @@ export default function Product({ product: p, onClose, onAdd }) {
                 type="radio"
                 name="size"
                 checked={size === z.name}
+                disabled={z.available === false}
                 onChange={() => {
                   setSize(z.name);
                   setChosen([]);
                 }}
               />
-              {z.name}
+              {z.name}{z.available === false ? " · Sin stock" : ""}
               <span>{z.price ? "+ " + money(z.price) : "Incluido"}</span>
             </label>
           ))}
@@ -97,6 +99,8 @@ export default function Product({ product: p, onClose, onAdd }) {
       <button
         className="primary full"
         disabled={
+          !p.available ||
+          (p.sizes?.length > 0 && !p.sizes.some(z => z.name === size && z.available !== false)) ||
           (max && !chosen.length) ||
           !Number.isInteger(quantity) ||
           quantity < 1 ||

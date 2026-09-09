@@ -8,6 +8,7 @@ from sqlalchemy import select, delete, text, create_engine
 from app.main import app
 from app.db import SessionLocal, engine
 from app.models import (
+    Sale, SaleAllocation, SaleCorrection, Reservation, StockItem, StockMovement, Supplier,
     User,
     Category,
     Product,
@@ -75,50 +76,68 @@ def fixture():
             )
         )
         db.commit()
-    client = TestClient(app, headers=HEADERS)
-    login = client.post(
-        "/api/auth/login", json={"username": "test_" + tag, "password": password}
-    )
-    assert login.status_code == 200
-    client.headers["X-CSRF-Token"] = login.json()["csrf"]
-    f = {
-        "client": client,
-        "table": number,
-        "product": product_id,
-        "password": password,
-        "username": "test_" + tag,
-        "user_id": user_id,
-    }
+    numbers = [number]
+    extra_stock_ids = []
+    product_ids = [product_id]
+    client = TestClient(app, headers=HEADERS, client=("fixture-" + tag, 50000))
     try:
+        login = client.post(
+            "/api/auth/login", json={"username": "test_" + tag, "password": password}
+        )
+        assert login.status_code == 200
+        client.headers["X-CSRF-Token"] = login.json()["csrf"]
+        f = {
+            "client": client,
+            "table": number,
+            "tables": numbers,
+            "flavor": flavor_id,
+            "stock_ids": extra_stock_ids,
+            "product_ids": product_ids,
+            "product": product_id,
+            "password": password,
+            "username": "test_" + tag,
+            "user_id": user_id,
+        }
         yield f
     finally:
         client.close()
         # Only delete records owned by this fixture, never demo or user-created visits.
         with SessionLocal() as db:
             visits = list(
-                db.scalars(select(Visit.id).where(Visit.table_number == number))
+                db.scalars(select(Visit.id).where((Visit.table_number.in_(numbers)) | ((Visit.table_number == None) & (Visit.waitress_id == user_id))))
             )
             orders = list(
                 db.scalars(select(Order.id).where(Order.visit_id.in_(visits)))
             )
+            payment_ids = list(db.scalars(select(Payment.id).where(Payment.visit_id.in_(visits))))
+            reservations = list(db.scalars(select(Reservation.id).where(Reservation.table_number.in_(numbers))))
+            stock_ids = list(db.scalars(select(StockItem.id).where((StockItem.product_id.in_(product_ids)) | (StockItem.flavor_id == flavor_id) | StockItem.id.in_(extra_stock_ids))))
             for model, condition in [
                 (
                     Operation,
                     Operation.scope.in_(
-                        ["order:" + v for v in visits] + ["pay:" + v for v in visits]
+                        ["order:" + v for v in visits] + ["pay:" + v for v in visits] + ["correct:" + p for p in payment_ids]
+                        + ["reservation:" + r for r in reservations] + [f"reservation-create:{n}" for n in numbers] + [f"consumptions:{n}" for n in numbers] + ["catalog-product:" + user_id, "catalog-category:" + user_id, "counter:" + user_id, "supplier:" + user_id, "stock-flavor:" + flavor_id] + ["stock-move:" + sid for sid in stock_ids] + ["stock-config:" + pid for pid in product_ids]
                     ),
                 ),
+                (StockMovement, StockMovement.stock_id.in_(stock_ids)),
+                (StockItem, StockItem.id.in_(stock_ids)),
+                (Supplier, Supplier.created_by == user_id),
+                (SaleCorrection, SaleCorrection.sale_id.in_(payment_ids)),
+                (SaleAllocation, SaleAllocation.sale_id.in_(payment_ids)),
+                (Sale, Sale.id.in_(payment_ids)),
                 (OrderItem, OrderItem.order_id.in_(orders)),
                 (Order, Order.visit_id.in_(visits)),
                 (Payment, Payment.visit_id.in_(visits)),
                 (PublicSession, PublicSession.visit_id.in_(visits)),
+                (Reservation, Reservation.table_number.in_(numbers)),
                 (Visit, Visit.id.in_(visits)),
                 (Session, Session.user_id == user_id),
                 (User, User.id == user_id),
-                (Product, Product.id == product_id),
+                (Product, Product.id.in_(product_ids)),
                 (Flavor, Flavor.id == flavor_id),
                 (Category, Category.id == category_id),
-                (Table, Table.number == number),
+                (Table, Table.number.in_(numbers)),
             ]:
                 db.execute(delete(model).where(condition))
             db.commit()
@@ -135,6 +154,7 @@ def order(f, visit, token=None):
         "/api/visits/" + visit + "/orders",
         json={
             "expectedAccount": visit,
+            "needsPreparation": True,
             "items": [{"productId": f["product"], "quantity": 1}],
         },
         headers={"Idempotency-Key": token or key()},
@@ -213,6 +233,7 @@ def test_duplicate_and_simultaneous_orders(fixture):
                 "/api/visits/" + v + "/orders",
                 json={
                     "expectedAccount": v,
+                    "needsPreparation": True,
                     "items": [{"productId": f["product"], "quantity": 1}],
                 },
                 headers={"Idempotency-Key": token},
@@ -252,61 +273,11 @@ def test_duplicate_and_simultaneous_payments(fixture):
         assert len(list(db.scalars(select(Payment).where(Payment.visit_id == v)))) == 1
 
 
-def test_public_access_validation_and_stale_visit(fixture):
-    f = fixture
-    c = TestClient(app, headers=HEADERS)
-    assert c.get("/api/catalog").status_code == 200
-    assert c.get("/api/state").status_code == 401
-    assert c.post("/api/tables/1/open").status_code == 401
-    assert c.post("/api/public/mesa/999999/join").status_code == 404
-    joined = c.post(f"/api/public/mesa/{f['table']}/join")
-    assert joined.status_code == 200
-    v = joined.json()["id"]
-    endpoint = f"/api/public/mesa/{f['table']}/orders"
-    body = {"expectedAccount": v, "items": [{"productId": f["product"], "quantity": 1}]}
-    assert (
-        c.post(
-            endpoint, json={**body, "unitPrice": 1}, headers={"Idempotency-Key": key()}
-        ).status_code
-        == 422
-    )
-    assert (
-        c.post(
-            endpoint,
-            json={**body, "items": [{"productId": f["product"], "quantity": 0}]},
-            headers={"Idempotency-Key": key()},
-        ).status_code
-        == 422
-    )
-    assert (
-        c.post(
-            endpoint,
-            json={
-                **body,
-                "items": [
-                    {"productId": f["product"], "quantity": 1, "flavors": ["inventado"]}
-                ],
-            },
-            headers={"Idempotency-Key": key()},
-        ).status_code
-        == 422
-    )
-    r = c.post(endpoint, json=body, headers={"Idempotency-Key": key()})
-    assert r.status_code == 200
-    assert account(f, v)["total"] == 1000
-    assert f["client"].post("/api/visits/" + v + "/close").status_code == 409
-    deliver(f, r.json()["id"])
-    assert pay(f, v, 1000).status_code == 200
-    assert f["client"].post("/api/visits/" + v + "/close").status_code == 200
-    assert (
-        c.post(endpoint, json=body, headers={"Idempotency-Key": key()}).status_code
-        == 409
-    )
-    assert c.get(f"/api/public/mesa/{f['table']}").json()["accounts"] == []
-    new = c.post(f"/api/public/mesa/{f['table']}/join").json()["id"]
-    assert new != v
-    assert c.get(f"/api/public/mesa/{f['table']}").json()["accounts"][0]["total"] == 0
-    c.close()
+def test_public_ordering_disabled(fixture):
+    with TestClient(app, headers=HEADERS) as c:
+        assert c.post(f"/api/public/mesa/{fixture['table']}/join").status_code == 403
+        assert c.post(f"/api/public/mesa/{fixture['table']}/orders", json={"expectedAccount":None,"items":[{"productId":fixture['product'],"quantity":1}]},headers={"Idempotency-Key":key()}).status_code == 403
+        assert c.get(f"/api/public/mesa/{fixture['table']}").json()=={"table":fixture['table']}
 
 
 def test_permissions_csrf_and_no_confirmation_on_db_failure(fixture):
@@ -412,6 +383,7 @@ def test_distinct_concurrent_orders_accumulate(fixture):
                 "/api/visits/" + v + "/orders",
                 json={
                     "expectedAccount": v,
+                    "needsPreparation": True,
                     "items": [{"productId": f["product"], "quantity": 1}],
                 },
                 headers={"Idempotency-Key": key()},
@@ -447,7 +419,9 @@ def test_catalog_options_validated_and_unavailable(fixture):
         send({"size": "Chico", "flavors": ["Dulce de leche", "Frutilla"]}).status_code
         == 422
     )
-    assert send({"size": "Chico", "flavors": ["Pistacho"]}).status_code == 422
+    with SessionLocal() as db:
+        unavailable_flavor = db.get(Flavor, f["flavor"]).name
+    assert send({"size": "Chico", "flavors": [unavailable_flavor]}).status_code == 422
     assert (
         send(
             {"size": "Chico", "flavors": ["Dulce de leche"], "extras": ["Inventado"]}

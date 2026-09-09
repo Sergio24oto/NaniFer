@@ -1,0 +1,15 @@
+.stock-page small {font-size:14px;color:#53625a;}
+.stock-filters {display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin:20px 0;}
+.stock-filters label {flex:1;min-width:180px;margin:0;}
+.stock-section {margin:20px 0;padding:20px;}
+.stock-section h2 {font-size:23px;margin:0 0 10px;}
+.stock-section .sales-table td {font-size:15px;}
+.stock-section select {min-width:190px;font-size:14px;}
+.stock-history {border-top:1px solid #ddd;padding:15px 0;}
+.stock-history p {margin:5px 0;}
+.stock-history small {display:block;overflow-wrap:anywhere;}
+@media(max-width:760px){.stock-filters {display:block;}.stock-filters label {display:block;margin:10px 0;}}
+
+.stock-actions {display:flex;flex-wrap:wrap;gap:8px;min-width:170px;} .stock-actions button {min-height:44px;font-size:15px;} .stock-management {display:grid;gap:12px;} .stock-management button {min-height:48px;white-space:normal;}
+
+.catalog-actions {display:flex;gap:10px;flex-wrap:wrap;align-items:center;} .catalog-list {display:grid;gap:12px;} .catalog-row {display:flex;justify-content:space-between;align-items:center;gap:20px;padding:20px;} .catalog-row h2 {margin:0 0 8px;font-size:20px;} .catalog-row p {margin:6px 0;} .catalog-fields {border:0;padding:0;margin:0 0 18px;min-width:0;} .catalog-actions button {min-height:44px;} @media(max-width:650px){.catalog-row {align-items:start;flex-direction:column;}}

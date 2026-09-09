@@ -20,7 +20,7 @@ from .models import (
     now,
 )
 from .auth import COOKIE, digest, verify, current_session, password_hash
-from .schemas import LoginIn, OrderIn, PayIn, StatusIn, StaffIn
+from .schemas import LoginIn, OrderIn, PayIn, StatusIn, StaffIn, ManualOrderIn, OpenIn
 from .services import *
 
 app = FastAPI(title="NaniFer POS", version="0.2.0")
@@ -38,6 +38,8 @@ async def browser_guard(request, call_next):
         return JSONResponse(
             status_code=403, content={"detail": "Solicitud no autorizada."}
         )
+    if request.method == "POST" and request.url.path.startswith("/api/public/"):
+        return JSONResponse(status_code=403, content={"detail": "El menú es solo de consulta. Para pedir, llamá a la moza."})
     response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -62,9 +64,12 @@ def health(db=Depends(get_db)):
 
 
 @app.get("/api/catalog")
-def catalog(db=Depends(get_db)):
+def catalog(db=Depends(get_db), auth=Depends(current_session)):
     categories = list(db.scalars(select(Category).order_by(Category.id)))
     names = {c.id: c.name for c in categories}
+    from .models import StockItem
+    from .stock_accounting import catalog_availability
+    stock = {r.id:r for r in db.scalars(select(StockItem))}
     return {
         "categories": [c.name for c in categories],
         "products": [
@@ -74,13 +79,15 @@ def catalog(db=Depends(get_db)):
                 "description": p.description,
                 "category": names[p.category_id],
                 "price": float(p.price),
-                "available": p.available,
+                "pricePending": p.price_pending,
+                "publicCategories": p.public_categories,
+                "available": catalog_availability(p, stock)[0] and not p.price_pending,
                 "emoji": p.emoji,
                 "image": p.image,
-                "sizes": p.sizes,
+                "sizes": catalog_availability(p, stock)[1],
                 "extras": p.extras,
             }
-            for p in db.scalars(select(Product).order_by(Product.id))
+            for p in db.scalars(select(Product).where(Product.archived == False).order_by(Product.id))
         ],
         "flavors": [
             {"name": f.name, "available": f.available}
@@ -124,14 +131,14 @@ def login(data: LoginIn, request: Request, response: Response, db=Depends(get_db
         path="/api",
         max_age=settings.session_hours * 3600,
     )
-    return {"user": {"id": user.id, "name": user.name, "role": user.role}, "csrf": csrf}
+    return {"user": {"id": user.id, "name": user.name, "role": user.role, "permissions": permissions(user)}, "csrf": csrf}
 
 
 @app.get("/api/auth/me")
 def me(auth=Depends(current_session)):
     user, session = auth
     return {
-        "user": {"id": user.id, "name": user.name, "role": user.role},
+        "user": {"id": user.id, "name": user.name, "role": user.role, "permissions": permissions(user)},
         "csrf": session.csrf,
     }
 
@@ -160,8 +167,15 @@ def state(auth=Depends(current_session), db=Depends(get_db)):
         )
     )
     result = state_for(db, visits, True)
+    result["reservations"] = pending_reservations(db)
+    result["calendarToday"] = calendar_today().isoformat()
     from .models import Payment
 
+    payments_query = select(Payment)
+    if auth[0].role != "admin":
+        from .business_day import period
+        _, _, lower, upper = period(None, None, "staff")
+        payments_query = payments_query.where(Payment.created_at >= lower, Payment.created_at < upper)
     result["payments"] = [
         {
             "id": p.id,
@@ -172,7 +186,7 @@ def state(auth=Depends(current_session), db=Depends(get_db)):
             "createdAt": iso(p.created_at),
         }
         for p in db.scalars(
-            select(Payment).order_by(Payment.created_at.desc()).limit(20)
+            payments_query.order_by(Payment.created_at.desc()).limit(20)
         )
     ][::-1]
     return result
@@ -195,7 +209,10 @@ def open_table(db, number, user=None):
 
 
 @app.post("/api/tables/{number}/open")
-def open_internal(number: int, auth=Depends(current_session), db=Depends(get_db)):
+def open_internal(number: int, data: OpenIn = OpenIn(), auth=Depends(current_session), db=Depends(get_db)):
+    lock_table(db, number)
+    if not db.scalar(select(Visit.id).where(Visit.active_table == number)):
+        check_reservation(db, number, data.reservationAcknowledgment)
     visit = open_table(db, number, auth[0])
     db.commit()
     return {"id": visit.id}
@@ -204,14 +221,17 @@ def open_internal(number: int, auth=Depends(current_session), db=Depends(get_db)
 @app.post("/api/visits/{id}/orders")
 def internal_order(
     id: str,
-    data: OrderIn,
+    data: ManualOrderIn,
     key: str = Header(alias="Idempotency-Key"),
     auth=Depends(current_session),
     db=Depends(get_db),
 ):
     visit = lock_visit(db, id)
+    if visit.table_number is None:
+        fail("Cada compra de Mostrador es independiente. Iniciá otra compra.")
     result = once(
-        db, key, "order:" + id, data.model_dump(), lambda: make_order(db, visit, data)
+        db, key, "order:" + id, data.model_dump(),
+        lambda: make_order(db, visit, data, origin="manual", user=auth[0], delivered=not data.needsPreparation)
     )
     db.commit()
     return result
@@ -266,6 +286,10 @@ def advance(id: str, data: StatusIn, auth=Depends(current_session), db=Depends(g
     db.refresh(order)
     if order.status == data.expectedStatus and order.status != STATUSES[-1]:
         order.status = STATUSES[STATUSES.index(order.status) + 1]
+    db.flush()
+    visit = db.get(Visit, order.visit_id)
+    if visit.table_number is None and order.status == "entregado":
+        close_visit(db, visit)
     db.commit()
     return {"id": order.id, "status": order.status}
 
@@ -289,12 +313,12 @@ def public_visit(db, request, number):
 def public_state(number: int, request: Request, db=Depends(get_db)):
     if not db.get(Table, number):
         fail("Mesa inexistente.", 404)
-    visit = public_visit(db, request, number)
-    return state_for(db, [visit] if visit else [])
+    return {"table": number}
 
 
 @app.post("/api/public/mesa/{number}/join")
 def join(number: int, request: Request, response: Response, db=Depends(get_db)):
+    fail("El menú es solo de consulta. Para pedir, llamá a la moza.", 403)
     visit = open_table(db, number)
     token = secrets.token_urlsafe(32)
     db.add(
@@ -325,6 +349,7 @@ def public_order(
     key: str = Header(alias="Idempotency-Key"),
     db=Depends(get_db),
 ):
+    fail("El menú es solo de consulta. Para pedir, llamá a la moza.", 403)
     visit = public_visit(db, request, number)
     if not visit:
         fail("La visita terminó o venció. Iniciá una nueva visita.", 409)
@@ -338,3 +363,15 @@ def public_order(
     )
     db.commit()
     return result
+
+from .sales import router as sales_router
+app.include_router(sales_router)
+
+from .attention import router as attention_router, permissions, pending_reservations, calendar_today, check_reservation
+app.include_router(attention_router)
+
+from .stock import router as stock_router
+app.include_router(stock_router)
+
+from .menu_catalog import router as menu_router
+app.include_router(menu_router)

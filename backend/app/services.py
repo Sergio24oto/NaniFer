@@ -69,7 +69,7 @@ def totals(db, id):
 
 def priced_item(db, item):
     p = db.get(Product, item.productId)
-    if not p or not p.available:
+    if not p or p.archived or not p.available or p.price_pending:
         fail("Producto no disponible.", 422)
     size = next((s for s in p.sizes if s["name"] == item.size), None)
     if p.sizes and not size:
@@ -118,17 +118,19 @@ def once(db, key, scope, payload, callback):
     return response
 
 
-def make_order(db, visit, data):
+def make_order(db, visit, data, *, origin="qr", user=None, delivered=False):
     require_open(visit)
     if data.expectedAccount != visit.id:
         fail("La visita cambió. Revisá tu mesa antes de confirmar.")
+    from .stock_accounting import prepare_order, apply_order
+    plans, stock_rows = prepare_order(db, data.items)
     priced = [priced_item(db, i) for i in data.items]
-    order = Order(id=uid(), visit_id=visit.id, status=STATUSES[0])
+    order = Order(id=uid(), visit_id=visit.id, status=STATUSES[-1] if delivered else STATUSES[0],
+                  origin=origin, created_by=user.id if user else None)
     db.add(order)
     db.flush()
-    for snapshot, price in priced:
-        db.add(
-            OrderItem(
+    for index, (snapshot, price) in enumerate(priced):
+        item = OrderItem(
                 id=uid(),
                 order_id=order.id,
                 product_id=snapshot["productId"],
@@ -136,7 +138,9 @@ def make_order(db, visit, data):
                 unit_price=price,
                 snapshot=snapshot,
             )
-        )
+        db.add(item)
+        db.flush()
+        apply_order(db, item, plans[index], stock_rows, user.id if user else None)
     db.flush()
     return {"id": order.id, "accountId": visit.id}
 
@@ -162,6 +166,8 @@ def make_payment(db, visit, data, user):
     )
     db.add(payment)
     db.flush()
+    from .sale_capture import record_sale
+    record_sale(db, payment, user)
     return {
         "id": payment.id,
         "total": float(balance),
@@ -246,8 +252,9 @@ def state_for(db, visits, internal=False):
                 "table": next(v.table_number for v in visits if v.id == o.visit_id),
                 "createdAt": iso(o.created_at),
                 "status": o.status,
+                **({"origin": o.origin, "createdBy": o.created_by, "createdByName": names.get(o.created_by, "")} if internal else {}),
                 "items": [
-                    {**i.snapshot, "unitPrice": float(i.unit_price)}
+                    {**{k:v for k,v in i.snapshot.items() if k != "stockBatches"}, "unitPrice": float(i.unit_price)}
                     for i in items
                     if i.order_id == o.id
                 ],

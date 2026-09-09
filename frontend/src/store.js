@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { operationId } from "./domain.js";
-const blank = { accounts: [], orders: [], payments: [], staff: [] };
+const blank = { accounts: [], orders: [], payments: [], staff: [], reservations: [], calendarToday: null };
 let state = {
   ...blank,
   catalog: { products: [], categories: [], flavors: [] },
@@ -26,7 +26,10 @@ export function useStore() {
     () => state,
   );
 }
-export async function request(path, { method = "GET", body, key } = {}) {
+export async function request(
+  path,
+  { method = "GET", body, key, asBlob = false } = {},
+) {
   let response;
   try {
     response = await fetch("/api" + path, {
@@ -49,6 +52,7 @@ export async function request(path, { method = "GET", body, key } = {}) {
     e.uncertain = true;
     throw e;
   }
+  if (response.ok && asBlob) return response.blob();
   let data;
   try {
     data = await response.json();
@@ -79,19 +83,21 @@ export async function refresh() {
   const rev = ++revision;
   const { mode, table } = state;
   try {
-    const catalog = await request("/catalog");
+    let catalog = {products: [], categories: [], flavors: []};
+    if (mode === "public" && table) catalog = await request("/public/menu/" + table);
     let auth = { user: state.user, csrf: state.csrf };
     let data = blank;
     if (mode === "staff") {
       try {
         auth = await request("/auth/me");
+        catalog = await request("/catalog");
         data = await request("/state");
       } catch (e) {
         if (e.status !== 401) throw e;
         auth = { user: null, csrf: "" };
+        catalog = {products: [], categories: [], flavors: []};
+        data = blank;
       }
-    } else if (table) {
-      data = await request("/public/mesa/" + table);
     }
     if (rev === revision)
       update({

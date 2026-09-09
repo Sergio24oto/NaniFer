@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { LayoutGrid, ClipboardList, Coffee } from "lucide-react";
+import { LayoutGrid, ClipboardList, Coffee, ReceiptText } from "lucide-react";
 import { useStore, configure, refresh, login, logout } from "./store";
-import Menu from "./pages/Menu";
+import Menu from "./pages/DigitalMenu";
+import MenuManagement from "./pages/MenuManagement";
+import "./digital-menu.css";
+import Sales from "./pages/Sales";
+import Counter from "./pages/Counter";
+import Stock from "./pages/Stock";
+import "./stock.css";
+import "./sales.css";
 import { Salon, Account, Kitchen } from "./pages/Staff";
 import "./style.css";
 import "./brand.css";
+import "./attention.css";
 import Brand from "./Brand";
 function Login() {
   const [username, setUsername] = useState("");
@@ -15,8 +23,18 @@ function Login() {
   return (
     <main className="login brand-login">
       <div className="login-photo">
-        <img src="/brand/interior.jpg" alt="El salón de NaniFer, con mesas y sillas turquesa" />
-        <div><span>BIENVENIDOS A NANIFER</span><h2>Todo listo para<br />un lindo día.</h2></div>
+        <img
+          src="/brand/interior.jpg"
+          alt="El salón de NaniFer, con mesas y sillas turquesa"
+        />
+        <div>
+          <span>BIENVENIDOS A NANIFER</span>
+          <h2>
+            Todo listo para
+            <br />
+            un lindo día.
+          </h2>
+        </div>
       </div>
       <div className="panel">
         <Brand />
@@ -74,6 +92,7 @@ function Login() {
 function App() {
   const s = useStore();
   const [path, setPath] = useState(location.pathname);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const publicView = path.startsWith("/mesa");
   const m = path.match(/^\/mesa\/(\d+)\/?$/);
@@ -95,7 +114,8 @@ function App() {
       ),
     [publicView, table, valid],
   );
-  function nav(p) {
+  function nav(p, confirmation = "") {
+    setMessage(confirmation);
     history.pushState({}, "", p);
     setPath(p);
     window.scrollTo(0, 0);
@@ -108,10 +128,10 @@ function App() {
       <header>
         <a
           className="brand"
-          href={publicView ? "/mesa/" : "/atencion"}
+          href={publicView ? "/mesa/" + (table || "") : "/atencion"}
           onClick={(e) => {
             e.preventDefault();
-            nav(publicView ? "/mesa/" : "/atencion");
+            nav(publicView ? "/mesa/" + (table || "") : "/atencion");
           }}
         >
           <Brand />
@@ -120,8 +140,11 @@ function App() {
           <nav>
             {[
               ["/atencion", "Salón", LayoutGrid],
-              ["/atencion/comandera", "Comandera", ClipboardList],
-              ["/mesa/", "Carta", Coffee],
+              ["/atencion/comandera", "Meseras", ClipboardList],
+              ["/atencion/ventas", "Ventas", ReceiptText],
+              ["/atencion/stock", "Stock", LayoutGrid],
+              ["/mesa/1", "Carta", Coffee],
+              ...(s.user?.role === "admin" ? [["/atencion/carta", "Gestionar carta", Coffee]] : []),
             ].map(([p, label, Icon]) => (
               <button
                 key={p}
@@ -171,33 +194,22 @@ function App() {
         valid ? (
           <Menu key={table} table={table} />
         ) : (
-          <main>
-            <div className="intro">
-              <h1>Algo rico te espera.</h1>
-              <p>Elegí tu mesa para consultar la carta.</p>
-            </div>
-            <div className="table-grid">
-              {Array.from({ length: 15 }, (_, i) => (
-                <button
-                  className="table-card"
-                  key={i}
-                  onClick={() => nav("/mesa/" + (i + 1))}
-                >
-                  <h2>Mesa {i + 1}</h2>
-                  <span>Ver carta</span>
-                </button>
-              ))}
-            </div>
-          </main>
+          <main><h1>Enlace de mesa inválido</h1><p>Escaneá el QR de tu mesa o consultá a la moza.</p></main>
         )
       ) : !s.user ? (
         <Login />
+      ) : path === "/atencion/carta" && s.user.role === "admin" ? (<MenuManagement />) : path === "/atencion/ventas" ? (
+        <Sales />
+      ) : path === "/atencion/stock" ? (
+        <Stock />
+      ) : path === "/atencion/mostrador" ? (
+        <Counter nav={nav} />
       ) : kitchen ? (
         <Kitchen />
       ) : accountTable >= 1 && accountTable <= 15 ? (
         <Account key={accountTable} table={accountTable} nav={nav} />
       ) : (
-        <Salon nav={nav} />
+        <Salon nav={nav} message={message} />
       )}
       <footer>
         <span>NaniFer · Aplicación en desarrollo</span>

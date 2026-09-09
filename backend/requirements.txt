@@ -7,3 +7,6 @@ pydantic-settings==2.13.1
 cryptography==46.0.5
 pytest==9.0.2
 httpx==0.28.1
+reportlab==4.4.9
+tzdata==2026.3
+pypdf==6.10.0

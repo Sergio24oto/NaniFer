@@ -42,3 +42,26 @@ class StaffIn(StrictModel):
 class LoginIn(StrictModel):
     username: str = Field(min_length=1, max_length=80)
     password: str = Field(min_length=1, max_length=256)
+
+
+class ManualOrderIn(OrderIn):
+    needsPreparation: bool = False
+
+
+class ConsumptionIn(StrictModel):
+    expectedAccount: str | None = None
+    items: list[ItemIn] = Field(min_length=1, max_length=50)
+    needsPreparation: bool = False
+    reservationAcknowledgment: str | None = None
+
+
+class OpenIn(StrictModel):
+    reservationAcknowledgment: str | None = None
+
+
+class CounterQuoteIn(StrictModel):
+    items: list[ItemIn] = Field(min_length=1, max_length=50)
+
+
+class CounterIn(CounterQuoteIn, PayIn):
+    needsPreparation: bool = False

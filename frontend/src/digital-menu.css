@@ -1,0 +1,30 @@
+.digital-menu {max-width:1000px;margin:auto;} .menu-table {display:inline-block;color:var(--brand-teal);font-size:14px;background:#fff;padding:8px 14px;border-radius:24px;} .digital-intro {text-align:center;padding:28px 0;} .digital-intro h1 {font-size:clamp(32px,6vw,48px);margin:12px 0;} .digital-intro p {font-size:17px;line-height:1.6;} .digital-categories {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;} .digital-category {padding:0;background:white;border:1px solid #eee2d6;border-radius:18px;overflow:hidden;text-align:left;color:var(--brand-teal);} .category-photo {aspect-ratio:4/3;background:linear-gradient(140deg,#fff6ed,#fce9f1);} .category-photo img {width:100%;height:100%;object-fit:cover;object-position:center;} .digital-category>span {display:flex;justify-content:space-between;padding:16px;font-size:19px;font-weight:700;} .menu-back {display:block;margin:20px 0;} .digital-products {display:grid;gap:16px;} .digital-product {display:flex;gap:18px;background:white;padding:22px;border-radius:16px;border:1px solid #eee2d6;} .digital-product>div {flex:1;min-width:0;} .digital-product>img {width:100px;height:100px;object-fit:cover;border-radius:12px;} .menu-product-heading {display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;} .menu-product-heading h2 {margin:0;font-size:21px;} .menu-product-heading strong {color:var(--brand-pink);font-size:20px;} .digital-product h3 {font-size:15px;margin:14px 0 5px;} .digital-product p,.digital-product li {font-size:16px;line-height:1.6;} .digital-product ul {padding-left:20px;margin:0;} .menu-editor {display:grid;gap:12px;margin:20px 0;} @media(max-width:600px){.digital-categories{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.digital-category>span{font-size:16px;padding:12px;}.digital-product{padding:16px;flex-wrap:wrap;}.digital-product>img{width:72px;height:72px;}}
+
+/* Portada pública: la fotografía real y los colores existentes de NaniFer. */
+body.public-menu-page {background:linear-gradient(180deg,rgba(22,56,46,.58),rgba(22,56,46,.42)),url('/menu/nanifer.webp');background-position:center top;background-size:cover;background-attachment:fixed;background-color:#256e69;}
+.public-menu-page::before {content:'';position:fixed;inset:0;background:linear-gradient(180deg,rgba(22,56,46,.3),rgba(22,56,46,.6));pointer-events:none;z-index:-1;}
+.public-menu-page header {background:rgba(255,250,243,.96);border:0;box-shadow:0 4px 30px #16382e22;}
+.public-menu-page footer {background:#fffaf3;margin-top:32px;}
+.digital-menu {max-width:1120px;padding:32px 28px 48px;}
+.digital-intro {text-align:left;padding:50px 8px 56px;color:#fffaf3;max-width:700px;text-shadow:0 2px 16px #16382e66;}
+.digital-intro .eyebrow {color:#fffaf3;letter-spacing:3px;font-size:12px;}
+.digital-intro h1 {color:#fffaf3;font-size:clamp(48px,8vw,86px);line-height:1.03;letter-spacing:-2px;margin:20px 0;}
+.digital-intro h1 em {color:#fffaf3;font-weight:normal;}
+.digital-intro p {color:#fffaf3;font-size:18px;line-height:1.6;max-width:440px;}
+.digital-subtitle {display:inline-block;background:var(--brand-pink);padding:10px 16px;border-radius:24px;font-size:11px;letter-spacing:2px;text-shadow:none;}
+.menu-section-title {background:#fffaf3;padding:26px 28px 20px;border-radius:24px 24px 0 0;}
+.menu-section-title>span {color:var(--brand-pink);font-size:11px;letter-spacing:2px;font-weight:700;}
+.menu-section-title h2 {font-size:clamp(24px,4vw,32px);margin:8px 0;color:var(--brand-teal);}
+.digital-categories {background:#fffaf3;padding:0 28px 28px;border-radius:0 0 24px 24px;gap:20px;}
+.digital-category {position:relative;border:0;box-shadow:0 8px 24px #16382e18;transition:box-shadow .15s;}
+.digital-category:hover {box-shadow:0 8px 24px #16382e38;}
+.category-photo {aspect-ratio:4/4;}
+.digital-category>span {padding:18px;align-items:center;gap:8px;color:var(--brand-teal);}
+.digital-category small {display:block;color:var(--brand-pink);font-size:9px;letter-spacing:1.5px;margin-bottom:6px;}
+.category-arrow {display:grid;place-items:center;flex-shrink:0;width:34px;height:34px;background:#fce9f1;border-radius:50%;color:var(--brand-pink);}
+.digital-menu>h1,.digital-menu>p {color:#fffaf3;text-shadow:0 2px 8px #16382e88;}
+.digital-product {box-shadow:0 8px 24px #16382e14;border:0;}
+.digital-products {gap:18px;}
+.combo-note {padding:20px 24px;background:#fff6ed;border-left:5px solid var(--brand-pink);border-radius:14px;margin:20px 0;color:var(--brand-teal);font-size:17px;}
+@media(max-width:600px){body.public-menu-page{background-attachment:scroll;background-size:auto 100vh;background-color:#256e69;}.digital-menu{padding:20px 16px 32px;}.digital-intro{padding:32px 4px 38px;}.digital-intro h1{font-size:54px;}.digital-intro p{font-size:16px;}.digital-subtitle{font-size:9px;letter-spacing:1px;}.menu-section-title{padding:22px 16px 16px;}.digital-categories{padding:0 12px 16px;gap:12px;}.digital-category>span{padding:12px 10px;font-size:15px;}.category-arrow{width:25px;height:25px;}.digital-category small{font-size:8px;}.category-photo{aspect-ratio:4/4.5;}}
+@media(prefers-reduced-motion:reduce){.digital-category{transition:none;}}

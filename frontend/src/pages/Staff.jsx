@@ -1,125 +1,77 @@
 import React, { useState, useRef } from "react";
-import {
-  ArrowRight,
-  ArrowLeft,
-  Plus,
-  ClipboardList,
-  Coffee,
-} from "lucide-react";
-import { Badge, Items, Modal } from "../components";
-import { useStore, mutate } from "../store";
-import { money, activeAccount, statuses, time } from "../domain";
-import Menu from "./Menu";
+import { ArrowLeft, ClipboardList, Coffee } from "lucide-react";
+import { Badge, Items } from "../components";
+import { useStore, mutate, submitOnce, pendingOperation } from "../store";
+import { money, activeAccount, statuses, time, itemInput, estimate } from "../domain";
 import Payment from "./Payment";
-export function Salon({ nav }) {
+import QuickEntry from "./QuickEntry";
+import Reservations from "./Reservations";
+export function Salon({
+  nav,
+  message
+}) {
   const s = useStore();
-  const opened = s.accounts.filter((a) => !a.closedAt);
-  const ready = s.orders.filter((o) => o.status === "listo para entregar");
-  return (
-    <main>
-      <div className="page-heading">
-        <div className="intro">
-          <span className="eyebrow">ATENCIÓN</span>
-          <h1>Así está el salón</h1>
-          <p>Quince mesas, muchas buenas conversaciones.</p>
-        </div>
-        <button
-          className="secondary"
-          onClick={() => nav("/atencion/comandera")}
-        >
-          <ClipboardList size={17} /> Ver comandera
-        </button>
-      </div>
-      <div className="stats">
-        <div>
-          <span>Mesas ocupadas</span>
-          <strong>
-            {opened.length}
-            <small> / 15</small>
-          </strong>
-        </div>
-        <div>
-          <span>Listos para entregar</span>
-          <strong>{ready.length}</strong>
-        </div>
-        <div>
-          <span>Saldo pendiente</span>
-          <strong>{money(opened.reduce((n, a) => n + a.balance, 0))}</strong>
-        </div>
-      </div>
-      <div className="section-title">
-        <h2>Mesas del salón</h2>
-        <small>El cobro y la entrega son independientes</small>
-      </div>
-      <div className="table-grid">
-        {Array.from({ length: 15 }, (_, i) => {
-          const n = i + 1,
-            a = activeAccount(s, n),
-            r = ready.some((o) => o.table === n);
-          return (
-            <button
-              className={
-                "table-card " + (a ? "occupied " : "") + (r ? "ready" : "")
-              }
-              key={n}
-              onClick={() => nav("/atencion/mesas/" + n)}
-            >
-              <div className="row">
-                <span className="table-number">
-                  {String(n).padStart(2, "0")}
-                </span>
-                <Badge tone={r ? "green" : a ? "amber" : ""}>
-                  {r ? "Listo para entregar" : a ? "Ocupada" : "Libre"}
-                </Badge>
-              </div>
-              <h3>Mesa {n}</h3>
-              <small>{a ? a.waitress : "Lista para recibir"}</small>
-              {a && (
-                <small>
-                  Consumos {money(a.total)} · Pagado {money(a.paid)}
-                </small>
-              )}
-              <div className="table-bottom">
-                <strong>
-                  {a ? "Saldo " + money(a.balance) : "Abrir mesa"}
-                </strong>
-                <ArrowRight size={17} />
-              </div>
-            </button>
-          );
-        })}
-      </div>
-      {s.payments.length > 0 && (
-        <section className="payment-log">
-          <h2>Últimos cobros registrados</h2>
-          {s.payments
-            .slice()
-            .reverse()
-            .map((p) => (
-              <div className="row" key={p.id}>
-                <span>
-                  Mesa {p.table} · {p.method} · {time(p.createdAt)}
-                </span>
-                <strong>{money(p.total)}</strong>
-              </div>
-            ))}
-        </section>
-      )}
-    </main>
-  );
+  const [reservationDate, setReservationDate] = useState("");
+  const date = reservationDate || s.calendarToday;
+  const opened = s.accounts.filter(a => !a.closedAt && a.table != null);
+  const ready = s.orders.filter(o => o.status === "listo para entregar");
+  return <main className="salon-compact">
+    <div className="page-heading"><div className="intro"><span className="eyebrow">ATENCIÓN</span><h1>Mesas y Mostrador</h1><p>{opened.length} de 15 mesas ocupadas · {money(opened.reduce((n, a) => n + a.balance, 0))} pendiente</p></div><button className="secondary" onClick={() => nav("/atencion/comandera")}><ClipboardList size={17} /> Comandera · {ready.length} listos</button></div>
+    {message && <p className="success" role="status">{message}</p>}
+    <details className="reservation-date"><summary>Ver reservas de otra fecha</summary><label>Fecha de reservas<input type="date" value={date || ""} onInput={e => setReservationDate(e.currentTarget.value)} /></label><button className="text-button" onClick={() => setReservationDate("")}>Volver a hoy</button><small>La ocupación y los saldos siempre son los actuales.</small></details>
+    <div className="table-grid">
+      {Array.from({
+        length: 15
+      }, (_, i) => {
+        const n = i + 1,
+          a = activeAccount(s, n),
+          r = ready.some(o => o.table === n);
+        const all = (s.reservations || []).filter(x => x.table === n);
+        const reservation = all.find(x => x.date === date) || (!reservationDate ? all.find(x => x.date > s.calendarToday) || all[0] : null);
+        return <button key={n} className={"table-card " + (a ? "occupied " : "") + (r ? "ready" : "")} onClick={() => nav("/atencion/mesas/" + n)}>
+          <div className="row"><h2>Mesa {n}</h2><Badge tone={a ? "amber" : "green"}>{a ? "Ocupada" : "Libre"}</Badge></div>
+          <div className="table-balance"><small>Pendiente de cobro</small><strong>{money(a?.balance || 0)}</strong></div>
+          {r && <small className="ready-hint">Productos listos para entregar</small>}
+          {reservation && <small className="reservation-hint">Reservada para {reservation.name} a las {reservation.time}{reservation.date !== s.calendarToday ? " · " + reservation.date.split("-").reverse().join("/") : ""}{reservation.date < s.calendarToday ? " · pendiente" : ""}</small>}
+        </button>;
+      })}
+      <button className="table-card counter-card" onClick={() => nav("/atencion/mostrador")}><div className="row"><h2>Mostrador</h2><Coffee size={24} /></div><strong>Nueva compra</strong><small>Sin mesa · seleccionar y cobrar</small></button>
+    </div>
+  </main>;
 }
-export function Account({ table, nav }) {
-  const s = useStore();
-  const a = activeAccount(s, table);
-  const orders = s.orders.filter((o) => o.accountId === a?.id);
-  const pending = orders.some((o) => o.status !== "entregado");
-  const [manual, setManual] = useState(false);
-  const [pay, setPay] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+export function restoreCart(pending, catalog) {
+  return (pending?.body.items || []).map(i => {
+    const p = catalog.products.find(p => p.id === i.productId);
+    return {
+      ...i,
+      name: p?.name || "Producto",
+      unitPrice: p ? estimate(p, i.size, i.extras) : 0
+    };
+  });
+}
+export function Account({
+  table,
+  nav
+}) {
+  const s = useStore(),
+    a = activeAccount(s, table);
+  const scope = "consumptions-" + table,
+    pendingSave = pendingOperation(scope);
+  const [cart, setCart] = useState(() => restoreCart(pendingSave, s.catalog));
+  const [preparation, setPreparation] = useState(pendingSave?.body.needsPreparation || false);
+  // Keep the visit visible when entry began: a concurrent table reuse must not redirect this draft.
+  const [expectedAccount, setExpectedAccount] = useState(a?.id || null);
+  const [ack, setAck] = useState(null);
+  const [pay, setPay] = useState(false),
+    [reserving, setReserving] = useState(false);
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [message, setMessage] = useState("");
   const lock = useRef(false);
+  const orders = s.orders.filter(o => o.accountId === a?.id),
+    undelivered = orders.some(o => o.status !== "entregado");
+  const reservation = (s.reservations || []).find(r => r.table === table && r.date === s.calendarToday);
+  const changed = expectedAccount !== (a?.id || null);
   async function run(fn) {
     if (lock.current) return;
     lock.current = true;
@@ -134,188 +86,57 @@ export function Account({ table, nav }) {
       setBusy(false);
     }
   }
-  return (
-    <main>
-      <button className="back" onClick={() => nav("/atencion")}>
-        <ArrowLeft size={17} /> Volver al salón
-      </button>
-      <div className="page-heading">
-        <div className="intro">
-          <span className="eyebrow">CUENTA DE LA VISITA</span>
-          <h1>Mesa {table}</h1>
-          <p>
-            {a
-              ? "Abierta a las " + time(a.openedAt)
-              : "Lista para una nueva visita."}
-          </p>
-        </div>
-        <Badge tone={a ? "amber" : "green"}>
-          {a ? "Visita abierta" : "Mesa libre"}
-        </Badge>
-      </div>
-      {error && (
-        <p role="alert" className="alert">
-          {error}
-        </p>
-      )}
-      {message && (
-        <p role="status" className="success">
-          {message}
-        </p>
-      )}
-      <div className="account-layout">
-        <section>
-          {orders.length ? (
-            orders.map((o) => (
-              <article className="panel" key={o.id}>
-                <div className="row">
-                  <h3>
-                    Pedido #{o.id.slice(0, 5)} · {time(o.createdAt)}
-                  </h3>
-                  <Badge>{o.status}</Badge>
-                </div>
-                <Items items={o.items} />
-              </article>
-            ))
-          ) : (
-            <div className="empty">
-              <Coffee size={40} />
-              <h2>Todavía no hay consumos</h2>
-            </div>
-          )}
-        </section>
-        <aside className="panel account-summary">
-          <h2>La cuenta</h2>
-          {a && (
-            <label>
-              Responsable
-              <select
-                disabled={busy || !s.connected}
-                value={a.waitressId || ""}
-                onChange={(e) =>
-                  run(() =>
-                    mutate(
-                      "/visits/" + a.id + "/staff",
-                      { userId: e.target.value },
-                      "PUT",
-                    ),
-                  )
-                }
-              >
-                <option value="" disabled>
-                  Sin asignar
-                </option>
-                {s.staff.map((u) => (
-                  <option value={u.id} key={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <div className="total">
-            <span>Consumos</span>
-            <strong>{money(a?.total)}</strong>
-          </div>
-          <div className="total">
-            <span>Ya pagado</span>
-            <strong>{money(a?.paid)}</strong>
-          </div>
-          <div className="total">
-            <span>Saldo pendiente</span>
-            <strong>{money(a?.balance)}</strong>
-          </div>
-          {!a ? (
-            <button
-              className="primary full"
-              disabled={busy || !s.connected}
-              onClick={() => run(() => mutate("/tables/" + table + "/open"))}
-            >
-              Abrir mesa
-            </button>
-          ) : (
-            <>
-              <button
-                className="primary full"
-                disabled={busy || !s.connected}
-                onClick={() => setManual(true)}
-              >
-                <Plus size={17} /> Agregar pedido
-              </button>
-              <button
-                className="secondary full"
-                disabled={busy || !s.connected || a.balance <= 0}
-                onClick={() => setPay(a.id)}
-              >
-                Cobrar saldo
-              </button>
-              <button
-                className="secondary full"
-                disabled={busy || !s.connected || pending || a.balance !== 0}
-                onClick={() => setClosing(a.id)}
-              >
-                Cerrar visita y liberar mesa
-              </button>
-              {pending && <small>Hay pedidos pendientes de entrega.</small>}
-            </>
-          )}
-          <small>
-            Podés cobrar antes de entregar y agregar consumos después de cobrar.
-          </small>
-        </aside>
-      </div>
-      {manual && (
-        <Modal
-          title={"Pedido manual · Mesa " + table}
-          onClose={() => setManual(false)}
-        >
-          <Menu
-            table={table}
-            manual
-            onDone={() => {
-              setManual(false);
-              setMessage("Pedido guardado en el servidor.");
-            }}
-          />
-        </Modal>
-      )}
-      {pay && (
-        <Payment
-          id={pay}
-          onClose={() => setPay(false)}
-          onSuccess={(result) => {
-            setPay(false);
-            setMessage(
-              "Cobro de " +
-                money(result.total) +
-                " registrado. La visita continúa abierta.",
-            );
-          }}
-        />
-      )}
-      {closing && a && (
-        <Modal title="Cerrar visita" onClose={() => setClosing(false)}>
-          <p>
-            La visita quedará cerrada y la mesa libre. Los consumos se
-            conservarán en el historial.
-          </p>
-          <button
-            className="primary full"
-            disabled={busy || !s.connected}
-            onClick={() =>
-              run(async () => {
-                await mutate("/visits/" + closing + "/close");
-                setClosing(false);
-                setMessage("Visita cerrada. La mesa está libre.");
-              })
-            }
-          >
-            Confirmar cierre de visita
-          </button>
-        </Modal>
-      )}
-    </main>
-  );
+  async function save() {
+    await submitOnce(scope, "/tables/" + table + "/consumptions", {
+      expectedAccount,
+      items: cart.map(itemInput),
+      needsPreparation: preparation,
+      reservationAcknowledgment: ack
+    });
+    nav("/atencion", "Consumos registrados en la mesa " + table + ". Quedan pendientes de cobro.");
+  }
+  return <main className="staff-entry"><button className="back" onClick={() => nav("/atencion")}><ArrowLeft size={17} />Volver al salón</button>
+    <div className="page-heading"><div className="intro"><h1>Mesa {table}</h1><p>{a ? "Visita abierta · " + a.waitress : "Elegí productos para iniciar la visita al guardar."}</p></div><div className="row"><Badge tone={a ? "amber" : "green"}>{a ? "Ocupada" : "Libre"}</Badge>{s.user?.permissions?.includes("reservations.manage") && <button className="secondary" onClick={() => setReserving(true)}>Reservas</button>}</div></div>
+    {error && <p className="alert" role="alert">{error}</p>}{message && <p className="success" role="status">{message}</p>}
+    {pendingSave && <p className="note">Hay consumos sin confirmación. Reintentá para recuperar la misma operación; no se duplicará.</p>}
+    {changed && !pendingSave && <p className="note">La visita de la mesa cambió desde que abriste esta pantalla. <button onClick={() => {
+        setExpectedAccount(a?.id || null);
+        setAck(null);
+      }}>Revisé la mesa: usar la visita actual</button></p>}
+    {!a && reservation && <div className="note"><p>Reservada para {reservation.name} a las {reservation.time}.</p><label className="option"><input type="checkbox" checked={ack === reservation.acknowledgment} onChange={e => setAck(e.target.checked ? reservation.acknowledgment : null)} />Continuar con esta mesa teniendo en cuenta la reserva</label></div>}
+    <div className="entry-layout"><div><QuickEntry cart={cart} setCart={setCart} preparation={preparation} setPreparation={setPreparation} disabled={busy || !!pendingSave || !s.connected} />
+      <button className="primary full" disabled={busy || !s.connected || !pendingSave && (!cart.length || changed || !a && reservation && ack !== reservation.acknowledgment)} onClick={() => run(save)}>{busy ? "Guardando…" : pendingSave ? "Reintentar guardar consumos" : "Guardar consumos"}</button>
+    </div><aside className="panel account-summary"><h2>Cuenta de esta visita</h2><div className="total"><span>Consumos guardados</span><strong>{money(a?.total || 0)}</strong></div><div className="total"><span>Ya pagado</span><strong>{money(a?.paid || 0)}</strong></div><div className="total"><span>Pendiente</span><strong>{money(a?.balance || 0)}</strong></div>
+      <button className="primary full" disabled={busy || !s.connected || !a || a.balance <= 0 || cart.length > 0 || !!pendingSave} onClick={() => setPay(a.id)}>Cobrar</button>
+      {cart.length > 0 && <small>Guardá los consumos antes de cobrar.</small>}
+      {a && <div className="release-table"><button className="secondary full" disabled={busy || !s.connected || changed || undelivered || a.balance !== 0 || cart.length > 0 || !!pendingSave} onClick={() => run(async () => {
+        await mutate("/visits/" + a.id + "/close");
+        nav("/atencion", "Mesa " + table + " libre. Visita guardada en el historial.");
+      })}>Liberar mesa</button><small>{!s.connected ? "Sin conexión." : changed ? "Revisá la visita actual." : cart.length || pendingSave ? "Primero guardá los consumos pendientes." : a.balance !== 0 ? "Primero cobrá el saldo pendiente." : undelivered ? "Primero marcá los pedidos como entregados." : "Todo cobrado y entregado. Un clic cierra esta visita."}</small></div>}
+      <details className="account-secondary"><summary>Responsable y otras opciones</summary>
+        {a && <label>Responsable<select disabled={busy || !s.connected} value={a.waitressId || ""} onChange={e => {
+              const userId = e.target.value;
+              run(() => mutate("/visits/" + a.id + "/staff", {
+                userId
+              }, "PUT"));
+            }}><option value="" disabled>Sin asignar</option>{s.staff.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></label>}
+        {!a && <button className="secondary" disabled={busy || !s.connected || changed || !!pendingSave || reservation && ack !== reservation.acknowledgment} onClick={() => run(async () => {
+            const result = await mutate("/tables/" + table + "/open", {
+              reservationAcknowledgment: ack
+            });
+            setExpectedAccount(result.id);
+          })}>Abrir mesa sin consumos</button>}
+        <small>Cobrar, entregar y cerrar la visita son acciones independientes.</small>
+      </details>
+      <h3>Consumos guardados</h3>{!orders.length && <p>Todavía no hay consumos.</p>}{orders.map(o => <article className="saved-order" key={o.id}><div className="row"><strong>{time(o.createdAt)}</strong><Badge>{o.status}</Badge></div><small>{o.origin === "manual" ? "Carga manual" : o.origin === "qr" ? "Pedido QR" : "Pedido"}{o.createdByName ? " · " + o.createdByName : ""}</small><Items items={o.items} /></article>)}
+    </aside></div>
+    {reserving && <Reservations table={table} account={a} onClose={() => setReserving(false)} />}
+    {pay && <Payment id={pay} onClose={() => setPay(false)} onSuccess={result => {
+      setPay(false);
+      setMessage("Cobro de " + money(result.total) + " registrado. La visita sigue abierta.");
+    }} />}
+
+  </main>;
 }
 export function Kitchen() {
   const s = useStore();
@@ -329,7 +150,7 @@ export function Kitchen() {
     setError("");
     try {
       await mutate("/orders/" + o.id + "/advance", {
-        expectedStatus: o.status,
+        expectedStatus: o.status
       });
     } catch (e) {
       setError(e.message);
@@ -338,37 +159,30 @@ export function Kitchen() {
       lock.current = false;
     }
   }
-  return (
-    <main>
+  return <main>
       <div className="intro">
         <span className="eyebrow">DE LA COCINA A LA MESA</span>
         <h1>Comandera</h1>
         <p>Los pedidos cobrados siguen acá hasta su entrega.</p>
       </div>
-      {error && (
-        <p role="alert" className="alert">
+      {error && <p role="alert" className="alert">
           {error}
-        </p>
-      )}
+        </p>}
       <div className="kanban">
-        {statuses.map((status, index) => {
-          const orders = s.orders.filter((o) => o.status === status);
-          return (
-            <section key={status}>
+        {statuses.slice(0, 3).map((status, index) => {
+        const orders = s.orders.filter(o => o.status === status);
+        return <section key={status}>
               <h3>
                 <span className={"dot dot-" + index} />
                 {status}
                 <Badge>{orders.length}</Badge>
               </h3>
-              {!orders.length && (
-                <div className="empty-column">Sin pedidos por acá</div>
-              )}
-              {orders.map((o) => {
-                const a = s.accounts.find((a) => a.id === o.accountId);
-                return (
-                  <article className="order-card" key={o.id}>
+              {!orders.length && <div className="empty-column">Sin pedidos por acá</div>}
+              {orders.map(o => {
+            const a = s.accounts.find(a => a.id === o.accountId);
+            return <article className="order-card" key={o.id}>
                     <div className="row">
-                      <h2>Mesa {o.table}</h2>
+                      <h2>{o.table == null ? "Mostrador" : "Mesa " + o.table}</h2>
                       <small>{time(o.createdAt)}</small>
                     </div>
                     <small>
@@ -376,32 +190,15 @@ export function Kitchen() {
                     </small>
                     <Items items={o.items} />
                     <Badge tone={a?.balance === 0 ? "green" : "amber"}>
-                      {a?.balance === 0
-                        ? "Visita sin saldo pendiente"
-                        : "Visita con saldo pendiente"}
+                      {a?.balance === 0 ? "Visita sin saldo pendiente" : "Visita con saldo pendiente"}
                     </Badge>
-                    {index < 3 && (
-                      <button
-                        className="primary full"
-                        disabled={!!busy || !s.connected}
-                        onClick={() => advance(o)}
-                      >
-                        {busy === o.id
-                          ? "Guardando…"
-                          : [
-                              "Comenzar preparación",
-                              "Marcar listo",
-                              "Marcar entregado",
-                            ][index]}
-                      </button>
-                    )}
-                  </article>
-                );
-              })}
-            </section>
-          );
-        })}
+                    {index < 3 && <button className="primary full" disabled={!!busy || !s.connected} onClick={() => advance(o)}>
+                        {busy === o.id ? "Guardando…" : ["Comenzar preparación", "Marcar listo", "Marcar entregado"][index]}
+                      </button>}
+                  </article>;
+          })}
+            </section>;
+      })}
       </div>
-    </main>
-  );
+    </main>;
 }

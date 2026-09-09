@@ -9,7 +9,7 @@ globalThis.sessionStorage = {
 globalThis.window = { addEventListener: () => {} };
 const originalInterval = globalThis.setInterval;
 globalThis.setInterval = () => 0;
-const { submitOnce, pendingOperation } = await import("./store.js");
+const { submitOnce, pendingOperation, request } = await import("./store.js");
 globalThis.setInterval = originalInterval;
 const catalog = () =>
   Response.json({ products: [], categories: [], flavors: [] });
@@ -50,4 +50,20 @@ test("respuesta ilegible nunca se considera una confirmación", async () => {
     new Response("<html>error</html>", { status: 200 });
   await assert.rejects(submitOnce("malformed", "/pay", {}), /interpretar/);
   assert.ok(pendingOperation("malformed"));
+});
+
+test("PDF: descarga binaria y rechazo de permisos sin archivo falso", async () => {
+  globalThis.fetch = async () =>
+    new Response("%PDF-example", {
+      headers: { "Content-Type": "application/pdf" },
+    });
+  const pdf = await request("/sales/export.pdf", { asBlob: true });
+  assert.equal(pdf.type, "application/pdf");
+  assert.equal(await pdf.text(), "%PDF-example");
+  globalThis.fetch = async () =>
+    Response.json({ detail: "Solo administrador" }, { status: 403 });
+  await assert.rejects(
+    request("/sales/export.pdf", { asBlob: true }),
+    /Solo administrador/,
+  );
 });
