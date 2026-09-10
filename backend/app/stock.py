@@ -10,7 +10,7 @@ from .db import get_db
 from .schemas import StrictModel
 from .services import fail, once, uid
 from .business_day import ZONE, local_iso
-from .stock_accounting import locked_products, lock_items, movement, catalog_availability
+from .stock_accounting import locked_products, lock_items, movement, catalog_availability, availability_reason
 router=APIRouter(prefix='/api/stock',tags=['Stock'])
 
 
@@ -64,9 +64,9 @@ def snapshot(db,search='',category='',mode=''):
     for p in products:
         r=by_product.get(p.id); available,_=catalog_availability(p,index)
         result.append(dict(id='product:'+p.id,stockId=r.id if r else None,productId=p.id,name=p.name,
-            category=categories[p.category_id],mode=p.stock_mode,unit=r.unit if r else 'sin conteo',
+            category=categories[p.category_id],coneEligible=bool(p.cone_links) or any(z.get("max",0)>0 for z in p.sizes),mode=p.stock_mode,unit=r.unit if r else 'sin conteo',
             quantity=r.quantity if r and p.stock_mode=='unit' else None,opened=None,version=r.version if r else 0,
-            available=available,manualAvailable=p.available,coneLinks=p.cone_links,sizes=[s['name'] for s in p.sizes]))
+            available=available,availabilityReason=availability_reason(p,index),manualAvailable=p.available,coneLinks=p.cone_links,sizes=[s['name'] for s in p.sizes]))
     for r in stock:
         if r.kind=='cone':result.append(dict(id=r.id,stockId=r.id,name=r.name,category='Cucuruchos',mode='unit',unit=r.unit,
             quantity=r.quantity,opened=None,version=r.version,available=(r.quantity or 0)>0,kind='cone'))

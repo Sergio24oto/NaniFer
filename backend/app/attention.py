@@ -70,7 +70,7 @@ def consumptions(number: int, data: ConsumptionIn, key: str = Header(alias="Idem
 
 @router.post("/counter/quote")
 def quote(data: CounterQuoteIn, auth=Depends(current_session), db=Depends(get_db)):
-    total = sum((priced_item(db, item)[1] * item.quantity for item in data.items), Decimal(0))
+    total = sum((priced_item(db, item, require_flavors=False)[1] * item.quantity for item in data.items), Decimal(0))
     return {"total": str(total)}
 
 

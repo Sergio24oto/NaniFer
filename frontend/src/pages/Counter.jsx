@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import {useDraft} from "../useDraft";
 import QuickEntry from "./QuickEntry";
 import { restoreCart } from "./Staff";
 import { Modal } from "../components";
@@ -10,7 +11,9 @@ export default function Counter({
   const s = useStore(),
     scope = "counter-" + s.user.id,
     pending = pendingOperation(scope);
-  const [cart, setCart] = useState(() => restoreCart(pending, s.catalog));
+  const draft=useDraft(s.user.id,"counter",()=>restoreCart(pending,s.catalog),null);
+  const {cart,setCart}=draft;
+  const [discard,setDiscard]=useState(false);
   const [preparation, setPreparation] = useState(pending?.body.needsPreparation || false);
   const [quote, setQuote] = useState(pending ? Number(pending.body.expectedBalance) : null);
   const [method, setMethod] = useState(pending?.body.method || "efectivo"),
@@ -28,7 +31,7 @@ export default function Counter({
     try {
       await fn();
     } catch (e) {
-      setError(e.message);
+      setError(e.uncertain ? e.message : "No se pudo guardar o consultar. Intentá nuevamente. " + e.message);
     } finally {
       setBusy(false);
       lock.current = false;
@@ -36,6 +39,9 @@ export default function Counter({
   }
   return <main className="staff-entry counter-entry"><button className="back" onClick={() => nav("/atencion")}>← Volver al salón</button><div className="intro"><span className="eyebrow">VENTA SIN MESA</span><h1>Mostrador</h1><p>Cada compra se registra por separado al confirmar el cobro.</p></div>
     {message && <p className="success" role="status">{message}</p>}{error && quote === null && <p className="alert" role="alert">{error}</p>}
+    {draft.storageError&&<p className="alert">{draft.storageError}</p>}
+    {cart.length>0&&!pending&&<p className="note">Borrador de Mostrador sin confirmar. <button disabled={busy||quote!==null} onClick={()=>setDiscard(true)}>Descartar borrador</button></p>}
+    {discard&&<Modal title="Descartar borrador" onClose={()=>setDiscard(false)}><p>¿Descartar esta compra sin guardar?</p><button className="primary" onClick={()=>{draft.clear();setDiscard(false);}}>Confirmar descarte</button></Modal>}
     <QuickEntry counter cart={cart} setCart={setCart} preparation={preparation} setPreparation={setPreparation} disabled={busy || !!pending || !s.connected || quote !== null} />
     <button className="primary full" disabled={busy || !s.connected || !pending && !cart.length} onClick={() => run(async () => {
       if (pending) {
@@ -56,7 +62,7 @@ export default function Counter({
       <div className="payment-total">Total a cobrar<strong>{money(quote)}</strong></div>
       <p>{preparation ? "El pedido seguirá en la comandera después de cobrar." : "La compra se registra como entregada."}</p>
       {error && <p className="alert" role="alert">{error}</p>}
-      {pending && <p className="note">Reintentá la misma compra para confirmar si se guardó. No se duplicará.</p>}
+      {pending && !busy && <p className="note">Reintentá la misma compra para confirmar si se guardó. No se duplicará.</p>}
       <fieldset disabled={busy || !!pending}><legend>Medio de pago</legend>{["efectivo", "tarjeta", "transferencia"].map(m => <label key={m} className="option"><input type="radio" name="counter-method" checked={method === m} onChange={() => setMethod(m)} />{m}</label>)}</fieldset>
       {method === "efectivo" && <label>Dinero recibido (opcional)<input type="number" min="0" step="0.01" value={received} disabled={busy || !!pending} onChange={e => setReceived(e.target.value)} />{received !== "" && <span>{invalid ? "El importe no alcanza." : "Vuelto: " + money(Number(received) - quote)}</span>}</label>}
       <button className="primary full" disabled={busy || !s.connected || !pending && invalid} onClick={() => run(async () => {
@@ -67,13 +73,13 @@ export default function Counter({
           received: method === "efectivo" && received !== "" ? Number(received) : null,
           expectedBalance: quote
         });
-        setCart([]);
+        draft.clear();
         setPreparation(false);
         setQuote(null);
         setReceived("");
         setMethod("efectivo");
         setMessage("Compra de " + money(result.total) + " cobrada. Mostrador está listo para la próxima compra.");
-      })}>{busy ? "Confirmando…" : pending ? "Reintentar la misma compra" : "Confirmar cobro"}</button>
+      })}>{busy ? "Guardando…" : pending ? "Reintentar la misma compra" : "Confirmar cobro"}</button>
     </Modal>}
   </main>;
 }

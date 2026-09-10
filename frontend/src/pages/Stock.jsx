@@ -77,7 +77,7 @@ function Configure({
       });
       onSaved('Configuración guardada.');
     } catch (e) {
-      setError(e.message);
+      setError(e.uncertain ? e.message : "No se pudo guardar o consultar. Intentá nuevamente. " + e.message);
     } finally {
       lock.current = false;
       setBusy(false);
@@ -85,11 +85,11 @@ function Configure({
   }
   return <Modal title={'Configurar · ' + row.name} onClose={onClose}><form onSubmit={save}>
     <p>Los cambios se aplican a nuevos pedidos. No se descuentan pedidos históricos ni se cambia el precio de venta.</p>
-    {error && <p className="alert" role="alert">{error}</p>}{pending && <p className="note">Reintentá la misma configuración pendiente.</p>}
+    {error && <p className="alert" role="alert">{error}</p>}{pending && !busy && <p className="note">Reintentá la misma configuración pendiente.</p>}
     <fieldset disabled={busy || !!pending}><legend>Control y disponibilidad</legend>
       {!row.flavorId && <><label>Modalidad<select value={mode} onChange={e => setMode(e.target.value)}><option value="manual">Disponibilidad manual · sin conteo</option><option value="unit">Stock por unidad</option></select></label>{mode === 'unit' && <label>Unidad de control<select value={unit} onChange={e => setUnit(e.target.value)}><option value="unidades">Unidades</option><option value="porciones">Porciones de torta</option></select></label>}</>}
       <label className="option"><input type="checkbox" checked={available} onChange={e => setAvailable(e.target.checked)} />Habilitar venta {row.flavorId ? 'de este sabor' : ''}</label>
-      {row.flavorId ? <p>Los recipientes se cuentan aparte. Abrir o terminar uno no cambia esta disponibilidad manual.</p> : <details><summary>Cucurucho utilizado · solo para presentaciones de helado</summary><p>Una unidad consume un cucurucho. No se agrega otro precio a la venta.</p>{(row.sizes.length ? row.sizes : ['']).map(size => <label key={size}>{size || 'Presentación única'}<select value={links[size] || ''} onChange={e => {
+      {row.flavorId ? <p>Los recipientes se cuentan aparte. Abrir o terminar uno no cambia esta disponibilidad manual.</p> : row.coneEligible && <details><summary>Cucurucho utilizado · solo para presentaciones de helado</summary><p>Una unidad consume un cucurucho. No se agrega otro precio a la venta.</p>{(row.sizes.length ? row.sizes : ['']).map(size => <label key={size}>{size || 'Presentación única'}<select value={links[size] || ''} onChange={e => {
               const value = e.target.value;
               setLinks(old => {
                 const next = {
@@ -137,7 +137,7 @@ function Movement({
     request('/stock/suppliers').then(x => {
       if (live) setSuppliers(x);
     }).catch(e => {
-      if (live) setError(e.message);
+      if (live) setError(e.uncertain ? e.message : "No se pudo guardar o consultar. Intentá nuevamente. " + e.message);
     });
     return () => {
       live = false;
@@ -158,7 +158,7 @@ function Movement({
     try {
       await fn();
     } catch (e) {
-      setError(e.message);
+      setError(e.uncertain ? e.message : "No se pudo guardar o consultar. Intentá nuevamente. " + e.message);
     } finally {
       setBusy(false);
       lock.current = false;
@@ -166,7 +166,7 @@ function Movement({
   }
   return <Modal title={labels[body.action] + ' · ' + row.name} onClose={onClose}>
     <p>Registrado: {row.quantity == null ? 'sin carga inicial' : row.quantity + ' ' + row.unit}{row.mode === 'containers' ? ' cerrados · ' + row.opened + ' abiertos' : ''}.</p>
-    {error && <p className="alert" role="alert">{error}</p>}{pending && <p className="note">Hay una operación sin confirmar. Se reintentará con los mismos datos.</p>}
+    {error && <p className="alert" role="alert">{error}</p>}{pending && !busy && <p className="note">Hay una operación sin confirmar. Se reintentará con los mismos datos.</p>}
     <form onSubmit={e => {
       e.preventDefault();
       run(async () => setPreview(await request('/stock/items/' + row.stockId + '/preview', {
@@ -177,7 +177,7 @@ function Movement({
       <fieldset disabled={busy || !!pending || !!preview}><legend>Datos del movimiento</legend>
         {body.action === 'rename' ? <label>Nombre del cucurucho<input required maxLength={150} value={body.name} onChange={e => patch({
             name: e.target.value
-          })} /></label> : <label>{body.action === 'count' ? 'Cantidad física contada' : body.action === 'receive' && row.unit === 'porciones' ? 'Total de porciones incorporadas' : 'Cantidad'}<input type="number" min={body.action === 'count' ? 0 : 1} max="1000000000" step="1" required value={body.quantity} onChange={e => patch({
+          })} /></label> : <label>{body.action === 'count' ? 'Cantidad física contada' : body.action === 'receive' && row.unit === 'porciones' ? 'Cantidad de porciones disponibles' : body.action === 'receive' ? (row.mode === 'containers' ? 'Cantidad de potes recibidos' : 'Cantidad de unidades recibidas') : body.action === 'open' ? 'Cantidad de potes a abrir' : body.action === 'finish' ? 'Cantidad de potes terminados' : 'Cantidad'}<input type="number" min={body.action === 'count' ? 0 : 1} max="1000000000" step="1" required value={body.quantity} onChange={e => patch({
             quantity: Number(e.target.value)
           })} /></label>}
         {row.mode === 'containers' && ['count', 'out'].includes(body.action) && <label>Afecta a<select value={body.bucket} onChange={e => patch({
@@ -197,13 +197,13 @@ function Movement({
               setSupplierName('');
               setContact('');
             })}>Guardar proveedor</button></details>
-          <label>{row.unit === 'porciones' ? 'Costo total de las tortas recibidas ($)' : 'Costo unitario de compra ($)'}<input type="number" min="0" step={row.unit === 'porciones' ? '0.01' : '0.000001'} required value={(row.unit === 'porciones' ? body.totalCost : body.unitCost) ?? ''} onChange={e => patch(row.unit === 'porciones' ? {
+          <label>{row.unit === 'porciones' ? 'Costo total de la compra ($)' : row.mode === 'containers' ? 'Costo por pote ($)' : 'Costo por unidad ($)'}<input type="number" min="0" step={row.unit === 'porciones' ? '0.01' : '0.000001'} required value={(row.unit === 'porciones' ? body.totalCost : body.unitCost) ?? ''} onChange={e => patch(row.unit === 'porciones' ? {
               totalCost: e.target.value,
               unitCost: null
             } : {
               unitCost: e.target.value,
               totalCost: null
-            })} /></label><p>La compra suma la cantidad recibida. El total y el costo por porción se calculan al revisar.</p></>}
+            })} /></label><p>{row.unit === "porciones" ? "La compra suma las porciones recibidas. Al revisar se calcula el costo por porción." : "La compra suma las unidades recibidas. Al revisar se calcula el costo total de la compra."}</p></>}
         {body.action === 'out' && <label>Tipo de salida<select value={body.outReason} onChange={e => patch({
             outReason: e.target.value
           })}><option value="rotura">Rotura</option><option value="vencimiento">Vencimiento</option><option value="regalo">Regalo</option><option value="personal">Consumo del personal</option><option value="otro">Otro motivo</option></select></label>}
@@ -241,7 +241,7 @@ function History({
           end
         })));
       } catch (e) {
-        setError(e.message);
+        setError(e.uncertain ? e.message : "No se pudo guardar o consultar. Intentá nuevamente. " + e.message);
       } finally {
         setBusy(false);
       }
@@ -277,7 +277,7 @@ export default function Stock() {
         setError('');
       }
     } catch (e) {
-      if (g === generation.current) setError(e.message);
+      if (g === generation.current) setError(e.uncertain ? e.message : "No se pudo guardar o consultar. Intentá nuevamente. " + e.message);
     }
   }
   useEffect(() => {
@@ -316,7 +316,7 @@ export default function Stock() {
             unit: 'Stock por unidad',
             containers: 'Helados · recipientes por sabor',
             manual: 'Disponibilidad manual'
-          }[group]}</h2>{group === 'containers' && <p>Vender helado no descuenta recipientes. La disponibilidad del sabor se decide manualmente.</p>}<div className="sales-table-scroll"><table className="sales-table"><thead><tr><th>{group === 'containers' ? 'Sabor' : 'Producto / insumo'}</th>{group !== 'containers' && <th>Categoría</th>}{group === 'unit' && <th>Existencia</th>}{group === 'containers' && <><th>Cerrados</th><th>Abiertos</th></>}<th>Estado de venta</th>{isAdmin && <th>Gestión</th>}</tr></thead><tbody>{rows.map(r => <tr key={r.id}><td><strong>{r.name}</strong></td>{group !== 'containers' && <td>{r.category}</td>}{group === 'unit' && <td>{r.quantity == null ? 'Sin carga inicial' : r.quantity + ' ' + r.unit}</td>}{group === 'containers' && <><td>{r.quantity ?? 'Sin carga inicial'}</td><td>{r.opened}</td></>}<td><Badge tone={r.available ? 'green' : 'amber'}>{r.available ? 'Disponible' : 'Agotado / no habilitado'}</Badge></td>{isAdmin && <td>{actions(r)}</td>}</tr>)}</tbody></table></div></section>;
+          }[group]}</h2>{group === 'containers' && <p>Vender helado no descuenta recipientes. La disponibilidad del sabor se decide manualmente.</p>}<div className="sales-table-scroll"><table className="sales-table"><thead><tr><th>{group === 'containers' ? 'Sabor' : 'Producto / insumo'}</th>{group !== 'containers' && <th>Categoría</th>}{group === 'unit' && <th>Existencia</th>}{group === 'containers' && <><th>Cerrados</th><th>Abiertos</th></>}<th>Estado de venta</th>{isAdmin && <th>Gestión</th>}</tr></thead><tbody>{rows.map(r => <tr key={r.id}><td><strong>{r.name}</strong></td>{group !== 'containers' && <td>{r.category}</td>}{group === 'unit' && <td>{r.quantity == null ? 'Sin carga inicial' : r.quantity + ' ' + r.unit}</td>}{group === 'containers' && <><td>{r.quantity ?? 'Sin carga inicial'}</td><td>{r.opened}</td></>}<td><Badge tone={r.available ? 'green' : 'amber'}>{r.availabilityReason || (r.available ? 'Disponible' : r.mode === 'manual' || r.mode === 'containers' ? 'Venta deshabilitada' : r.quantity == null ? 'Sin carga inicial de stock' : 'Sin stock')}</Badge></td>{isAdmin && <td>{actions(r)}</td>}</tr>)}</tbody></table></div></section>;
     })}
     {isAdmin && <p className="note">Primero configurá qué productos se controlan por unidad. Después cargá la entrada o el conteo inicial. Una entrada suma; un conteo establece la cantidad física y conserva la diferencia.</p>}
     {modal?.action === 'pick' && <Modal title="Agregar stock" onClose={()=>setModal(null)}><p>Buscá el producto o insumo. Si todavía no tiene control de stock, primero elegí cómo se cuenta.</p><label>Buscar producto o insumo<input type="search" value={pickSearch} onChange={e=>setPickSearch(e.target.value)} autoFocus /></label><div className="stock-management">{items.filter(r=>r.name.toLocaleLowerCase().includes(pickSearch.toLocaleLowerCase())).map(row=><button key={row.id} className="secondary" disabled={!s.connected} onClick={()=>openAction(row,row.stockId&&row.mode!=='manual'?'receive':'configure')}>{row.name} · {row.stockId&&row.mode!=='manual'?'Agregar mercadería':'Configurar stock'}</button>)}</div><p>¿Es un producto nuevo? <a href="/atencion/carta">Crearlo en Gestionar carta</a> y después cargar sus existencias.</p></Modal>}

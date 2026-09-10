@@ -27,6 +27,7 @@ def menu(number:int,db=Depends(get_db)):
     data['categories']=[{k:v for k,v in c.items() if k!='visible'} for c in cats]
     data['products']=[p for p in data['products'] if p['category'] in visible or set(p['publicCategories']) & {c['id'] for c in cats}]
     for p in data['products']:
+        p.pop('availabilityReason',None)
         if p['pricePending']:p['price']=None
     return dict(table=number,**data)
 

@@ -140,7 +140,6 @@ function App() {
           <nav>
             {[
               ["/atencion", "Salón", LayoutGrid],
-              ["/atencion/comandera", "Meseras", ClipboardList],
               ["/atencion/ventas", "Ventas", ReceiptText],
               ["/atencion/stock", "Stock", LayoutGrid],
               ["/mesa/1", "Carta", Coffee],

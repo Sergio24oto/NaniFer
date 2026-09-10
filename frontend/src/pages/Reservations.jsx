@@ -26,15 +26,16 @@ export default function Reservations({
     lock.current = true;
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       await submitOnce(scope, path, body);
       setEditing(null);
       setConfirm(null);
       setName("");
       setNote("");
-      setMessage("Reserva guardada.");
+      setMessage(path.endsWith("/cancel") ? "Reserva cancelada correctamente." : path.endsWith("/arrive") ? "Llegada registrada correctamente." : path.endsWith("/edit") ? "Reserva actualizada correctamente." : "Reserva creada correctamente.");
     } catch (e) {
-      setError(e.message);
+      setError(e.uncertain ? e.message : "No se pudo guardar o consultar. Intentá nuevamente. " + e.message);
     } finally {
       setBusy(false);
       lock.current = false;
@@ -53,8 +54,9 @@ export default function Reservations({
     <p>Una reserva pendiente por mesa y fecha. La reserva no cambia la ocupación ni abre una cuenta.</p>
     {error && <p className="alert" role="alert">{error}</p>}
     {message && <p className="success" role="status">{message}</p>}
-    {pending && <p className="note">Hay una operación sin confirmar. <button disabled={busy || !s.connected} onClick={() => run(pending.path, pending.body)}>Reintentar la misma operación</button></p>}
-    <fieldset disabled={busy || !!pending || !s.connected}>
+    {message && <button type="button" className="secondary" onClick={() => {setMessage("");setError("");}}>Crear otra reserva</button>}
+    {pending && !busy && <p className="note">Hay una operación sin confirmar. <button disabled={busy || !s.connected} onClick={() => run(pending.path, pending.body)}>Reintentar de forma segura</button></p>}
+    {!message && <fieldset disabled={busy || !!pending || !s.connected}>
       <legend>{editing ? "Editar reserva" : "Nueva reserva"}</legend>
       <form onSubmit={e => {
         e.preventDefault();
@@ -70,7 +72,7 @@ export default function Reservations({
         <label>Nombre de la reserva<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label>
         <label>Hora de Argentina<input type="time" required value={hour} onInput={e => setHour(e.currentTarget.value)} /></label>
         <details><summary>Nota opcional</summary><textarea aria-label="Nota de la reserva" maxLength={500} value={note} onChange={e => setNote(e.target.value)} /></details>
-        {selected && <p className="note">Ya hay una reserva pendiente para esa fecha: {selected.name}, {selected.time}. Podés editarla abajo.</p>}
+        {selected && !busy && <p className="note">Ya hay una reserva pendiente para esa fecha: {selected.name}, {selected.time}. Podés editarla abajo.</p>}
         <button className="primary" disabled={!name.trim() || !date || !hour || !!selected}>{busy ? "Guardando…" : editing ? "Guardar cambios" : "Crear reserva"}</button>
         {editing && <button type="button" className="secondary" onClick={() => {
           setEditing(null);
@@ -78,7 +80,7 @@ export default function Reservations({
           setNote("");
         }}>Salir de la edición</button>}
       </form>
-    </fieldset>
+    </fieldset>}
     <h3>Reservas pendientes de esta mesa</h3>
     {!reservations.length && <p>No hay reservas pendientes.</p>}
     {reservations.map(r => <article className="reservation-row" key={r.id}>

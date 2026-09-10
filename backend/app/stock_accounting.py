@@ -72,6 +72,20 @@ def catalog_availability(product, stock):
     return (any(s['available'] for s in sizes) if sizes else available('')),sizes
 
 
+def availability_reason(product, stock):
+    if product.archived or not product.available:return 'Venta deshabilitada'
+    if product.price_pending:return 'Sin precio'
+    own=next((r for r in stock.values() if r.product_id==product.id),None)
+    if product.stock_mode=='unit':
+        if own is None or own.quantity is None:return 'Sin carga inicial de stock'
+        if own.quantity<=0:return 'Sin stock'
+    available,_=catalog_availability(product,stock)
+    if available:return 'Disponible'
+    cones=[stock.get(id) for id in (product.cone_links or {}).values()]
+    if any(c is None or c.quantity is None for c in cones):return 'Sin carga inicial de stock'
+    return 'Sin stock'
+
+
 def correction_plan(db, sale, data, lines):
     """Consume increments only; historic/untracked units can never be returned."""
     previous={i['id']:i for i in sale.current_items}

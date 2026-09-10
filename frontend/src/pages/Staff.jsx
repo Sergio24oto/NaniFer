@@ -1,8 +1,10 @@
 import React, { useState, useRef } from "react";
 import { ArrowLeft, ClipboardList, Coffee } from "lucide-react";
-import { Badge, Items } from "../components";
+import { Badge, Items, Modal } from "../components";
 import { useStore, mutate, submitOnce, pendingOperation } from "../store";
 import { money, activeAccount, statuses, time, itemInput, estimate } from "../domain";
+import {useDraft} from "../useDraft";
+import {readDraft} from "../drafts";
 import Payment from "./Payment";
 import QuickEntry from "./QuickEntry";
 import Reservations from "./Reservations";
@@ -11,6 +13,7 @@ export function Salon({
   message
 }) {
   const s = useStore();
+  const [reservingTable,setReservingTable] = useState(null);
   const [reservationDate, setReservationDate] = useState("");
   const date = reservationDate || s.calendarToday;
   const opened = s.accounts.filter(a => !a.closedAt && a.table != null);
@@ -19,7 +22,7 @@ export function Salon({
     <div className="page-heading"><div className="intro"><span className="eyebrow">ATENCIÓN</span><h1>Mesas y Mostrador</h1><p>{opened.length} de 15 mesas ocupadas · {money(opened.reduce((n, a) => n + a.balance, 0))} pendiente</p></div><button className="secondary" onClick={() => nav("/atencion/comandera")}><ClipboardList size={17} /> Comandera · {ready.length} listos</button></div>
     {message && <p className="success" role="status">{message}</p>}
     <details className="reservation-date"><summary>Ver reservas de otra fecha</summary><label>Fecha de reservas<input type="date" value={date || ""} onInput={e => setReservationDate(e.currentTarget.value)} /></label><button className="text-button" onClick={() => setReservationDate("")}>Volver a hoy</button><small>La ocupación y los saldos siempre son los actuales.</small></details>
-    <div className="table-grid">
+    <div className="table-grid"><button className="table-card counter-card" onClick={() => nav("/atencion/mostrador")}><div className="row"><h2>Mostrador</h2><Coffee size={24} /></div><strong>Nueva compra</strong><small>Sin mesa · seleccionar y cobrar</small>{readDraft(s.user.id,"counter")?.cart.length>0&&<small className="draft-hint">Consumos sin confirmar</small>}</button>
       {Array.from({
         length: 15
       }, (_, i) => {
@@ -28,15 +31,17 @@ export function Salon({
           r = ready.some(o => o.table === n);
         const all = (s.reservations || []).filter(x => x.table === n);
         const reservation = all.find(x => x.date === date) || (!reservationDate ? all.find(x => x.date > s.calendarToday) || all[0] : null);
-        return <button key={n} className={"table-card " + (a ? "occupied " : "") + (r ? "ready" : "")} onClick={() => nav("/atencion/mesas/" + n)}>
+        return <article key={n} className={"table-card table-card-actions " + (a ? "occupied " : "") + (r ? "ready" : "") + (reservation ? " has-reservation" : "")}><button className="table-open" onClick={() => nav("/atencion/mesas/" + n)}>
           <div className="row"><h2>Mesa {n}</h2><Badge tone={a ? "amber" : "green"}>{a ? "Ocupada" : "Libre"}</Badge></div>
           <div className="table-balance"><small>Pendiente de cobro</small><strong>{money(a?.balance || 0)}</strong></div>
           {r && <small className="ready-hint">Productos listos para entregar</small>}
-          {reservation && <small className="reservation-hint">Reservada para {reservation.name} a las {reservation.time}{reservation.date !== s.calendarToday ? " · " + reservation.date.split("-").reverse().join("/") : ""}{reservation.date < s.calendarToday ? " · pendiente" : ""}</small>}
-        </button>;
+          {reservation && <small className="reservation-hint">Mesa reservada para {reservation.name} a las {reservation.time}{reservation.date !== s.calendarToday ? " · " + reservation.date.split("-").reverse().join("/") : ""}{reservation.date < s.calendarToday ? " · pendiente" : ""}</small>}
+          {readDraft(s.user.id,"table-"+n)?.cart.length>0&&<small className="draft-hint">Consumos sin confirmar · continuar</small>}
+        </button>{s.user?.permissions?.includes("reservations.manage")&&<button className="secondary reserve-table" onClick={()=>setReservingTable(n)}>Reservar</button>}</article>;
       })}
-      <button className="table-card counter-card" onClick={() => nav("/atencion/mostrador")}><div className="row"><h2>Mostrador</h2><Coffee size={24} /></div><strong>Nueva compra</strong><small>Sin mesa · seleccionar y cobrar</small></button>
+
     </div>
+    {reservingTable&&<Reservations table={reservingTable} account={activeAccount(s,reservingTable)} onClose={()=>setReservingTable(null)}/>}
   </main>;
 }
 export function restoreCart(pending, catalog) {
@@ -57,10 +62,13 @@ export function Account({
     a = activeAccount(s, table);
   const scope = "consumptions-" + table,
     pendingSave = pendingOperation(scope);
-  const [cart, setCart] = useState(() => restoreCart(pendingSave, s.catalog));
+  const draft=useDraft(s.user.id,"table-"+table,()=>restoreCart(pendingSave,s.catalog),pendingSave?.body.expectedAccount ?? a?.id ?? null);
+  const {cart,setCart}=draft;
+  const [discard,setDiscard]=useState(false);
   const [preparation, setPreparation] = useState(pendingSave?.body.needsPreparation || false);
   // Keep the visit visible when entry began: a concurrent table reuse must not redirect this draft.
-  const [expectedAccount, setExpectedAccount] = useState(a?.id || null);
+  const expectedAccount=draft.account, setExpectedAccount=draft.setAccount;
+  const pendingPay=a&&pendingOperation("pay-"+a.id);
   const [ack, setAck] = useState(null);
   const [pay, setPay] = useState(false),
     [reserving, setReserving] = useState(false);
@@ -80,7 +88,7 @@ export function Account({
     try {
       await fn();
     } catch (e) {
-      setError(e.message);
+      setError(e.uncertain ? e.message : "No se pudo guardar o consultar. Intentá nuevamente. " + e.message);
     } finally {
       lock.current = false;
       setBusy(false);
@@ -93,26 +101,30 @@ export function Account({
       needsPreparation: preparation,
       reservationAcknowledgment: ack
     });
-    nav("/atencion", "Consumos registrados en la mesa " + table + ". Quedan pendientes de cobro.");
+    draft.clear();
+    nav("/atencion", "Guardado correctamente. Consumos registrados en la mesa " + table + ". Quedan pendientes de cobro.");
   }
   return <main className="staff-entry"><button className="back" onClick={() => nav("/atencion")}><ArrowLeft size={17} />Volver al salón</button>
     <div className="page-heading"><div className="intro"><h1>Mesa {table}</h1><p>{a ? "Visita abierta · " + a.waitress : "Elegí productos para iniciar la visita al guardar."}</p></div><div className="row"><Badge tone={a ? "amber" : "green"}>{a ? "Ocupada" : "Libre"}</Badge>{s.user?.permissions?.includes("reservations.manage") && <button className="secondary" onClick={() => setReserving(true)}>Reservas</button>}</div></div>
     {error && <p className="alert" role="alert">{error}</p>}{message && <p className="success" role="status">{message}</p>}
-    {pendingSave && <p className="note">Hay consumos sin confirmación. Reintentá para recuperar la misma operación; no se duplicará.</p>}
+    {pendingSave && !busy && <p className="note">Hay consumos sin confirmación. Reintentá para recuperar la misma operación; no se duplicará.</p>}
+    {draft.storageError&&<p className="alert">{draft.storageError}</p>}
+    {cart.length>0&&!pendingSave&&<p className="note">Borrador de esta mesa: todavía no se registró. <button disabled={busy} onClick={()=>setDiscard(true)}>Descartar borrador</button></p>}
+    {discard&&<Modal title="Descartar borrador" onClose={()=>setDiscard(false)}><p>¿Descartar los consumos sin guardar de esta mesa?</p><button className="primary" onClick={()=>{draft.clear();setDiscard(false);setExpectedAccount(a?.id||null);}}>Confirmar descarte</button></Modal>}
     {changed && !pendingSave && <p className="note">La visita de la mesa cambió desde que abriste esta pantalla. <button onClick={() => {
         setExpectedAccount(a?.id || null);
         setAck(null);
       }}>Revisé la mesa: usar la visita actual</button></p>}
-    {!a && reservation && <div className="note"><p>Reservada para {reservation.name} a las {reservation.time}.</p><label className="option"><input type="checkbox" checked={ack === reservation.acknowledgment} onChange={e => setAck(e.target.checked ? reservation.acknowledgment : null)} />Continuar con esta mesa teniendo en cuenta la reserva</label></div>}
+    {!a && reservation && <div className="note"><p>Mesa reservada para {reservation.name} a las {reservation.time}.</p><label className="option"><input type="checkbox" checked={ack === reservation.acknowledgment} onChange={e => setAck(e.target.checked ? reservation.acknowledgment : null)} />Continuar con esta mesa teniendo en cuenta la reserva</label></div>}
     <div className="entry-layout"><div><QuickEntry cart={cart} setCart={setCart} preparation={preparation} setPreparation={setPreparation} disabled={busy || !!pendingSave || !s.connected} />
       <button className="primary full" disabled={busy || !s.connected || !pendingSave && (!cart.length || changed || !a && reservation && ack !== reservation.acknowledgment)} onClick={() => run(save)}>{busy ? "Guardando…" : pendingSave ? "Reintentar guardar consumos" : "Guardar consumos"}</button>
     </div><aside className="panel account-summary"><h2>Cuenta de esta visita</h2><div className="total"><span>Consumos guardados</span><strong>{money(a?.total || 0)}</strong></div><div className="total"><span>Ya pagado</span><strong>{money(a?.paid || 0)}</strong></div><div className="total"><span>Pendiente</span><strong>{money(a?.balance || 0)}</strong></div>
-      <button className="primary full" disabled={busy || !s.connected || !a || a.balance <= 0 || cart.length > 0 || !!pendingSave} onClick={() => setPay(a.id)}>Cobrar</button>
+      <button className="primary full" disabled={busy || !s.connected || !a || (!pendingPay && a.balance <= 0) || cart.length > 0 || !!pendingSave} onClick={() => setPay(a.id)}>{pendingPay ? "Comprobar cobro" : "Cobrar"}</button>
       {cart.length > 0 && <small>Guardá los consumos antes de cobrar.</small>}
-      {a && <div className="release-table"><button className="secondary full" disabled={busy || !s.connected || changed || undelivered || a.balance !== 0 || cart.length > 0 || !!pendingSave} onClick={() => run(async () => {
+      {a && <div className="release-table"><button className="secondary full" disabled={busy || !!pay || !!pendingPay || !s.connected || changed || undelivered || a.balance !== 0 || cart.length > 0 || !!pendingSave} onClick={() => run(async () => {
         await mutate("/visits/" + a.id + "/close");
         nav("/atencion", "Mesa " + table + " libre. Visita guardada en el historial.");
-      })}>Liberar mesa</button><small>{!s.connected ? "Sin conexión." : changed ? "Revisá la visita actual." : cart.length || pendingSave ? "Primero guardá los consumos pendientes." : a.balance !== 0 ? "Primero cobrá el saldo pendiente." : undelivered ? "Primero marcá los pedidos como entregados." : "Todo cobrado y entregado. Un clic cierra esta visita."}</small></div>}
+      })}>Liberar mesa</button><small>{!s.connected ? "Sin conexión." : pendingPay || pay ? "Primero comprobá el cobro en curso." : changed ? "Revisá la visita actual." : cart.length || pendingSave ? "Primero guardá los consumos pendientes." : a.balance !== 0 ? "Primero cobrá el saldo pendiente." : undelivered ? "Primero marcá los pedidos como entregados." : "Todo cobrado y entregado. Un clic cierra esta visita."}</small></div>}
       <details className="account-secondary"><summary>Responsable y otras opciones</summary>
         {a && <label>Responsable<select disabled={busy || !s.connected} value={a.waitressId || ""} onChange={e => {
               const userId = e.target.value;
@@ -153,7 +165,7 @@ export function Kitchen() {
         expectedStatus: o.status
       });
     } catch (e) {
-      setError(e.message);
+      setError(e.uncertain ? e.message : "No se pudo guardar o consultar. Intentá nuevamente. " + e.message);
     } finally {
       setBusy(null);
       lock.current = false;
@@ -162,12 +174,13 @@ export function Kitchen() {
   return <main>
       <div className="intro">
         <span className="eyebrow">DE LA COCINA A LA MESA</span>
-        <h1>Comandera</h1>
+        <h1>Preparación</h1>
         <p>Los pedidos cobrados siguen acá hasta su entrega.</p>
       </div>
       {error && <p role="alert" className="alert">
           {error}
         </p>}
+      {!s.orders.some(o=>o.status!=="entregado")&&<p className="panel">No hay pedidos pendientes de preparación.</p>}
       <div className="kanban">
         {statuses.slice(0, 3).map((status, index) => {
         const orders = s.orders.filter(o => o.status === status);

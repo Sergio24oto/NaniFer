@@ -34,7 +34,7 @@ export default function Payment({ id, onClose, onSuccess }) {
       });
       onSuccess(result);
     } catch (e) {
-      setError(e.message);
+      setError(e.uncertain ? e.message : "No se pudo guardar o consultar. Intentá nuevamente. " + e.message);
       await refresh();
     } finally {
       lock.current = false;
@@ -42,7 +42,7 @@ export default function Payment({ id, onClose, onSuccess }) {
     }
   }
   return (
-    <Modal title={"Cobrar · Mesa " + (a?.table || "cerrada")} onClose={onClose}>
+    <Modal title={"Cobrar · Mesa " + (a?.table || "cerrada")} onClose={()=>{if(!busy)onClose();}}>
       <p>Cobrar no entrega pedidos ni libera la mesa.</p>
       <div className="payment-total">
         Saldo a cobrar<strong>{money(quote)}</strong>
@@ -52,13 +52,13 @@ export default function Payment({ id, onClose, onSuccess }) {
           {error}
         </p>
       )}
-      {pending ? (
+      {pending && !busy ? (
         <p className="note">
           Cobro pendiente de confirmación. Reintentá la misma operación; se
           recuperará el comprobante si ya se guardó.
         </p>
       ) : (
-        changed && (
+        !busy && !pending && changed && (
           <p className="note">
             El saldo cambió a {money(a?.balance)}.{" "}
             <button onClick={() => setQuote(a?.balance || 0)}>
@@ -114,9 +114,9 @@ export default function Payment({ id, onClose, onSuccess }) {
         onClick={confirm}
       >
         {busy
-          ? "Confirmando…"
+          ? "Guardando…"
           : pending
-            ? "Reintentar cobro"
+            ? "Reintentar de forma segura"
             : "Confirmar cobro"}
       </button>
       <small>

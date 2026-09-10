@@ -67,7 +67,7 @@ def totals(db, id):
     return Decimal(consumed), Decimal(paid), Decimal(consumed) - Decimal(paid)
 
 
-def priced_item(db, item):
+def priced_item(db, item, *, require_flavors=True):
     p = db.get(Product, item.productId)
     if not p or p.archived or not p.available or p.price_pending:
         fail("Producto no disponible.", 422)
@@ -77,7 +77,7 @@ def priced_item(db, item):
     if not p.sizes and item.size:
         fail("Este producto no tiene tamaños.", 422)
     maximum = (size or {}).get("max", 0)
-    if (maximum and not 1 <= len(item.flavors) <= maximum) or (
+    if (maximum and not (1 if require_flavors else 0) <= len(item.flavors) <= maximum) or (
         not maximum and item.flavors
     ):
         fail("Cantidad de sabores inválida.", 422)
@@ -124,7 +124,7 @@ def make_order(db, visit, data, *, origin="qr", user=None, delivered=False):
         fail("La visita cambió. Revisá tu mesa antes de confirmar.")
     from .stock_accounting import prepare_order, apply_order
     plans, stock_rows = prepare_order(db, data.items)
-    priced = [priced_item(db, i) for i in data.items]
+    priced = [priced_item(db, i, require_flavors=origin not in {"manual", "counter"}) for i in data.items]
     order = Order(id=uid(), visit_id=visit.id, status=STATUSES[-1] if delivered else STATUSES[0],
                   origin=origin, created_by=user.id if user else None)
     db.add(order)

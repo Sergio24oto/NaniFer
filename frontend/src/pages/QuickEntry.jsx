@@ -28,7 +28,7 @@ export default function QuickEntry({
   const normalize = text => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const products = catalog.products.filter(p => (!category || p.category === category) && normalize(p.name).includes(normalize(search)));
   function choose(p) {
-    if (p.sizes?.length > 1 || p.sizes?.some(z => z.max > 0) || p.extras?.length) {
+    if (p.sizes?.length > 1 || p.extras?.length) {
       setProduct(p);
       return;
     }
@@ -50,9 +50,10 @@ export default function QuickEntry({
     <div className="quick-categories" aria-label="Categorías">
       {["", ...catalog.categories].map(c => <button key={c} className={category === c ? "primary" : "secondary"} onClick={() => setCategory(c)}>{c || "Todos"}</button>)}
     </div>
+    <p className="note">Si falta stock, precio o carga inicial, avisá al administrador.</p>
     <div className="quick-products">
       {products.map(p => <button className="quick-product" key={p.id} disabled={disabled || !p.available || cart.length >= 50} onClick={() => choose(p)}>
-        <span aria-hidden="true">{p.emoji}</span><span><strong>{p.name}</strong><small>{p.available ? money(p.price) : "Agotado"}{p.sizes?.length > 0 && p.available ? " · opciones" : ""}</small></span><Plus size={17} />
+        <span aria-hidden="true">{p.emoji}</span><span><strong>{p.name}</strong><small>{p.available ? money(p.price) : p.availabilityReason || "No disponible"}{p.sizes?.length > 0 && p.available ? " · opciones" : ""}</small></span><Plus size={17} />
       </button>)}
       {!products.length && <p>No hay productos con esa búsqueda.</p>}
     </div>
@@ -81,9 +82,9 @@ export default function QuickEntry({
       <div className="total"><span>{counter ? "Total de la compra" : "Total de esta carga"}</span><strong>{money(total)}</strong></div>
       <small>Se confirma con los precios del catálogo al guardar.</small>
       <p className="delivery-hint">{preparation ? "Se envía a la comandera" : "Se registra como entregado"}</p>
-      <label className="option"><input type="checkbox" checked={preparation} disabled={disabled} onChange={e => setPreparation(e.target.checked)} />Necesita preparación</label>
+
     </div>
-    {product && <Product product={product} onClose={() => setProduct(null)} onAdd={item => {
+    {product && <Product manual product={product} onClose={() => setProduct(null)} onAdd={item => {
       setCart(old => addLine(old, item));
       setProduct(null);
     }} />}

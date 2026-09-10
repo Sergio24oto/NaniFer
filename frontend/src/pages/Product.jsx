@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { Modal, Badge } from "../components";
 import { money, estimate } from "../domain";
 import { useStore } from "../store";
-export default function Product({ product: initialProduct, onClose, onAdd }) {
+export default function Product({ product: initialProduct, onClose, onAdd, manual = false }) {
   const { catalog } = useStore();
   const p = catalog.products.find(x => x.id === initialProduct.id) || initialProduct;
   const [size, setSize] = useState(p.sizes?.find(s => s.available !== false)?.name || "");
@@ -19,7 +19,7 @@ export default function Product({ product: initialProduct, onClose, onAdd }) {
       <p>{p.description}</p>
       {p.sizes?.length > 0 && (
         <fieldset>
-          <legend>Tamaño</legend>
+          <legend>Presentación</legend>
           {p.sizes.map((z) => (
             <label className="option" key={z.name}>
               <input
@@ -38,7 +38,7 @@ export default function Product({ product: initialProduct, onClose, onAdd }) {
           ))}
         </fieldset>
       )}
-      {max && (
+      {!manual && max && (
         <fieldset>
           <legend>Sabores · elegí de 1 a {max}</legend>
           {catalog.flavors.map((f) => (
@@ -101,7 +101,7 @@ export default function Product({ product: initialProduct, onClose, onAdd }) {
         disabled={
           !p.available ||
           (p.sizes?.length > 0 && !p.sizes.some(z => z.name === size && z.available !== false)) ||
-          (max && !chosen.length) ||
+          (!manual && max && !chosen.length) ||
           !Number.isInteger(quantity) ||
           quantity < 1 ||
           quantity > 99

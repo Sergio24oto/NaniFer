@@ -7,7 +7,7 @@
     "dev": "vite --configLoader runner",
     "build": "vite build --configLoader runner",
     "preview": "vite preview --configLoader runner",
-    "test": "node --test src/domain.test.js src/store.test.js src/salesView.test.js",
+    "test": "node --test src/domain.test.js src/store.test.js src/salesView.test.js src/drafts.test.js",
     "start": "npm run build && npm run preview"
   },
   "dependencies": {

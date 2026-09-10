@@ -68,7 +68,7 @@ def catalog(db=Depends(get_db), auth=Depends(current_session)):
     categories = list(db.scalars(select(Category).order_by(Category.id)))
     names = {c.id: c.name for c in categories}
     from .models import StockItem
-    from .stock_accounting import catalog_availability
+    from .stock_accounting import catalog_availability, availability_reason
     stock = {r.id:r for r in db.scalars(select(StockItem))}
     return {
         "categories": [c.name for c in categories],
@@ -82,6 +82,7 @@ def catalog(db=Depends(get_db), auth=Depends(current_session)):
                 "pricePending": p.price_pending,
                 "publicCategories": p.public_categories,
                 "available": catalog_availability(p, stock)[0] and not p.price_pending,
+                "availabilityReason": availability_reason(p, stock),
                 "emoji": p.emoji,
                 "image": p.image,
                 "sizes": catalog_availability(p, stock)[1],
