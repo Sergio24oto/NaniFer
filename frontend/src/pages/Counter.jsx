@@ -60,7 +60,7 @@ export default function Counter({
       if (!busy) setQuote(null);
     }}>
       <div className="payment-total">Total a cobrar<strong>{money(quote)}</strong></div>
-      <p>{preparation ? "El pedido seguirá en la comandera después de cobrar." : "La compra se registra como entregada."}</p>
+      <p>{preparation ? "El pedido seguirá en mozas después de cobrar." : "La compra se registra como entregada."}</p>
       {error && <p className="alert" role="alert">{error}</p>}
       {pending && !busy && <p className="note">Reintentá la misma compra para confirmar si se guardó. No se duplicará.</p>}
       <fieldset disabled={busy || !!pending}><legend>Medio de pago</legend>{["efectivo", "tarjeta", "transferencia"].map(m => <label key={m} className="option"><input type="radio" name="counter-method" checked={method === m} onChange={() => setMethod(m)} />{m}</label>)}</fieldset>

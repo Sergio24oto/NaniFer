@@ -19,7 +19,7 @@ export function Salon({
   const opened = s.accounts.filter(a => !a.closedAt && a.table != null);
   const ready = s.orders.filter(o => o.status === "listo para entregar");
   return <main className="salon-compact">
-    <div className="page-heading"><div className="intro"><span className="eyebrow">ATENCIÓN</span><h1>Mesas y Mostrador</h1><p>{opened.length} de 15 mesas ocupadas · {money(opened.reduce((n, a) => n + a.balance, 0))} pendiente</p></div><button className="secondary" onClick={() => nav("/atencion/comandera")}><ClipboardList size={17} /> Comandera · {ready.length} listos</button></div>
+    <div className="page-heading"><div className="intro"><span className="eyebrow">ATENCIÓN</span><h1>Mesas y Mostrador</h1><p>{opened.length} de 15 mesas ocupadas · {money(opened.reduce((n, a) => n + a.balance, 0))} pendiente</p></div><button className="secondary" onClick={() => nav("/atencion/comandera")}><ClipboardList size={17} /> Mozas · {ready.length} listos</button></div>
     {message && <p className="success" role="status">{message}</p>}
     <details className="reservation-date"><summary>Ver reservas de otra fecha</summary><label>Fecha de reservas<input type="date" value={date || ""} onInput={e => setReservationDate(e.currentTarget.value)} /></label><button className="text-button" onClick={() => setReservationDate("")}>Volver a hoy</button><small>La ocupación y los saldos siempre son los actuales.</small></details>
     <div className="table-grid"><button className="table-card counter-card" onClick={() => nav("/atencion/mostrador")}><div className="row"><h2>Mostrador</h2><Coffee size={24} /></div><strong>Nueva compra</strong><small>Sin mesa · seleccionar y cobrar</small>{readDraft(s.user.id,"counter")?.cart.length>0&&<small className="draft-hint">Consumos sin confirmar</small>}</button>
@@ -140,7 +140,7 @@ export function Account({
         <div className="panel-header-row">
           <div>
             <span className="section-eyebrow">PEDIDOS DE LA MESA</span>
-            <h2>{orders.length > 0 ? `Comandas realizadas (${orders.length})` : "Comandas de la mesa"}</h2>
+            <h2>{orders.length > 0 ? `Mozas (${orders.length})` : "Mozas de la mesa"}</h2>
             <p className="section-sub">
               {a ? `Visita activa ${a.waitress ? "· Responsable: " + a.waitress : ""}` : "Mesa libre · Sin visita activa"}
             </p>
@@ -238,7 +238,7 @@ export function Account({
 
                 <div className="staff-order-footer">
                   <span className="order-subtotal">
-                    Subtotal comanda: <strong>{money(o.items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0))}</strong>
+                    Subtotal: <strong>{money(o.items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0))}</strong>
                   </span>
                   {o.status !== "entregado" && (
                     <button

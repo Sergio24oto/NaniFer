@@ -81,7 +81,7 @@ export default function QuickEntry({
       </div>)}
       <div className="total"><span>{counter ? "Total de la compra" : "Total de esta carga"}</span><strong>{money(total)}</strong></div>
       <small>Se confirma con los precios del catálogo al guardar.</small>
-      <p className="delivery-hint">{preparation ? "Se envía a la comandera" : "Se registra como entregado"}</p>
+      <p className="delivery-hint">{preparation ? "Se envía a mozas" : "Se registra como entregado"}</p>
 
     </div>
     {product && <Product manual product={product} onClose={() => setProduct(null)} onAdd={item => {
