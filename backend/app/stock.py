@@ -60,6 +60,141 @@ def create_flavor(data:FlavorIn,key:str=Header(alias='Idempotency-Key'),auth=Dep
     result=once(db,key,'flavor-create:'+auth[0].id,data.model_dump(),save);db.commit();return result
 
 
+class StockProductCreateIn(StrictModel):
+    name: str = Field(min_length=1, max_length=150)
+    categoryId: str | None = None
+    categoryName: str | None = None
+    area: Literal['beverages', 'kiosk', 'other'] | None = None
+    price: Decimal | None = None
+    available: bool = True
+    packageType: Literal['pack', 'cajón', 'caja', 'unidades'] = 'pack'
+    packages: int = Field(default=1, ge=1, le=1000000)
+    unitsPerPackage: int = Field(default=1, ge=1, le=10000)
+    receivedDate: date | None = None
+    supplierId: str | None = None
+    totalCost: Decimal | None = Field(default=None, ge=0, max_digits=18, decimal_places=2)
+    initialStock: bool = True
+
+    @field_validator('name')
+    @classmethod
+    def clean_name(cls, v):
+        v = ' '.join(v.split())
+        if not v:
+            raise ValueError('Ingresá el nombre del producto.')
+        return v
+
+
+@router.post('/products')
+def create_stock_product(data: StockProductCreateIn, key: str = Header(alias='Idempotency-Key'), auth=Depends(current_session), db=Depends(get_db)):
+    admin(auth)
+    db.scalar(select(User).where(User.id == auth[0].id).with_for_update())
+    def save():
+        cat = None
+        if data.categoryId and data.categoryId != '__new__':
+            cat = db.get(Category, data.categoryId)
+        if not cat:
+            if data.area:
+                cat = db.scalar(select(Category).where(Category.stock_area == data.area).order_by(Category.sort_order))
+            if not cat and data.categoryName:
+                cat = db.scalar(select(Category).where(Category.name == data.categoryName.strip()))
+            if not cat:
+                default_name = data.categoryName.strip() if data.categoryName and data.categoryName.strip() else (
+                    'Bebidas' if data.area == 'beverages' else 'Kiosco' if data.area == 'kiosk' else 'Otros'
+                )
+                cat = Category(
+                    id=uid(),
+                    name=default_name,
+                    public_visible=True,
+                    sort_order=10,
+                    stock_area=data.area or 'other',
+                    note=''
+                )
+                db.add(cat)
+                db.flush()
+
+        existing = db.scalar(select(Product.id).where(Product.name == data.name, Product.category_id == cat.id, Product.archived == False))
+        if existing:
+            fail(f'Ya existe el producto "{data.name}" en la categoría "{cat.name}". Podés agregarle stock desde la lista.', 409)
+
+        p = Product(
+            id=uid(),
+            name=data.name,
+            description='',
+            category_id=cat.id,
+            price_pending=data.price is None,
+            price=data.price if data.price is not None else Decimal(0),
+            image=None,
+            available=data.available,
+            stock_mode='unit',
+            public_categories=[],
+            sizes=[],
+            extras=[],
+            cone_links={}
+        )
+        db.add(p)
+        db.flush()
+
+        package_type = data.packageType or 'pack'
+        units_per_package = data.unitsPerPackage if package_type != 'unidades' else 1
+        quantity = (data.packages * units_per_package) if data.initialStock else None
+
+        row = StockItem(
+            id=uid(),
+            product_id=p.id,
+            kind='unit',
+            name=p.name,
+            unit='unidades',
+            quantity=quantity,
+            opened=0,
+            units_per_package=units_per_package,
+            version=1 if quantity is not None else 0
+        )
+        db.add(row)
+        db.flush()
+
+        if data.initialStock and quantity is not None and quantity > 0:
+            cost = data.totalCost
+            unit_cost = (cost / quantity).quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP) if cost is not None else None
+            m = StockMovement(
+                id=uid(),
+                stock_id=row.id,
+                version=1,
+                kind='receive',
+                before=None,
+                after=quantity,
+                opened_before=0,
+                opened_after=0,
+                user_id=auth[0].id,
+                supplier_id=data.supplierId if data.supplierId and db.get(Supplier, data.supplierId) else None,
+                unit_cost=unit_cost,
+                total_cost=cost,
+                note='Carga inicial al crear producto en stock',
+                purchase=dict(
+                    type=package_type,
+                    packages=data.packages,
+                    unitsPerPackage=units_per_package,
+                    units=quantity,
+                    date=(data.receivedDate or datetime.now(ZONE).date()).isoformat()
+                )
+            )
+            db.add(m)
+            db.flush()
+
+        return {
+            'id': p.id,
+            'stockId': row.id,
+            'name': p.name,
+            'quantity': row.quantity,
+            'category': cat.name,
+            'stockArea': cat.stock_area
+        }
+
+    result = once(db, key, 'stock-product-create:' + auth[0].id, data.model_dump(mode='json'), save)
+    db.commit()
+    return result
+
+
+
 class StockAction(StrictModel):
     action:Literal['receive','count','out','open','finish','rename']
     quantity:int=Field(default=0,ge=0,le=1000000000,strict=True)
@@ -106,7 +241,14 @@ def snapshot(db,search='',category='',mode='',area=''):
 
 @router.get('')
 def listing(search:str='',category:str='',mode:str='',area:str='',auth=Depends(current_session),db=Depends(get_db)):
-    return {'items':snapshot(db,search,category,mode,area),'generatedAt':local_iso(datetime.now(UTC).replace(tzinfo=None))}
+    return {
+        'items': snapshot(db,search,category,mode,area),
+        'categories': [
+            {'id': c.id, 'name': c.name, 'stockArea': c.stock_area}
+            for c in db.scalars(select(Category).order_by(Category.name))
+        ],
+        'generatedAt': local_iso(datetime.now(UTC).replace(tzinfo=None))
+    }
 
 
 @router.get('/suppliers')

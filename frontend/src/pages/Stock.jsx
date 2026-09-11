@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useStore, request, submitOnce, pendingOperation } from "../store";
+import { useStore, request, submitOnce, pendingOperation, refresh } from "../store";
 import { Modal, Badge } from "../components";
 import { money } from "../domain";
 const labels = {
@@ -47,6 +47,315 @@ function NewFlavor({onClose,onSaved}){
  const s=useStore(),scope='flavor-create-'+s.user.id,pending=pendingOperation(scope);
  const [name,setName]=useState(pending?.body.name||''),[available,setAvailable]=useState(pending?.body.available??true),[busy,setBusy]=useState(false),[error,setError]=useState('');const lock=useRef(false);
  return <Modal title="Agregar sabor de helado" onClose={()=>!busy&&onClose()}><form onSubmit={async e=>{e.preventDefault();if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await submitOnce(scope,'/stock/flavors',{name,available});onSaved('Sabor agregado correctamente. Ya podés gestionar su disponibilidad y recibir sus recipientes.');}catch(e){setError(e.message);}finally{lock.current=false;setBusy(false);}}}><p>El sabor se incorpora al catálogo compartido. Los recipientes se cargan después, sin inventar existencias.</p><fieldset disabled={busy||!!pending}><label>Nombre del sabor<input required maxLength={100} value={name} onChange={e=>setName(e.target.value)} placeholder="Por ejemplo: chocolate con almendras"/></label><label className="option"><input type="checkbox" checked={available} onChange={e=>setAvailable(e.target.checked)}/>Disponible para elegir en los helados</label></fieldset>{error&&<p className="alert" role="alert">{error}</p>}{pending&&!busy&&<p className="note">El resultado aún no se confirmó. Reintentá con la misma operación.</p>}<button className="primary full" disabled={busy||!s.connected||!name.trim()}>{busy?'Guardando…':pending?'Reintentar de forma segura':'Agregar sabor'}</button></form></Modal>;
+}
+function NewStockProduct({ area, categories, onClose, onSaved }) {
+  const s = useStore(),
+    scope = "stock-product-create-" + s.user.id,
+    pending = pendingOperation(scope);
+
+  const matchingCats = (categories || []).filter(c => !area || c.stockArea === area);
+  const defaultCatId = matchingCats[0]?.id || (categories || [])[0]?.id || "";
+
+  const [name, setName] = useState(pending?.body.name || "");
+  const [categoryId, setCategoryId] = useState(pending?.body.categoryId || defaultCatId);
+  const [categoryName, setCategoryName] = useState(pending?.body.categoryName || "");
+  const [price, setPrice] = useState(pending?.body.price ?? "");
+  const [packageType, setPackageType] = useState(pending?.body.packageType || (area === "beverages" ? "pack" : "caja"));
+  const [packages, setPackages] = useState(pending?.body.packages ?? 1);
+  const [unitsPerPackage, setUnitsPerPackage] = useState(
+    pending?.body.unitsPerPackage ?? (packageType === "cajón" ? 24 : packageType === "pack" ? 6 : packageType === "unidades" ? 1 : 12)
+  );
+  const [initialStock, setInitialStock] = useState(pending?.body.initialStock ?? true);
+  const [receivedDate, setReceivedDate] = useState(pending?.body.receivedDate || today());
+  const [supplierId, setSupplierId] = useState(pending?.body.supplierId || "");
+  const [totalCost, setTotalCost] = useState(pending?.body.totalCost ?? "");
+  const [available, setAvailable] = useState(pending?.body.available ?? true);
+
+  const [suppliers, setSuppliers] = useState([]);
+  const [supplierName, setSupplierName] = useState("");
+  const [contact, setContact] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const lock = useRef(false);
+
+  useEffect(() => {
+    let live = true;
+    request("/stock/suppliers")
+      .then(x => { if (live) setSuppliers(x); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+
+  function handlePackageTypeChange(newType) {
+    setPackageType(newType);
+    if (newType === "unidades") {
+      setUnitsPerPackage(1);
+    } else if (newType === "cajón") {
+      setUnitsPerPackage(24);
+    } else if (newType === "pack") {
+      setUnitsPerPackage(6);
+    } else if (newType === "caja") {
+      setUnitsPerPackage(12);
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const body = {
+        name: name.trim(),
+        categoryId: categoryId === "__new__" ? null : categoryId,
+        categoryName: categoryId === "__new__" ? categoryName.trim() : null,
+        area: area || null,
+        price: price === "" || price == null ? null : Number(price),
+        available,
+        initialStock,
+        packageType,
+        packages: Number(packages),
+        unitsPerPackage: packageType === "unidades" ? 1 : Number(unitsPerPackage),
+        receivedDate: initialStock ? receivedDate : null,
+        supplierId: initialStock && supplierId ? supplierId : null,
+        totalCost: initialStock && totalCost !== "" && totalCost != null ? Number(totalCost) : null
+      };
+      const result = await submitOnce(scope, "/stock/products", body);
+      const unitsText = initialStock ? ` con ${body.packages * (packageType === "unidades" ? 1 : body.unitsPerPackage)} unidades en stock` : "";
+      onSaved(`Producto "${result.name}" agregado a ${area === "beverages" ? "Bebidas" : area === "kiosk" ? "Kiosco" : "Stock"}${unitsText}.`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
+
+  const totalUnits = packages * (packageType === "unidades" ? 1 : unitsPerPackage);
+  const unitCostCalc = totalCost && totalUnits > 0 ? (Number(totalCost) / totalUnits) : null;
+  const title = area === "beverages" ? "Agregar bebida" : area === "kiosk" ? "Agregar producto de quiosco" : "Agregar producto con stock";
+
+  return (
+    <Modal title={title} onClose={() => !busy && onClose()}>
+      <form onSubmit={handleSubmit}>
+        <p>
+          {area === "beverages"
+            ? "Cargá la bebida para incorporarla a la carta y registrar su ingreso inicial por envase (pack, cajón, etc.)."
+            : area === "kiosk"
+            ? "Cargá el artículo de quiosco para incorporarlo a la carta y controlar sus existencias por unidad."
+            : "Cargá el producto para incorporarlo a la carta y controlar sus existencias por unidad."}
+        </p>
+
+        <fieldset disabled={busy || !!pending} className="catalog-fields">
+          <label>
+            Nombre del producto
+            <input
+              required
+              maxLength={150}
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder={area === "beverages" ? "Ej: Sprite 500ml" : area === "kiosk" ? "Ej: Alfajor Havanna" : "Nombre del producto"}
+              autoFocus
+            />
+          </label>
+
+          <label>
+            Categoría
+            <select
+              value={categoryId}
+              onChange={e => setCategoryId(e.target.value)}
+              required
+            >
+              {matchingCats.length > 0 ? (
+                matchingCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)
+              ) : (
+                (categories || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)
+              )}
+              <option value="__new__">+ Crear nueva categoría para {area === "beverages" ? "Bebidas" : area === "kiosk" ? "Kiosco" : "esta sección"}</option>
+            </select>
+          </label>
+
+          {categoryId === "__new__" && (
+            <label>
+              Nombre de la nueva categoría
+              <input
+                required
+                maxLength={100}
+                value={categoryName}
+                onChange={e => setCategoryName(e.target.value)}
+                placeholder={area === "beverages" ? "Ej: Gaseosas" : area === "kiosk" ? "Ej: Golosinas" : "Nombre de categoría"}
+              />
+            </label>
+          )}
+
+          <label>
+            Precio de venta en carta ($) · opcional
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={price}
+              onChange={e => setPrice(e.target.value)}
+              placeholder="Ej: 1800"
+            />
+          </label>
+
+          <label className="option">
+            <input
+              type="checkbox"
+              checked={available}
+              onChange={e => setAvailable(e.target.checked)}
+            />
+            Habilitar venta inmediata en atención y carta
+          </label>
+
+          <div className="note" style={{ marginTop: 14 }}>
+            <label className="option" style={{ fontWeight: 700, marginBottom: 8 }}>
+              <input
+                type="checkbox"
+                checked={initialStock}
+                onChange={e => setInitialStock(e.target.checked)}
+              />
+              Registrar ingreso inicial de mercadería (envase)
+            </label>
+
+            {initialStock && (
+              <>
+                <label>
+                  Presentación de compra
+                  <select
+                    value={packageType}
+                    onChange={e => handlePackageTypeChange(e.target.value)}
+                  >
+                    {["pack", "cajón", "caja", "unidades"].map(x => <option key={x} value={x}>{x}</option>)}
+                  </select>
+                </label>
+
+                <label>
+                  Cantidad de envases
+                  <input
+                    required
+                    type="number"
+                    min="1"
+                    max="1000000"
+                    value={packages}
+                    onChange={e => setPackages(Number(e.target.value))}
+                  />
+                </label>
+
+                <label>
+                  Unidades por envase
+                  <input
+                    required
+                    disabled={packageType === "unidades"}
+                    type="number"
+                    min="1"
+                    max="10000"
+                    value={unitsPerPackage}
+                    onChange={e => setUnitsPerPackage(Number(e.target.value))}
+                  />
+                </label>
+
+                <p>
+                  <strong>{packages} × {packageType === "unidades" ? 1 : unitsPerPackage} = {totalUnits} unidades en stock</strong>
+                </p>
+
+                <label>
+                  Fecha de recepción
+                  <input
+                    required
+                    type="date"
+                    value={receivedDate}
+                    onChange={e => setReceivedDate(e.target.value)}
+                  />
+                </label>
+
+                <label>
+                  Proveedor (opcional)
+                  <select
+                    value={supplierId}
+                    onChange={e => setSupplierId(e.target.value)}
+                  >
+                    <option value="">Sin proveedor asignado</option>
+                    {suppliers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </label>
+
+                <details>
+                  <summary>Crear nuevo proveedor</summary>
+                  <label>
+                    Nombre del proveedor
+                    <input
+                      maxLength={150}
+                      value={supplierName}
+                      onChange={e => setSupplierName(e.target.value)}
+                      placeholder="Ej: Distribuidora Quilmes"
+                    />
+                  </label>
+                  <label>
+                    Contacto opcional
+                    <input
+                      maxLength={200}
+                      value={contact}
+                      onChange={e => setContact(e.target.value)}
+                      placeholder="Teléfono o dirección"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={!supplierName.trim()}
+                    onClick={async () => {
+                      try {
+                        const p = await submitOnce("supplier-" + s.user.id, "/stock/suppliers", {
+                          name: supplierName,
+                          contact
+                        });
+                        const next = await request("/stock/suppliers");
+                        setSuppliers(next);
+                        setSupplierId(p.id);
+                        setSupplierName("");
+                        setContact("");
+                      } catch (err) {
+                        setError(err.message);
+                      }
+                    }}
+                  >
+                    Guardar proveedor
+                  </button>
+                </details>
+
+                <label>
+                  Costo total de la compra ($) · opcional
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={totalCost}
+                    onChange={e => setTotalCost(e.target.value)}
+                    placeholder="Costo total abonado"
+                  />
+                </label>
+                {unitCostCalc != null && (
+                  <p>
+                    Costo calculado por unidad: <strong>${unitCostCalc.toFixed(2)}</strong>
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </fieldset>
+
+        {error && <p className="alert" role="alert">{error}</p>}
+        {pending && !busy && <p className="note">Hay una operación pendiente de confirmación. Reintentá con los mismos datos.</p>}
+
+        <button className="primary full" disabled={busy || !s.connected || !name.trim()}>
+          {busy ? "Guardando…" : pending ? "Reintentar de forma segura" : (area === "beverages" ? "Agregar bebida y stock" : area === "kiosk" ? "Agregar producto y stock" : "Guardar producto")}
+        </button>
+      </form>
+    </Modal>
+  );
 }
 function Configure({
   row,
@@ -264,6 +573,7 @@ export default function Stock() {
   const s = useStore(),
     isAdmin = s.user?.role === 'admin';
   const [items, setItems] = useState([]),
+    [categories, setCategories] = useState([]),
     [loaded, setLoaded] = useState(false),
     [error, setError] = useState(''),
     [message, setMessage] = useState('');
@@ -280,6 +590,7 @@ export default function Stock() {
       const data = await request('/stock');
       if (g === generation.current) {
         setItems(data.items);
+        if (data.categories) setCategories(data.categories);
         setLoaded(true);
         setError('');
       }
@@ -315,7 +626,15 @@ export default function Stock() {
         mode,area
       }} disabled={!loaded || !s.connected || !!error} onError={setError} />}</div>
     {error && <p className="alert" role="alert">{error}<button onClick={() => void load()}>Reintentar</button></p>}{message && <p className="success" role="status">{message}</p>}
-    <section className="panel"><h2>Control principal de stock</h2><div className="catalog-actions">{[['beverages','Bebidas'],['kiosk','Kiosco'],['flavors','Helados · Sabores']].map(([v,label])=><button key={v} className={area===v?'primary':'secondary'} onClick={()=>{setArea(v);setCategory('');setMode('');}}>{label}</button>)}</div>{area==='flavors'&&<div className="intro"><h3>Administrar sabores de helado</h3><p>Consultá sabores y disponibilidad. El conteo de recipientes es independiente.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-flavor'})}>+ Agregar sabor</button>}</div>}<label>Ver<select value={area} onChange={e=>setArea(e.target.value)}>{[['','Todos'],['beverages','Bebidas'],['kiosk','Kiosco'],['flavors','Helados · Sabores'],['other','Otros productos con stock'],['empty','Agotados'],['manual','Sin gestión de stock']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label></section><div className="stock-filters"><label>Buscar<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Producto, insumo o sabor" /></label><label>Categoría<select value={category} onChange={e => setCategory(e.target.value)}><option value="">Todas</option>{[...new Set(items.map(r => r.category))].map(c => <option key={c}>{c}</option>)}</select></label><label>Modalidad<select value={mode} onChange={e => setMode(e.target.value)}><option value="">Todas</option><option value="unit">Por unidad</option><option value="containers">Recipientes de helado</option><option value="manual">Disponibilidad manual</option></select></label></div>
+    <section className="panel">
+      <h2>Control principal de stock</h2>
+      <div className="catalog-actions">{[['beverages','Bebidas'],['kiosk','Kiosco'],['flavors','Helados · Sabores']].map(([v,label])=><button key={v} className={area===v?'primary':'secondary'} onClick={()=>{setArea(v);setCategory('');setMode('');}}>{label}</button>)}</div>
+      {area==='beverages'&&<div className="intro"><h3>Administrar bebidas</h3><p>Consultá bebidas y disponibilidad. Registrá compras por pack o cajón y controlá las existencias por unidad.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'beverages'})}>+ Agregar bebida</button>}</div>}
+      {area==='kiosk'&&<div className="intro"><h3>Administrar quiosco</h3><p>Consultá artículos de quiosco y disponibilidad. Registrá compras por caja o pack y controlá las existencias por unidad.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'kiosk'})}>+ Agregar producto de quiosco</button>}</div>}
+      {area==='flavors'&&<div className="intro"><h3>Administrar sabores de helado</h3><p>Consultá sabores y disponibilidad. El conteo de recipientes es independiente.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-flavor'})}>+ Agregar sabor</button>}</div>}
+      <label>Ver<select value={area} onChange={e=>setArea(e.target.value)}>{[['','Todos'],['beverages','Bebidas'],['kiosk','Kiosco'],['flavors','Helados · Sabores'],['other','Otros productos con stock'],['empty','Agotados'],['manual','Sin gestión de stock']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+    </section>
+    <div className="stock-filters"><label>Buscar<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Producto, insumo o sabor" /></label><label>Categoría<select value={category} onChange={e => setCategory(e.target.value)}><option value="">Todas</option>{[...new Set(items.map(r => r.category))].map(c => <option key={c}>{c}</option>)}</select></label><label>Modalidad<select value={mode} onChange={e => setMode(e.target.value)}><option value="">Todas</option><option value="unit">Por unidad</option><option value="containers">Recipientes de helado</option><option value="manual">Disponibilidad manual</option></select></label></div>
     {!loaded && !error && <p role="status">Consultando existencias…</p>}{loaded && !filtered.length && <p>No hay productos con estos filtros.</p>}
     {['unit', 'containers', 'manual'].map(group => {
       const rows = filtered.filter(r => r.mode === group);
@@ -327,8 +646,19 @@ export default function Stock() {
     })}
     {isAdmin && <p className="note">Primero configurá qué productos se controlan por unidad. Después cargá la entrada o el conteo inicial. Una entrada suma; un conteo establece la cantidad física y conserva la diferencia.</p>}
     {modal?.action === 'new-flavor' && <NewFlavor onClose={()=>setModal(null)} onSaved={saved}/>}
+    {modal?.action === 'new-product' && <NewStockProduct area={modal.area} categories={categories.length ? categories : (s.catalog?.categories || [])} onClose={()=>setModal(null)} onSaved={async (msg)=>{ await refresh(); saved(msg); }} />}
     {pendingOperation('flavor-create-'+s.user.id)&&<p className="note">Hay un sabor pendiente de confirmación. <button onClick={()=>setModal({action:'new-flavor'})}>Comprobar guardado</button></p>}
-    {modal?.action === 'pick' && <Modal title="Agregar stock" onClose={()=>setModal(null)}><p>Buscá el producto o insumo. Si todavía no tiene control de stock, primero elegí cómo se cuenta.</p><label>Buscar producto o insumo<input type="search" value={pickSearch} onChange={e=>setPickSearch(e.target.value)} autoFocus /></label><div className="stock-management">{items.filter(r=>r.name.toLocaleLowerCase().includes(pickSearch.toLocaleLowerCase())).map(row=><button key={row.id} className="secondary" disabled={!s.connected} onClick={()=>openAction(row,row.stockId&&row.mode!=='manual'?'receive':'configure')}>{row.name} · {row.stockId&&row.mode!=='manual'?'Agregar mercadería':'Configurar stock'}</button>)}</div><p>¿Es un producto nuevo? <a href="/atencion/carta">Crearlo en Gestionar carta</a> y después cargar sus existencias.</p></Modal>}
+    {pendingOperation('stock-product-create-'+s.user.id)&&<p className="note">Hay un producto pendiente de confirmación. <button onClick={()=>setModal({action:'new-product',area})}>Comprobar guardado</button></p>}
+    {modal?.action === 'pick' && <Modal title="Agregar stock" onClose={()=>setModal(null)}>
+      <p>Buscá el producto o insumo existente para sumarle stock, o creá uno nuevo directamente.</p>
+      <div className="catalog-actions" style={{marginBottom:14}}>
+        <button className="secondary" onClick={()=>setModal({action:'new-product',area:'beverages'})}>+ Nueva bebida</button>
+        <button className="secondary" onClick={()=>setModal({action:'new-product',area:'kiosk'})}>+ Nuevo producto de quiosco</button>
+        <button className="secondary" onClick={()=>setModal({action:'new-flavor'})}>+ Nuevo sabor</button>
+      </div>
+      <label>Buscar producto o insumo<input type="search" value={pickSearch} onChange={e=>setPickSearch(e.target.value)} autoFocus /></label>
+      <div className="stock-management">{items.filter(r=>r.name.toLocaleLowerCase().includes(pickSearch.toLocaleLowerCase())).map(row=><button key={row.id} className="secondary" disabled={!s.connected} onClick={()=>openAction(row,row.stockId&&row.mode!=='manual'?'receive':'configure')}>{row.name} · {row.stockId&&row.mode!=='manual'?'Agregar mercadería':'Configurar stock'}</button>)}</div>
+    </Modal>}
     {modal?.action === 'manage' && <Modal title={'Gestionar stock · ' + modal.row.name} onClose={() => setModal(null)}><p>Elegí la acción que necesitás.</p><div className="stock-management">{[
       ...(modal.row.productId || modal.row.flavorId ? [['configure', 'Configurar stock y disponibilidad']] : []),
       ...(modal.row.stockId && modal.row.mode !== 'manual' ? [['receive', '+ Agregar stock'], ['count', 'Ajustar por conteo'], ['out', 'Registrar salida sin venta']] : []),

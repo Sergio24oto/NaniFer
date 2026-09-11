@@ -233,3 +233,73 @@ def test_replacement_consumes_new_product_and_preserves_return_choice(fixture):
         moves=list(db.scalars(select(StockMovement).where(StockMovement.correction_id!=None,StockMovement.stock_id.in_([first,second]))))
         assert len(moves)==2 and all(m.order_item_id==line['id'] for m in moves)
         assert db.get(Sale,saleid).current_total==1200 and db.get(Payment,saleid).amount==1000
+
+
+def test_stock_product_creation_with_packaging_and_area(fixture):
+    f = fixture
+    promote(f)
+    listing = f['client'].get('/api/stock').json()
+    assert 'categories' in listing
+    assert len(listing['categories']) > 0
+
+    sup = supplier(f)
+    # 1. Agregar bebida por pack
+    body_bev = {
+        'name': 'Sprite 500ml ' + key()[:6],
+        'area': 'beverages',
+        'price': '1800.00',
+        'available': True,
+        'packageType': 'pack',
+        'packages': 2,
+        'unitsPerPackage': 6,
+        'receivedDate': str(date.today()),
+        'supplierId': sup,
+        'totalCost': '12000.00',
+        'initialStock': True
+    }
+    r_bev = post(f, '/stock/products', body_bev)
+    assert r_bev.status_code == 200, r_bev.text
+    bev_data = r_bev.json()
+    assert bev_data['quantity'] == 12
+    assert bev_data['stockArea'] == 'beverages'
+    sid_bev = bev_data['stockId']
+    f['product_ids'].append(bev_data['id'])
+    assert qty(sid_bev) == 12
+
+    with SessionLocal() as db:
+        m = db.scalar(select(StockMovement).where(StockMovement.stock_id == sid_bev))
+        assert m is not None
+        assert m.kind == 'receive'
+        assert m.purchase['type'] == 'pack'
+        assert m.purchase['packages'] == 2
+        assert m.purchase['units'] == 12
+        assert m.total_cost == Decimal('12000.00')
+
+    # 2. Agregar artículo de quiosco por cajón
+    body_kiosk = {
+        'name': 'Alfajor Havanna ' + key()[:6],
+        'area': 'kiosk',
+        'price': '2500.00',
+        'available': True,
+        'packageType': 'cajón',
+        'packages': 1,
+        'unitsPerPackage': 24,
+        'receivedDate': str(date.today()),
+        'initialStock': True
+    }
+    r_kiosk = post(f, '/stock/products', body_kiosk)
+    assert r_kiosk.status_code == 200, r_kiosk.text
+    kiosk_data = r_kiosk.json()
+    assert kiosk_data['quantity'] == 24
+    assert kiosk_data['stockArea'] == 'kiosk'
+    f['product_ids'].append(kiosk_data['id'])
+    assert qty(kiosk_data['stockId']) == 24
+
+    # 3. Nombre duplicado en misma categoría retorna 409
+    dup = post(f, '/stock/products', body_bev)
+    assert dup.status_code == 409
+
+    # 4. No admin retorna 403
+    promote(f, 'staff')
+    assert post(f, '/stock/products', {'name': 'Otra gaseosa', 'area': 'beverages'}).status_code == 403
+
