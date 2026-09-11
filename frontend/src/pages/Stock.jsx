@@ -53,12 +53,19 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
     scope = "stock-product-create-" + s.user.id,
     pending = pendingOperation(scope);
 
-  const matchingCats = (categories || []).filter(c => !area || c.stockArea === area);
-  const defaultCatId = matchingCats[0]?.id || (categories || [])[0]?.id || "";
+  const matchingCats = (categories || []).filter(c => {
+    if (!area) return true;
+    if (c.stockArea === area) return true;
+    if (area === "beverages" && c.name?.toLowerCase().includes("bebida")) return true;
+    if (area === "kiosk" && (c.name?.toLowerCase().includes("kiosco") || c.name?.toLowerCase().includes("quiosco"))) return true;
+    return false;
+  });
+  const defaultCatName = area === "beverages" ? "Bebidas" : area === "kiosk" ? "Kiosco" : "";
+  const defaultCatId = matchingCats[0]?.id || "__new__";
 
   const [name, setName] = useState(pending?.body.name || "");
   const [categoryId, setCategoryId] = useState(pending?.body.categoryId || defaultCatId);
-  const [categoryName, setCategoryName] = useState(pending?.body.categoryName || "");
+  const [categoryName, setCategoryName] = useState(pending?.body.categoryName || (defaultCatId === "__new__" ? defaultCatName : ""));
   const [price, setPrice] = useState(pending?.body.price ?? "");
   const [packageType, setPackageType] = useState(pending?.body.packageType || (area === "beverages" ? "pack" : "caja"));
   const [packages, setPackages] = useState(pending?.body.packages ?? 1);
@@ -134,7 +141,7 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
 
   const totalUnits = packages * (packageType === "unidades" ? 1 : unitsPerPackage);
   const unitCostCalc = totalCost && totalUnits > 0 ? (Number(totalCost) / totalUnits) : null;
-  const title = area === "beverages" ? "Agregar bebida" : area === "kiosk" ? "Agregar producto de quiosco" : "Agregar producto con stock";
+  const title = area === "beverages" ? "Agregar bebida" : area === "kiosk" ? "Agregar producto de kiosco" : "Agregar producto con stock";
 
   return (
     <Modal title={title} onClose={() => !busy && onClose()}>
@@ -143,7 +150,7 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
           {area === "beverages"
             ? "Cargá la bebida para incorporarla a la carta y registrar su ingreso inicial por envase (pack, cajón, etc.)."
             : area === "kiosk"
-            ? "Cargá el artículo de quiosco para incorporarlo a la carta y controlar sus existencias por unidad."
+            ? "Cargá el artículo de kiosco para incorporarlo a la carta y controlar sus existencias por unidad."
             : "Cargá el producto para incorporarlo a la carta y controlar sus existencias por unidad."}
         </p>
 
@@ -164,15 +171,17 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
             Categoría
             <select
               value={categoryId}
-              onChange={e => setCategoryId(e.target.value)}
+              onChange={e => {
+                const val = e.target.value;
+                setCategoryId(val);
+                if (val === "__new__" && !categoryName) {
+                  setCategoryName(defaultCatName);
+                }
+              }}
               required
             >
-              {matchingCats.length > 0 ? (
-                matchingCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)
-              ) : (
-                (categories || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)
-              )}
-              <option value="__new__">+ Crear nueva categoría para {area === "beverages" ? "Bebidas" : area === "kiosk" ? "Kiosco" : "esta sección"}</option>
+              {matchingCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <option value="__new__">+ Crear nueva categoría {area === "beverages" ? "para Bebidas" : area === "kiosk" ? "para Kiosco" : "en esta sección"}</option>
             </select>
           </label>
 
@@ -606,7 +615,19 @@ export default function Stock() {
       generation.current++;
     };
   }, []);
-  const filtered = items.filter(r => (!search || r.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())) && (!category || r.category === category) && (!mode || r.mode === mode) && (!area || (area==='flavors'&&r.mode==='containers') || (['beverages','kiosk'].includes(area)&&r.stockArea===area) || (area==='other'&&r.mode!=='manual'&&!['beverages','kiosk'].includes(r.stockArea)) || (area==='empty'&&r.mode!=='manual'&&r.quantity===0) || (area==='manual'&&r.mode==='manual')));
+  const filtered = items.filter(r => {
+    if (search && !r.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())) return false;
+    if (category && r.category !== category) return false;
+    if (mode && r.mode !== mode) return false;
+    if (!area) return true;
+    if (area === 'flavors') return r.mode === 'containers' || r.category?.toLowerCase().includes('sabor');
+    if (area === 'beverages') return r.stockArea === 'beverages' || r.category?.toLowerCase().includes('bebida');
+    if (area === 'kiosk') return r.stockArea === 'kiosk' || r.category?.toLowerCase().includes('kiosco') || r.category?.toLowerCase().includes('quiosco');
+    if (area === 'other') return r.mode !== 'manual' && r.stockArea !== 'beverages' && r.stockArea !== 'kiosk' && !r.category?.toLowerCase().includes('bebida') && !r.category?.toLowerCase().includes('kiosco') && !r.category?.toLowerCase().includes('quiosco');
+    if (area === 'empty') return r.mode !== 'manual' && r.quantity === 0;
+    if (area === 'manual') return r.mode === 'manual';
+    return true;
+  });
   const cones = items.filter(r => r.kind === 'cone');
   async function saved(text) {
     setModal(null);
@@ -630,7 +651,7 @@ export default function Stock() {
       <h2>Control principal de stock</h2>
       <div className="catalog-actions">{[['beverages','Bebidas'],['kiosk','Kiosco'],['flavors','Helados · Sabores']].map(([v,label])=><button key={v} className={area===v?'primary':'secondary'} onClick={()=>{setArea(v);setCategory('');setMode('');}}>{label}</button>)}</div>
       {area==='beverages'&&<div className="intro"><h3>Administrar bebidas</h3><p>Consultá bebidas y disponibilidad. Registrá compras por pack o cajón y controlá las existencias por unidad.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'beverages'})}>+ Agregar bebida</button>}</div>}
-      {area==='kiosk'&&<div className="intro"><h3>Administrar quiosco</h3><p>Consultá artículos de quiosco y disponibilidad. Registrá compras por caja o pack y controlá las existencias por unidad.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'kiosk'})}>+ Agregar producto de quiosco</button>}</div>}
+      {area==='kiosk'&&<div className="intro"><h3>Administrar kiosco</h3><p>Consultá artículos de kiosco y disponibilidad. Registrá compras por caja o pack y controlá las existencias por unidad.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'kiosk'})}>+ Agregar producto de kiosco</button>}</div>}
       {area==='flavors'&&<div className="intro"><h3>Administrar sabores de helado</h3><p>Consultá sabores y disponibilidad. El conteo de recipientes es independiente.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-flavor'})}>+ Agregar sabor</button>}</div>}
       <label>Ver<select value={area} onChange={e=>setArea(e.target.value)}>{[['','Todos'],['beverages','Bebidas'],['kiosk','Kiosco'],['flavors','Helados · Sabores'],['other','Otros productos con stock'],['empty','Agotados'],['manual','Sin gestión de stock']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
     </section>
@@ -645,7 +666,7 @@ export default function Stock() {
           }[group]}</h2>{group === 'containers' && <p>Vender helado no descuenta recipientes. La disponibilidad del sabor se decide manualmente.</p>}<div className="sales-table-scroll"><table className="sales-table"><thead><tr><th>{group === 'containers' ? 'Sabor' : 'Producto / insumo'}</th>{group !== 'containers' && <th>Categoría</th>}{group === 'unit' && <th>Existencia</th>}{group === 'containers' && <><th>Cerrados</th><th>Abiertos</th></>}<th>Estado de venta</th>{isAdmin && <th>Gestión</th>}</tr></thead><tbody>{rows.map(r => <tr key={r.id}><td><strong>{r.name}</strong></td>{group !== 'containers' && <td>{r.category}</td>}{group === 'unit' && <td>{r.quantity == null ? 'Sin carga inicial' : r.quantity + ' ' + r.unit}</td>}{group === 'containers' && <><td>{r.quantity ?? 'Sin carga inicial'}</td><td>{r.opened}</td></>}<td><Badge tone={r.available ? 'green' : 'amber'}>{r.availabilityReason || (r.available ? 'Disponible' : r.mode === 'manual' || r.mode === 'containers' ? 'Venta deshabilitada' : r.quantity == null ? 'Sin carga inicial de stock' : 'Sin stock')}</Badge></td>{isAdmin && <td>{actions(r)}</td>}</tr>)}</tbody></table></div></section>;
     })}
     {isAdmin && <p className="note">Primero configurá qué productos se controlan por unidad. Después cargá la entrada o el conteo inicial. Una entrada suma; un conteo establece la cantidad física y conserva la diferencia.</p>}
-    {modal?.action === 'new-flavor' && <NewFlavor onClose={()=>setModal(null)} onSaved={saved}/>}
+    {modal?.action === 'new-flavor' && <NewFlavor onClose={()=>setModal(null)} onSaved={async (msg)=>{ await refresh(); saved(msg); }}/>}
     {modal?.action === 'new-product' && <NewStockProduct area={modal.area} categories={categories.length ? categories : (s.catalog?.categories || [])} onClose={()=>setModal(null)} onSaved={async (msg)=>{ await refresh(); saved(msg); }} />}
     {pendingOperation('flavor-create-'+s.user.id)&&<p className="note">Hay un sabor pendiente de confirmación. <button onClick={()=>setModal({action:'new-flavor'})}>Comprobar guardado</button></p>}
     {pendingOperation('stock-product-create-'+s.user.id)&&<p className="note">Hay un producto pendiente de confirmación. <button onClick={()=>setModal({action:'new-product',area})}>Comprobar guardado</button></p>}
@@ -653,7 +674,7 @@ export default function Stock() {
       <p>Buscá el producto o insumo existente para sumarle stock, o creá uno nuevo directamente.</p>
       <div className="catalog-actions" style={{marginBottom:14}}>
         <button className="secondary" onClick={()=>setModal({action:'new-product',area:'beverages'})}>+ Nueva bebida</button>
-        <button className="secondary" onClick={()=>setModal({action:'new-product',area:'kiosk'})}>+ Nuevo producto de quiosco</button>
+        <button className="secondary" onClick={()=>setModal({action:'new-product',area:'kiosk'})}>+ Nuevo producto de kiosco</button>
         <button className="secondary" onClick={()=>setModal({action:'new-flavor'})}>+ Nuevo sabor</button>
       </div>
       <label>Buscar producto o insumo<input type="search" value={pickSearch} onChange={e=>setPickSearch(e.target.value)} autoFocus /></label>

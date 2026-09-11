@@ -275,7 +275,7 @@ def test_stock_product_creation_with_packaging_and_area(fixture):
         assert m.purchase['units'] == 12
         assert m.total_cost == Decimal('12000.00')
 
-    # 2. Agregar artículo de quiosco por cajón
+    # 2. Agregar artículo de kiosco por cajón
     body_kiosk = {
         'name': 'Alfajor Havanna ' + key()[:6],
         'area': 'kiosk',

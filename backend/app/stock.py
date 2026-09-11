@@ -92,6 +92,8 @@ def create_stock_product(data: StockProductCreateIn, key: str = Header(alias='Id
         cat = None
         if data.categoryId and data.categoryId != '__new__':
             cat = db.get(Category, data.categoryId)
+            if cat and data.area in ('beverages', 'kiosk') and cat.stock_area == 'other':
+                cat.stock_area = data.area
         if not cat:
             if data.area:
                 cat = db.scalar(select(Category).where(Category.stock_area == data.area).order_by(Category.sort_order))
@@ -105,7 +107,7 @@ def create_stock_product(data: StockProductCreateIn, key: str = Header(alias='Id
                     id=uid(),
                     name=default_name,
                     public_visible=True,
-                    sort_order=10,
+                    sort_order=5 if data.area == 'beverages' else 6 if data.area == 'kiosk' else 10,
                     stock_area=data.area or 'other',
                     note=''
                 )
@@ -224,8 +226,14 @@ def snapshot(db,search='',category='',mode='',area=''):
     result=[]
     for p in products:
         r=by_product.get(p.id); available,_=catalog_availability(p,index)
+        cat_name = categories.get(p.category_id, 'Sin categoría')
+        cat_area = areas.get(p.category_id, 'other')
+        if cat_area == 'other':
+            cn = cat_name.lower()
+            if 'bebida' in cn: cat_area = 'beverages'
+            elif 'kiosco' in cn or 'quiosco' in cn: cat_area = 'kiosk'
         result.append(dict(id='product:'+p.id,stockId=r.id if r else None,productId=p.id,name=p.name,
-            category=categories[p.category_id],stockArea=areas[p.category_id],unitsPerPackage=r.units_per_package if r else 1,coneEligible=bool(p.cone_links) or any(z.get("max",0)>0 for z in p.sizes),mode=p.stock_mode,unit=r.unit if r else 'sin conteo',
+            category=cat_name,stockArea=cat_area,unitsPerPackage=r.units_per_package if r else 1,coneEligible=bool(p.cone_links) or any(z.get("max",0)>0 for z in p.sizes),mode=p.stock_mode,unit=r.unit if r else 'sin conteo',
             quantity=r.quantity if r and p.stock_mode=='unit' else None,opened=None,version=r.version if r else 0,
             available=available,availabilityReason=availability_reason(p,index),manualAvailable=p.available,coneLinks=p.cone_links,sizes=[s['name'] for s in p.sizes]))
     for r in stock:
