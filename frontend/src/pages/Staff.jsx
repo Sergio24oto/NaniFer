@@ -147,19 +147,19 @@ export function Account({
           </div>
           {a && (
             <div className="balance-badge-card">
-              <div className="balance-item">
-                <span>Consumos</span>
-                <strong>{money(a?.total || 0)}</strong>
+              <div className="balance-row">
+                <span className="balance-lbl">Consumos</span>
+                <span className="balance-val">{money(a?.total || 0)}</span>
               </div>
-              <div className="balance-item">
-                <span>Pagado</span>
-                <strong>{money(a?.paid || 0)}</strong>
+              <div className="balance-row">
+                <span className="balance-lbl">Pagado</span>
+                <span className="balance-val">{money(a?.paid || 0)}</span>
               </div>
-              <div className="balance-item highlight">
-                <span>Pendiente</span>
-                <strong className={a?.balance > 0 ? "balance-due" : "balance-paid"}>
+              <div className="balance-row highlight">
+                <span className="balance-lbl">Pendiente</span>
+                <span className={a?.balance > 0 ? "balance-val balance-due" : "balance-val balance-paid"}>
                   {money(a?.balance || 0)}
-                </strong>
+                </span>
               </div>
             </div>
           )}
@@ -222,12 +222,12 @@ export function Account({
                   <div className="order-meta">
                     <span className="order-time">🕒 {time(o.createdAt)}</span>
                     {o.origin === "qr" ? (
-                      <Badge tone="red">📱 Pedido QR del cliente</Badge>
+                      <span className="badge-qr-origin">📱 Pedido QR</span>
                     ) : (
-                      <Badge tone="amber">📝 Comanda de salón{o.createdByName ? " · " + o.createdByName : ""}</Badge>
+                      <span className="badge-salon-origin">📝 Salón{o.createdByName ? " · " + o.createdByName : ""}</span>
                     )}
                   </div>
-                  <Badge tone={o.status === "entregado" ? "green" : o.status === "listo para entregar" ? "amber" : "red"}>
+                  <Badge tone={o.status === "entregado" ? "green" : o.status === "listo para entregar" ? "green" : "amber"}>
                     {o.status.toUpperCase()}
                   </Badge>
                 </div>
@@ -243,7 +243,7 @@ export function Account({
                   {o.status !== "entregado" && (
                     <button
                       type="button"
-                      className="primary deliver-order-btn"
+                      className="deliver-order-btn"
                       disabled={busy || !s.connected}
                       onClick={() => run(() => mutate("/orders/" + o.id + "/deliver", {}))}
                     >

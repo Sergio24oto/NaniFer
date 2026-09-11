@@ -303,9 +303,9 @@ main {
   color: #977143;
 }
 .badge.red {
-  background: #fee2e2;
-  color: #b91c1c;
-  border: 1px solid #fca5a5;
+  background: #fdf2f5;
+  color: #9f1239;
+  border: 1px solid #f8c9dc;
   font-weight: 700;
 }
 .table-bottom {
