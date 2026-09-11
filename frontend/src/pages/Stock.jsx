@@ -43,6 +43,11 @@ function DownloadReport({
     }
   }}>{busy ? 'Generando…' : 'Descargar PDF'}</button>;
 }
+function NewFlavor({onClose,onSaved}){
+ const s=useStore(),scope='flavor-create-'+s.user.id,pending=pendingOperation(scope);
+ const [name,setName]=useState(pending?.body.name||''),[available,setAvailable]=useState(pending?.body.available??true),[busy,setBusy]=useState(false),[error,setError]=useState('');const lock=useRef(false);
+ return <Modal title="Agregar sabor de helado" onClose={()=>!busy&&onClose()}><form onSubmit={async e=>{e.preventDefault();if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await submitOnce(scope,'/stock/flavors',{name,available});onSaved('Sabor agregado correctamente. Ya podés gestionar su disponibilidad y recibir sus recipientes.');}catch(e){setError(e.message);}finally{lock.current=false;setBusy(false);}}}><p>El sabor se incorpora al catálogo compartido. Los recipientes se cargan después, sin inventar existencias.</p><fieldset disabled={busy||!!pending}><label>Nombre del sabor<input required maxLength={100} value={name} onChange={e=>setName(e.target.value)} placeholder="Por ejemplo: chocolate con almendras"/></label><label className="option"><input type="checkbox" checked={available} onChange={e=>setAvailable(e.target.checked)}/>Disponible para elegir en los helados</label></fieldset>{error&&<p className="alert" role="alert">{error}</p>}{pending&&!busy&&<p className="note">El resultado aún no se confirmó. Reintentá con la misma operación.</p>}<button className="primary full" disabled={busy||!s.connected||!name.trim()}>{busy?'Guardando…':pending?'Reintentar de forma segura':'Agregar sabor'}</button></form></Modal>;
+}
 function Configure({
   row,
   cones,
@@ -73,7 +78,7 @@ function Configure({
         mode,
         unit,
         available,
-        coneLinks: links
+        coneLinks: mode === "manual" ? {} : links
       });
       onSaved('Configuración guardada.');
     } catch (e) {
@@ -87,7 +92,7 @@ function Configure({
     <p>Los cambios se aplican a nuevos pedidos. No se descuentan pedidos históricos ni se cambia el precio de venta.</p>
     {error && <p className="alert" role="alert">{error}</p>}{pending && !busy && <p className="note">Reintentá la misma configuración pendiente.</p>}
     <fieldset disabled={busy || !!pending}><legend>Control y disponibilidad</legend>
-      {!row.flavorId && <><label>Modalidad<select value={mode} onChange={e => setMode(e.target.value)}><option value="manual">Disponibilidad manual · sin conteo</option><option value="unit">Stock por unidad</option></select></label>{mode === 'unit' && <label>Unidad de control<select value={unit} onChange={e => setUnit(e.target.value)}><option value="unidades">Unidades</option><option value="porciones">Porciones de torta</option></select></label>}</>}
+      {!row.flavorId && <><label>Gestionar stock de este producto<select value={mode} onChange={e => setMode(e.target.value)}><option value="manual">No · disponibilidad manual</option><option value="unit">Sí · por unidad</option></select></label>{mode === 'unit' && <label>Unidad de control<select value={unit} onChange={e => setUnit(e.target.value)}><option value="unidades">Unidades</option><option value="porciones">Porciones de torta</option></select></label>}</>}
       <label className="option"><input type="checkbox" checked={available} onChange={e => setAvailable(e.target.checked)} />Habilitar venta {row.flavorId ? 'de este sabor' : ''}</label>
       {row.flavorId ? <p>Los recipientes se cuentan aparte. Abrir o terminar uno no cambia esta disponibilidad manual.</p> : row.coneEligible && <details><summary>Cucurucho utilizado · solo para presentaciones de helado</summary><p>Una unidad consume un cucurucho. No se agrega otro precio a la venta.</p>{(row.sizes.length ? row.sizes : ['']).map(size => <label key={size}>{size || 'Presentación única'}<select value={links[size] || ''} onChange={e => {
               const value = e.target.value;
@@ -123,7 +128,8 @@ function Movement({
     supplierId: null,
     unitCost: null,
     totalCost: null,
-    name: row.name
+    name: row.name,
+    ...(action==='receive' && row.mode!=='containers' && row.unit!=='porciones' ? {packageType:'pack',packages:1,unitsPerPackage:row.unitsPerPackage||1,receivedDate:today()} : {})
   });
   const [suppliers, setSuppliers] = useState([]),
     [supplierName, setSupplierName] = useState(''),
@@ -177,7 +183,7 @@ function Movement({
       <fieldset disabled={busy || !!pending || !!preview}><legend>Datos del movimiento</legend>
         {body.action === 'rename' ? <label>Nombre del cucurucho<input required maxLength={150} value={body.name} onChange={e => patch({
             name: e.target.value
-          })} /></label> : <label>{body.action === 'count' ? 'Cantidad física contada' : body.action === 'receive' && row.unit === 'porciones' ? 'Cantidad de porciones disponibles' : body.action === 'receive' ? (row.mode === 'containers' ? 'Cantidad de potes recibidos' : 'Cantidad de unidades recibidas') : body.action === 'open' ? 'Cantidad de potes a abrir' : body.action === 'finish' ? 'Cantidad de potes terminados' : 'Cantidad'}<input type="number" min={body.action === 'count' ? 0 : 1} max="1000000000" step="1" required value={body.quantity} onChange={e => patch({
+          })} /></label> : body.packageType ? <><label>Presentación de compra<select value={body.packageType} onChange={e=>patch({packageType:e.target.value,...(e.target.value==='unidades'?{unitsPerPackage:1}:{})})}>{['pack','cajón','caja','unidades'].map(x=><option key={x}>{x}</option>)}</select></label><label>Cantidad de envases<input required type="number" min="1" max="1000000" value={body.packages} onChange={e=>patch({packages:Number(e.target.value)})}/></label><label>Unidades por envase<input required disabled={body.packageType==='unidades'} type="number" min="1" max="10000" value={body.unitsPerPackage} onChange={e=>patch({unitsPerPackage:Number(e.target.value)})}/></label><p><strong>{body.packages} × {body.unitsPerPackage} = {body.packages*body.unitsPerPackage} unidades</strong></p><label>Fecha de recepción<input required type="date" value={body.receivedDate} onChange={e=>patch({receivedDate:e.target.value})}/></label></> : <label>{body.action === 'count'  ? 'Cantidad física contada' : body.action === 'receive' && row.unit === 'porciones' ? 'Cantidad de porciones disponibles' : body.action === 'receive' ? (row.mode === 'containers' ? 'Cantidad de potes recibidos' : 'Cantidad de unidades recibidas') : body.action === 'open' ? 'Cantidad de potes a abrir' : body.action === 'finish' ? 'Cantidad de potes terminados' : 'Cantidad'}<input type="number" min={body.action === 'count' ? 0 : 1} max="1000000000" step="1" required value={body.quantity} onChange={e => patch({
             quantity: Number(e.target.value)
           })} /></label>}
         {row.mode === 'containers' && ['count', 'out'].includes(body.action) && <label>Afecta a<select value={body.bucket} onChange={e => patch({
@@ -197,7 +203,7 @@ function Movement({
               setSupplierName('');
               setContact('');
             })}>Guardar proveedor</button></details>
-          <label>{row.unit === 'porciones' ? 'Costo total de la compra ($)' : row.mode === 'containers' ? 'Costo por pote ($)' : 'Costo por unidad ($)'}<input type="number" min="0" step={row.unit === 'porciones' ? '0.01' : '0.000001'} required value={(row.unit === 'porciones' ? body.totalCost : body.unitCost) ?? ''} onChange={e => patch(row.unit === 'porciones' ? {
+          <label>{(row.unit === 'porciones' || body.packageType) ? 'Costo total de la compra ($)' : row.mode === 'containers' ? 'Costo por pote ($)' : 'Costo por unidad ($)'}<input type="number" min="0" step={(row.unit === 'porciones' || body.packageType) ? '0.01' : '0.000001'} required value={((row.unit === 'porciones' || body.packageType) ? body.totalCost : body.unitCost) ?? ''} onChange={e => patch((row.unit === 'porciones' || body.packageType) ? {
               totalCost: e.target.value,
               unitCost: null
             } : {
@@ -250,7 +256,7 @@ function History({
           correction_return: 'Corrección: reposición',
           correction_out: 'Corrección: consumo',
           correction_no_return: 'Corrección: sin reposición'
-        }[r.kind] || r.kind}</strong><p>{stamp(r.createdAt)} · {r.user}</p><p>{r.before ?? 'Sin carga'} → {r.after} {row.unit}{row.mode === 'containers' ? ' · abiertos: ' + r.openedBefore + ' → ' + r.openedAfter : ''}</p>{r.supplier && <p>Proveedor: {r.supplier} · Costo unitario: {Number(r.unitCost).toLocaleString('es-AR', {
+        }[r.kind] || r.kind}</strong><p>{stamp(r.createdAt)} · {r.user}</p><p>{r.before ?? 'Sin carga'} → {r.after} {row.unit}{row.mode === 'containers' ? ' · abiertos: ' + r.openedBefore + ' → ' + r.openedAfter : ''}</p>{r.purchase&&<p>{r.purchase.packages} {r.purchase.type} × {r.purchase.unitsPerPackage} unidades · Recepción: {r.purchase.date}</p>}{r.supplier && <p>Proveedor: {r.supplier} · Costo unitario: {Number(r.unitCost).toLocaleString('es-AR', {
           maximumFractionDigits: 6
         })} · Total: {money(r.totalCost)}</p>}{r.note && <p>{r.note}</p>}{r.orderItemId && <small>Línea de pedido: {r.orderItemId}</small>}{r.correctionId && <small>Corrección: {r.correctionId}</small>}</article>)}</Modal>;
 }
@@ -265,6 +271,7 @@ export default function Stock() {
     [category, setCategory] = useState(''),
     [mode, setMode] = useState(''),
     [modal, setModal] = useState(null);
+  const [area,setArea]=useState('');
   const [pickSearch,setPickSearch] = useState("");
   const generation = useRef(0);
   async function load() {
@@ -288,7 +295,7 @@ export default function Stock() {
       generation.current++;
     };
   }, []);
-  const filtered = items.filter(r => (!search || r.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())) && (!category || r.category === category) && (!mode || r.mode === mode));
+  const filtered = items.filter(r => (!search || r.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())) && (!category || r.category === category) && (!mode || r.mode === mode) && (!area || (area==='flavors'&&r.mode==='containers') || (['beverages','kiosk'].includes(area)&&r.stockArea===area) || (area==='other'&&r.mode!=='manual'&&!['beverages','kiosk'].includes(r.stockArea)) || (area==='empty'&&r.mode!=='manual'&&r.quantity===0) || (area==='manual'&&r.mode==='manual')));
   const cones = items.filter(r => r.kind === 'cone');
   async function saved(text) {
     setModal(null);
@@ -305,10 +312,10 @@ export default function Stock() {
   return <main className="stock-page"><div className="page-heading"><div className="intro"><span className="eyebrow">EXISTENCIAS</span><h1>Stock</h1>{isAdmin && <button className="primary" disabled={!loaded || !s.connected} onClick={()=>{setPickSearch("");setModal({action:"pick"});}}>+ Agregar stock</button>}<p>{isAdmin ? 'Entradas, conteos y disponibilidad del local.' : 'Consulta de cantidades y disponibilidad.'}</p></div>{isAdmin && <DownloadReport filters={{
         search,
         category,
-        mode
+        mode,area
       }} disabled={!loaded || !s.connected || !!error} onError={setError} />}</div>
     {error && <p className="alert" role="alert">{error}<button onClick={() => void load()}>Reintentar</button></p>}{message && <p className="success" role="status">{message}</p>}
-    <div className="stock-filters"><label>Buscar<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Producto, insumo o sabor" /></label><label>Categoría<select value={category} onChange={e => setCategory(e.target.value)}><option value="">Todas</option>{[...new Set(items.map(r => r.category))].map(c => <option key={c}>{c}</option>)}</select></label><label>Modalidad<select value={mode} onChange={e => setMode(e.target.value)}><option value="">Todas</option><option value="unit">Por unidad</option><option value="containers">Recipientes de helado</option><option value="manual">Disponibilidad manual</option></select></label></div>
+    <section className="panel"><h2>Control principal de stock</h2><div className="catalog-actions">{[['beverages','Bebidas'],['kiosk','Kiosco'],['flavors','Helados · Sabores']].map(([v,label])=><button key={v} className={area===v?'primary':'secondary'} onClick={()=>{setArea(v);setCategory('');setMode('');}}>{label}</button>)}</div>{area==='flavors'&&<div className="intro"><h3>Administrar sabores de helado</h3><p>Consultá sabores y disponibilidad. El conteo de recipientes es independiente.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-flavor'})}>+ Agregar sabor</button>}</div>}<label>Ver<select value={area} onChange={e=>setArea(e.target.value)}>{[['','Todos'],['beverages','Bebidas'],['kiosk','Kiosco'],['flavors','Helados · Sabores'],['other','Otros productos con stock'],['empty','Agotados'],['manual','Sin gestión de stock']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label></section><div className="stock-filters"><label>Buscar<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Producto, insumo o sabor" /></label><label>Categoría<select value={category} onChange={e => setCategory(e.target.value)}><option value="">Todas</option>{[...new Set(items.map(r => r.category))].map(c => <option key={c}>{c}</option>)}</select></label><label>Modalidad<select value={mode} onChange={e => setMode(e.target.value)}><option value="">Todas</option><option value="unit">Por unidad</option><option value="containers">Recipientes de helado</option><option value="manual">Disponibilidad manual</option></select></label></div>
     {!loaded && !error && <p role="status">Consultando existencias…</p>}{loaded && !filtered.length && <p>No hay productos con estos filtros.</p>}
     {['unit', 'containers', 'manual'].map(group => {
       const rows = filtered.filter(r => r.mode === group);
@@ -319,6 +326,8 @@ export default function Stock() {
           }[group]}</h2>{group === 'containers' && <p>Vender helado no descuenta recipientes. La disponibilidad del sabor se decide manualmente.</p>}<div className="sales-table-scroll"><table className="sales-table"><thead><tr><th>{group === 'containers' ? 'Sabor' : 'Producto / insumo'}</th>{group !== 'containers' && <th>Categoría</th>}{group === 'unit' && <th>Existencia</th>}{group === 'containers' && <><th>Cerrados</th><th>Abiertos</th></>}<th>Estado de venta</th>{isAdmin && <th>Gestión</th>}</tr></thead><tbody>{rows.map(r => <tr key={r.id}><td><strong>{r.name}</strong></td>{group !== 'containers' && <td>{r.category}</td>}{group === 'unit' && <td>{r.quantity == null ? 'Sin carga inicial' : r.quantity + ' ' + r.unit}</td>}{group === 'containers' && <><td>{r.quantity ?? 'Sin carga inicial'}</td><td>{r.opened}</td></>}<td><Badge tone={r.available ? 'green' : 'amber'}>{r.availabilityReason || (r.available ? 'Disponible' : r.mode === 'manual' || r.mode === 'containers' ? 'Venta deshabilitada' : r.quantity == null ? 'Sin carga inicial de stock' : 'Sin stock')}</Badge></td>{isAdmin && <td>{actions(r)}</td>}</tr>)}</tbody></table></div></section>;
     })}
     {isAdmin && <p className="note">Primero configurá qué productos se controlan por unidad. Después cargá la entrada o el conteo inicial. Una entrada suma; un conteo establece la cantidad física y conserva la diferencia.</p>}
+    {modal?.action === 'new-flavor' && <NewFlavor onClose={()=>setModal(null)} onSaved={saved}/>}
+    {pendingOperation('flavor-create-'+s.user.id)&&<p className="note">Hay un sabor pendiente de confirmación. <button onClick={()=>setModal({action:'new-flavor'})}>Comprobar guardado</button></p>}
     {modal?.action === 'pick' && <Modal title="Agregar stock" onClose={()=>setModal(null)}><p>Buscá el producto o insumo. Si todavía no tiene control de stock, primero elegí cómo se cuenta.</p><label>Buscar producto o insumo<input type="search" value={pickSearch} onChange={e=>setPickSearch(e.target.value)} autoFocus /></label><div className="stock-management">{items.filter(r=>r.name.toLocaleLowerCase().includes(pickSearch.toLocaleLowerCase())).map(row=><button key={row.id} className="secondary" disabled={!s.connected} onClick={()=>openAction(row,row.stockId&&row.mode!=='manual'?'receive':'configure')}>{row.name} · {row.stockId&&row.mode!=='manual'?'Agregar mercadería':'Configurar stock'}</button>)}</div><p>¿Es un producto nuevo? <a href="/atencion/carta">Crearlo en Gestionar carta</a> y después cargar sus existencias.</p></Modal>}
     {modal?.action === 'manage' && <Modal title={'Gestionar stock · ' + modal.row.name} onClose={() => setModal(null)}><p>Elegí la acción que necesitás.</p><div className="stock-management">{[
       ...(modal.row.productId || modal.row.flavorId ? [['configure', 'Configurar stock y disponibilidad']] : []),

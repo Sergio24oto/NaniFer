@@ -32,8 +32,7 @@ export function itemInput(i) {
 }
 export function estimate(p, size, extras) {
   return (
-    p.price +
-    (p.sizes?.find((s) => s.name === size)?.price || 0) +
+    (p.sizes?.find((s) => s.name === size)?.salePrice != null ? Number(p.sizes.find(s=>s.name===size).salePrice) : p.price + (p.sizes?.find((s) => s.name === size)?.price || 0)) +
     (extras || []).reduce(
       (n, e) => n + (p.extras?.find((x) => x.name === e)?.price || 0),
       0,

@@ -23,8 +23,8 @@ def build_pdf(items,filters):
     if logo.exists():
         image=Image(str(logo),width=80,height=80);image.hAlign='LEFT';story.append(image)
     story += [p('NaniFer | Existencias','Heading1'),p('Generado: '+generated+' - Argentina'),Spacer(1,10)]
-    names={'search':'Búsqueda','category':'Categoría','mode':'Modalidad'};modes={'unit':'Unidades','containers':'Recipientes','manual':'Disponibilidad manual'}
-    active=[names[k]+': '+(modes.get(v,v) if k=='mode' else v) for k,v in filters.items() if v]
+    names={'search':'Búsqueda','category':'Categoría','mode':'Modalidad','area':'Área'};modes={'unit':'Unidades','containers':'Recipientes','manual':'Disponibilidad manual','beverages':'Bebidas','kiosk':'Kiosco','other':'Otros con stock','empty':'Agotados','flavors':'Helados · Sabores'}
+    active=[names[k]+': '+modes.get(v,v) for k,v in filters.items() if v]
     story += [p('Filtros: '+(' · '.join(active) if active else 'Todos los productos y sabores')),p('Las cantidades se muestran por su unidad de control. No se suman unidades incompatibles.'),Spacer(1,12)]
     normal=[r for r in items if r['mode']!='containers']
     for category in sorted(set(r['category'] for r in normal)):

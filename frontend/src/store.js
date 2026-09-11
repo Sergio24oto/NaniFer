@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { operationId } from "./domain.js";
-const blank = { accounts: [], orders: [], payments: [], staff: [], reservations: [], calendarToday: null };
+const blank = { accounts: [], orders: [], payments: [], staff: [], reservations: [], calls: [], calendarToday: null };
 let state = {
   ...blank,
   catalog: { products: [], categories: [], flavors: [] },
@@ -28,7 +28,7 @@ export function useStore() {
 }
 export async function request(
   path,
-  { method = "GET", body, key, asBlob = false } = {},
+  { method = "GET", body, key, asBlob = false, device } = {},
 ) {
   let response;
   try {
@@ -40,6 +40,7 @@ export async function request(
         "X-Requested-With": "NaniFer",
         "X-CSRF-Token": state.csrf,
         ...(key ? { "Idempotency-Key": key } : {}),
+        ...(device ? {'X-Public-Device':device} : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(10000),

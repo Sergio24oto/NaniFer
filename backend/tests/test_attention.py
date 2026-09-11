@@ -175,3 +175,27 @@ def test_reservation_created_while_occupied_preserves_current_visit(fixture):
         r=db.get(Reservation,result.json()['id'])
         assert r.created_by==f['user_id'] and r.updated_by==f['user_id']
         assert r.active_date==calendar_today()+timedelta(days=40)
+
+
+def test_direct_delivery_and_deliver_all_to_liberate_table(fixture):
+    f = fixture
+    v = f['client'].post(f"/api/tables/{f['table']}/open").json()['id']
+    qr = post(f, '/visits/' + v + '/orders', {'expectedAccount': v, 'needsPreparation': True, 'items': [{'productId': f['product'], 'quantity': 1}]})
+    assert qr.status_code == 200
+    oid = qr.json()['id']
+    with SessionLocal() as db:
+        assert db.get(Order, oid).status == 'pendiente'
+    assert pay(f, v, 1000).status_code == 200
+    assert f['client'].post('/api/visits/' + v + '/close').status_code == 409
+    assert f['client'].post('/api/visits/' + v + '/deliver-all').status_code == 200
+    with SessionLocal() as db:
+        assert db.get(Order, oid).status == 'entregado'
+    assert f['client'].post('/api/visits/' + v + '/close').status_code == 200
+    v2 = f['client'].post(f"/api/tables/{f['table']}/open").json()['id']
+    qr2 = post(f, '/visits/' + v2 + '/orders', {'expectedAccount': v2, 'needsPreparation': True, 'items': [{'productId': f['product'], 'quantity': 1}]})
+    oid2 = qr2.json()['id']
+    assert f['client'].post(f"/api/orders/{oid2}/deliver").status_code == 200
+    with SessionLocal() as db:
+        assert db.get(Order, oid2).status == 'entregado'
+    assert pay(f, v2, 1000).status_code == 200
+    assert f['client'].post('/api/visits/' + v2 + '/close').status_code == 200

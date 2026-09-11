@@ -15,7 +15,8 @@ def components(db, product, size):
     if product.stock_mode=='unit':
         item=db.scalar(select(StockItem).where(StockItem.product_id==product.id))
         if not item: fail('Falta configurar las existencias de '+product.name,422)
-        ids.append(item.id)
+        presentation=next((s for s in product.sizes if s['name']==size),{})
+        ids.extend([item.id]*presentation.get('stockUnits',1))
     cone=(product.cone_links or {}).get(size)
     if cone: ids.append(cone)
     return ids
@@ -68,7 +69,7 @@ def catalog_availability(product, stock):
     def available(size):
         cone=(product.cone_links or {}).get(size)
         return bool(base and (not cone or (cone in stock and (stock[cone].quantity or 0)>0)))
-    sizes=[{**s,'available':available(s['name'])} for s in product.sizes]
+    sizes=[{**s,'available':available(s['name']) and s.get('enabled',True) and (product.stock_mode!='unit' or (own is not None and (own.quantity or 0)>=s.get('stockUnits',1)))} for s in sorted(product.sizes,key=lambda s:s.get('order',0))]
     return (any(s['available'] for s in sizes) if sizes else available('')),sizes
 
 

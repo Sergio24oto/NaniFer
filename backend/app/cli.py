@@ -1,4 +1,4 @@
-import argparse, getpass, json
+import argparse, getpass, json, os
 from pathlib import Path
 from decimal import Decimal
 from sqlalchemy import select, text
@@ -51,6 +51,11 @@ def seed(db):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["check-db", "seed-demo", "create-user"])
+    parser.add_argument("--force", action="store_true", help="Forzar seed-demo en cualquier base")
+    parser.add_argument("--username", help="Usuario para create-user")
+    parser.add_argument("--name", help="Nombre visible para create-user")
+    parser.add_argument("--role", choices=["staff", "admin"], help="Rol para create-user")
+    parser.add_argument("--password", help="Contraseña (mínimo 12 caracteres)")
     args = parser.parse_args()
     try:
         with SessionLocal() as db:
@@ -59,24 +64,28 @@ def main():
                 print("MySQL accesible.")
                 return
             if args.command == "seed-demo":
-                if not settings.db_name.endswith(("_dev", "_test")):
+                allow_force = args.force or os.environ.get("ALLOW_SEED", "").lower() in ("true", "1", "yes")
+                if not allow_force and not settings.db_name.endswith(("_dev", "_test")):
                     raise SystemExit(
-                        "Solo se permiten ejemplos en bases terminadas en _dev o _test."
+                        "Solo se permiten ejemplos en bases terminadas en _dev o _test (usá --force o ALLOW_SEED=true si querés poblar datos de muestra)."
                     )
                 seed(db)
                 print("Ejemplos agregados. No se actualizaron registros existentes.")
                 return
-            username = input("Usuario: ").strip()
-            name = input("Nombre visible: ").strip()
-            role = input("Rol (staff/admin): ").strip()
+            username = (args.username or input("Usuario: ")).strip()
+            name = (args.name or input("Nombre visible: ")).strip()
+            role = (args.role or input("Rol (staff/admin): ")).strip()
             if not username or not name or role not in ("staff", "admin"):
                 raise SystemExit("Datos invalidos.")
             if db.scalar(select(User).where(User.username == username)):
                 raise SystemExit("El usuario ya existe; no se modifico.")
-            password = getpass.getpass("Contrasena (minimo 12 caracteres): ")
-            if len(password) < 12 or password != getpass.getpass(
-                "Repetir contrasena: "
-            ):
+            if args.password:
+                password = args.password
+            else:
+                password = getpass.getpass("Contrasena (minimo 12 caracteres): ")
+                if password != getpass.getpass("Repetir contrasena: "):
+                    raise SystemExit("Contrasenas invalidas.")
+            if len(password) < 12:
                 raise SystemExit("Contrasenas invalidas.")
             db.add(
                 User(

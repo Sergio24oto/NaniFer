@@ -74,6 +74,7 @@ def priced_item(db, item, *, require_flavors=True):
     size = next((s for s in p.sizes if s["name"] == item.size), None)
     if p.sizes and not size:
         fail("Elegí un tamaño válido.", 422)
+    if size and not size.get('enabled',True):fail('Presentación deshabilitada.',422)
     if not p.sizes and item.size:
         fail("Este producto no tiene tamaños.", 422)
     maximum = (size or {}).get("max", 0)
@@ -92,10 +93,8 @@ def priced_item(db, item, *, require_flavors=True):
     ):
         fail("Extra inválido.", 422)
     price = (
-        p.price
-        + Decimal(str((size or {}).get("price", 0)))
-        + sum((Decimal(str(extras[e]["price"])) for e in item.extras), Decimal(0))
-    )
+        Decimal(str(size['salePrice'])) if size and size.get('salePrice') is not None else p.price + Decimal(str((size or {}).get("price", 0)))
+    ) + sum((Decimal(str(extras[e]["price"])) for e in item.extras), Decimal(0))
     snapshot = item.model_dump()
     snapshot.update(name=p.name)
     return snapshot, price
@@ -248,6 +247,7 @@ def state_for(db, visits, internal=False):
         "orders": [
             {
                 "id": o.id,
+                "number": o.number,
                 "accountId": o.visit_id,
                 "table": next(v.table_number for v in visits if v.id == o.visit_id),
                 "createdAt": iso(o.created_at),

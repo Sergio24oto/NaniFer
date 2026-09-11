@@ -47,6 +47,7 @@
 summary { cursor:pointer; }
 .saved-order { border-top:1px solid #ded8cf; padding-top:14px; margin-top:14px; }
 .saved-order .badge { font-size:11px; }
+.saved-order .deliver-order-btn { margin-top:8px; width:100%; min-height:34px; font-size:13px; font-weight:600; }
 .reservation-row { padding:14px 0; border-top:1px solid #ddd; }
 .reservation-row > small { display:block; }
 .reservation-row .row { justify-content:flex-start; gap:14px; margin-top:10px; }
@@ -67,6 +68,7 @@ button:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
 .salon-compact .page-heading {align-items:flex-start;gap:10px;flex-wrap:wrap;}
 }
 
-.release-table {margin:16px 0;padding:14px;border:1px solid #a7cbb8;border-radius:12px;background:#f0f8f3;} .release-table button {min-height:48px;font-size:17px;border:2px solid #317452;color:#23593f;background:white;} .release-table small {display:block;margin-top:8px;color:#405d4c;font-size:14px;} .release-table button:disabled {opacity:.5;cursor:not-allowed;}
+.release-table {margin:16px 0;padding:14px;border:1px solid #a7cbb8;border-radius:12px;background:#f0f8f3;} .release-table button {min-height:48px;font-size:17px;border:2px solid #317452;color:#23593f;background:white;} .release-table button.primary {background:#246d51;color:white;border:none;} .release-table button.primary:not(:disabled):hover {background:#1b543e;} .release-table small {display:block;margin-top:8px;color:#405d4c;font-size:14px;} .release-table button:disabled {opacity:.5;cursor:not-allowed;}
 
 .table-card-actions {display:flex;flex-direction:column;gap:8px;} .table-open {border:0;background:transparent;text-align:left;width:100%;padding:0;color:inherit;flex:1;} .table-open .row {width:100%;} .reserve-table {min-height:36px;width:100%;} .has-reservation {border-color:#78b9b2;} .draft-hint {display:block;background:#fff2d7;color:#704e14;padding:5px 8px;border-radius:6px;margin-top:6px;} .counter-card {border:2px solid var(--brand-teal);}
+.call-badge{background:#d7eee4;color:#174a39;padding:10px;border-radius:10px;display:grid;gap:6px}.table-card:has(.call-badge){animation:call-attention 5s ease-out}@keyframes call-attention{0%,35%{background:#80cfac;box-shadow:0 0 0 3px #4a9b76}100%{box-shadow:none}}

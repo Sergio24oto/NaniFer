@@ -33,7 +33,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
                 }}
               />
               {z.name}{z.available === false ? " · Sin stock" : ""}
-              <span>{z.price ? "+ " + money(z.price) : "Incluido"}</span>
+              <span>{z.salePrice != null ? money(z.salePrice) : z.price ? "+ " + money(z.price) : "Incluido"}</span>
             </label>
           ))}
         </fieldset>

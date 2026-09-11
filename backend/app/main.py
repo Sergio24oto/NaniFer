@@ -38,7 +38,7 @@ async def browser_guard(request, call_next):
         return JSONResponse(
             status_code=403, content={"detail": "Solicitud no autorizada."}
         )
-    if request.method == "POST" and request.url.path.startswith("/api/public/"):
+    if request.method == "POST" and request.url.path.startswith("/api/public/") and not request.url.path.startswith('/api/public/qr/'):
         return JSONResponse(status_code=403, content={"detail": "El menú es solo de consulta. Para pedir, llamá a la moza."})
     response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
@@ -169,6 +169,8 @@ def state(auth=Depends(current_session), db=Depends(get_db)):
     )
     result = state_for(db, visits, True)
     result["reservations"] = pending_reservations(db)
+    from .public_orders import pending_calls
+    result['calls'] = pending_calls(db)
     result["calendarToday"] = calendar_today().isoformat()
     from .models import Payment
 
@@ -286,13 +288,39 @@ def advance(id: str, data: StatusIn, auth=Depends(current_session), db=Depends(g
     lock_visit(db, order.visit_id)
     db.refresh(order)
     if order.status == data.expectedStatus and order.status != STATUSES[-1]:
-        order.status = STATUSES[STATUSES.index(order.status) + 1]
+        order.status = 'entregado' if order.origin=='qr' and order.status=='en preparación' else STATUSES[STATUSES.index(order.status) + 1]
     db.flush()
     visit = db.get(Visit, order.visit_id)
     if visit.table_number is None and order.status == "entregado":
         close_visit(db, visit)
     db.commit()
     return {"id": order.id, "status": order.status}
+
+
+@app.post("/api/orders/{id}/deliver")
+def deliver_order(id: str, auth=Depends(current_session), db=Depends(get_db)):
+    order = db.get(Order, id)
+    if not order:
+        fail("Pedido inexistente.", 404)
+    lock_visit(db, order.visit_id)
+    order.status = "entregado"
+    db.flush()
+    visit = db.get(Visit, order.visit_id)
+    if visit.table_number is None and not db.scalar(
+        select(Order.id).where(Order.visit_id == visit.id, Order.status != "entregado").limit(1)
+    ):
+        close_visit(db, visit)
+    db.commit()
+    return {"id": order.id, "status": order.status}
+
+
+@app.post("/api/visits/{id}/deliver-all")
+def deliver_all(id: str, auth=Depends(current_session), db=Depends(get_db)):
+    visit = lock_visit(db, id)
+    for order in db.scalars(select(Order).where(Order.visit_id == id, Order.status != "entregado")):
+        order.status = "entregado"
+    db.commit()
+    return {"ok": True}
 
 
 def public_visit(db, request, number):
@@ -373,6 +401,8 @@ app.include_router(attention_router)
 
 from .stock import router as stock_router
 app.include_router(stock_router)
+from .public_orders import router as public_orders_router
+app.include_router(public_orders_router)
 
 from .menu_catalog import router as menu_router
 app.include_router(menu_router)

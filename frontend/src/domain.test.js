@@ -36,3 +36,17 @@ test("la estimación visual suma tamaño y extras", () => {
     4000,
   );
 });
+test("la estimación visual prioriza el precio propio (salePrice) de la presentación", () => {
+  assert.equal(
+    estimate(
+      {
+        price: 2800,
+        sizes: [{ name: "Pinta", salePrice: 3500, price: 0 }],
+        extras: [{ name: "Maní", price: 500 }],
+      },
+      "Pinta",
+      ["Maní"],
+    ),
+    4000,
+  );
+});

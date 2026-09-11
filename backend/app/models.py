@@ -44,6 +44,7 @@ class Category(Base):
     __tablename__ = "categories"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True)
+    stock_area: Mapped[str] = mapped_column(String(20), default='other', server_default='other')
 
     image: Mapped[str | None] = mapped_column(String(500), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -103,12 +104,14 @@ class Visit(Base):
 
 class Order(Base):
     __tablename__ = "orders"
+    number: Mapped[int] = mapped_column(BigInteger, unique=True, server_default=FetchedValue())
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     visit_id: Mapped[str] = mapped_column(ForeignKey("visits.id"), index=True)
     status: Mapped[str] = mapped_column(String(30), default="pendiente")
     origin: Mapped[str] = mapped_column(String(20), default="legacy", server_default="legacy")
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    device_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
 
 class OrderItem(Base):
@@ -220,6 +223,7 @@ class StockItem(Base):
     quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     opened: Mapped[int] = mapped_column(Integer, default=0)
     version: Mapped[int] = mapped_column(Integer, default=0)
+    units_per_package: Mapped[int] = mapped_column(Integer, default=1, server_default='1')
 
 
 class StockMovement(Base):
@@ -241,3 +245,14 @@ class StockMovement(Base):
     order_item_id: Mapped[str | None] = mapped_column(ForeignKey("order_items.id"), nullable=True, index=True)
     correction_id: Mapped[str | None] = mapped_column(ForeignKey("sale_corrections.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    purchase: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+class AttentionCall(Base):
+    __tablename__ = 'attention_calls'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    table_number: Mapped[int] = mapped_column(ForeignKey('dining_tables.number'))
+    pending_table: Mapped[int | None] = mapped_column(ForeignKey('dining_tables.number'), unique=True, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    attended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    attended_by: Mapped[str | None] = mapped_column(ForeignKey('users.id'), nullable=True)
