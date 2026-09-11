@@ -14,10 +14,31 @@ def seed(db):
     data = json.loads(
         Path(__file__).with_name("demo_catalog.json").read_text(encoding="utf-8")
     )
+    category_images = {
+        "Helados": ("/menu/helados.webp", 1),
+        "Cafetería": ("/menu/meriendas.webp", 2),
+        "Tortas": ("/menu/tortas.webp", 3),
+        "Chocolates": ("/menu/tortas.webp", 4),
+        "Bebidas": ("/menu/cenas.webp", 5),
+    }
     for index, name in enumerate(data["categories"]):
-        if not db.scalar(select(Category).where(Category.name == name)):
-            db.add(Category(id="demo-" + str(index), name=name))
+        c = db.scalar(select(Category).where(Category.name == name))
+        img, order = category_images.get(name, (None, index))
+        if not c:
+            c = Category(
+                id="demo-" + str(index),
+                name=name,
+                image=img,
+                sort_order=order,
+                public_visible=name != "Chocolates",
+            )
+            db.add(c)
             db.flush()
+        else:
+            if not c.image and img:
+                c.image = img
+            if c.name == "Chocolates":
+                c.public_visible = False
     for p in data["products"]:
         if db.get(Product, p["id"]):
             continue
@@ -46,6 +67,9 @@ def seed(db):
         if not db.get(Table, n):
             db.add(Table(number=n))
     db.commit()
+
+    from . import menu_offerings
+    menu_offerings.apply()
 
 
 def main():
