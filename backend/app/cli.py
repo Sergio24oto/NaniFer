@@ -19,7 +19,7 @@ def seed(db):
         "Cafetería": ("/menu/meriendas.webp", 2),
         "Tortas": ("/menu/tortas.webp", 3),
         "Chocolates": ("/menu/tortas.webp", 4),
-        "Bebidas": ("/menu/cenas.webp", 5),
+        "Bebidas": ("/menu/bebidas.webp", 5),
     }
     for index, name in enumerate(data["categories"]):
         c = db.scalar(select(Category).where(Category.name == name))

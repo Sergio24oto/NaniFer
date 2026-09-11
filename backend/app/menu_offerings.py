@@ -14,6 +14,8 @@ def apply():
    cats[key]=c
   chocolate=db.scalar(select(Category).where(Category.name=='Chocolates'))
   if chocolate:chocolate.public_visible=False
+  bebidas=db.scalar(select(Category).where(Category.name=='Bebidas'))
+  if bebidas:bebidas.image='/menu/bebidas.webp'
   offers=[
    ('pizza-especial','Pizza especial','', 'comidas'),
    ('pizza-huevo','Pizza con huevo','', 'comidas'),
