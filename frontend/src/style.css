@@ -302,6 +302,12 @@ main {
   background: #f1e4ce;
   color: #977143;
 }
+.badge.red {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  font-weight: 700;
+}
 .table-bottom {
   border-top: 1px solid #e8e0d4;
   padding-top: 13px;

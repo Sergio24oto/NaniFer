@@ -31,10 +31,28 @@ export function Salon({
           r = ready.some(o => o.table === n);
         const all = (s.reservations || []).filter(x => x.table === n);
         const reservation = all.find(x => x.date === date) || (!reservationDate ? all.find(x => x.date > s.calendarToday) || all[0] : null);
-        return <article key={n} className={"table-card table-card-actions " + (a ? "occupied " : "") + (r ? "ready" : "") + (reservation ? " has-reservation" : "")}><button className="table-open" onClick={() => nav("/atencion/mesas/" + n)}>
-          <div className="row"><h2>Mesa {n}</h2><Badge tone={a ? "amber" : "green"}>{a ? "Ocupada" : "Libre"}</Badge></div>
-          <div className="table-balance"><small>Pendiente de cobro</small><strong>{money(a?.balance || 0)}</strong></div>
-          {r && <small className="ready-hint">Productos listos para entregar</small>}
+        const tableOrders = s.orders.filter(o => o.accountId === a?.id);
+        const hasOrders = a && tableOrders.length > 0;
+        return <article key={n} className={"table-card table-card-actions " + (a ? "occupied " : "") + (hasOrders ? "has-orders " : "") + (r ? "ready" : "") + (reservation ? " has-reservation" : "")}><button className="table-open" onClick={() => nav("/atencion/mesas/" + n)}>
+          <div className="row">
+            <h2>Mesa {n}</h2>
+            {hasOrders ? (
+              <Badge tone="red">Pedido ya realizado</Badge>
+            ) : (
+              <Badge tone={a ? "amber" : "green"}>{a ? "Ocupada" : "Libre"}</Badge>
+            )}
+          </div>
+          <div className="table-balance">
+            <small>Pendiente de cobro</small>
+            <strong className={hasOrders ? "balance-due-text" : ""}>{money(a?.balance || 0)}</strong>
+          </div>
+          {hasOrders && (
+            <div className="table-orders-badge">
+              <span>🔔 {tableOrders.length} {tableOrders.length === 1 ? "pedido recibido" : "pedidos recibidos"}</span>
+              {r && <small className="ready-hint">✓ ¡Listo!</small>}
+            </div>
+          )}
+          {!hasOrders && r && <small className="ready-hint">Productos listos para entregar</small>}
           {reservation && <small className="reservation-hint">Mesa reservada para {reservation.name} a las {reservation.time}{reservation.date !== s.calendarToday ? " · " + reservation.date.split("-").reverse().join("/") : ""}{reservation.date < s.calendarToday ? " · pendiente" : ""}</small>}
           {readDraft(s.user.id,"table-"+n)?.cart.length>0&&<small className="draft-hint">Consumos sin confirmar · continuar</small>}
         </button>{s.user?.permissions?.includes("reservations.manage")&&<button className="secondary reserve-table" onClick={()=>setReservingTable(n)}>Reservar</button>}</article>;
@@ -116,43 +134,187 @@ export function Account({
         setAck(null);
       }}>Revisé la mesa: usar la visita actual</button></p>}
     {!a && reservation && <div className="note"><p>Mesa reservada para {reservation.name} a las {reservation.time}.</p><label className="option"><input type="checkbox" checked={ack === reservation.acknowledgment} onChange={e => setAck(e.target.checked ? reservation.acknowledgment : null)} />Continuar con esta mesa teniendo en cuenta la reserva</label></div>}
-    <div className="entry-layout"><div><QuickEntry cart={cart} setCart={setCart} preparation={preparation} setPreparation={setPreparation} disabled={busy || !!pendingSave || !s.connected} />
-      <button className="primary full" disabled={busy || !s.connected || !pendingSave && (!cart.length || changed || !a && reservation && ack !== reservation.acknowledgment)} onClick={() => run(save)}>{busy ? "Guardando…" : pendingSave ? "Reintentar guardar consumos" : "Guardar consumos"}</button>
-    </div><aside className="panel account-summary"><h2>Cuenta de esta visita</h2><div className="total"><span>Consumos guardados</span><strong>{money(a?.total || 0)}</strong></div><div className="total"><span>Ya pagado</span><strong>{money(a?.paid || 0)}</strong></div><div className="total"><span>Pendiente</span><strong>{money(a?.balance || 0)}</strong></div>
-      <button className="primary full" disabled={busy || !s.connected || !a || (!pendingPay && a.balance <= 0) || cart.length > 0 || !!pendingSave} onClick={() => setPay(a.id)}>{pendingPay ? "Comprobar cobro" : "Cobrar"}</button>
-      {cart.length > 0 && <small>Guardá los consumos antes de cobrar.</small>}
-      {a && <div className="release-table">
-        {undelivered && a.balance === 0 ? (
-          <button className="primary full" disabled={busy || !!pay || !!pendingPay || !s.connected || changed || cart.length > 0 || !!pendingSave} onClick={() => run(async () => {
-            await mutate("/visits/" + a.id + "/deliver-all", {});
-            await mutate("/visits/" + a.id + "/close");
-            nav("/atencion", "Mesa " + table + " libre. Visita guardada en el historial.");
-          })}>Marcar pedidos como entregados y liberar mesa</button>
-        ) : (
-          <button className="secondary full" disabled={busy || !!pay || !!pendingPay || !s.connected || changed || undelivered || a.balance !== 0 || cart.length > 0 || !!pendingSave} onClick={() => run(async () => {
-            await mutate("/visits/" + a.id + "/close");
-            nav("/atencion", "Mesa " + table + " libre. Visita guardada en el historial.");
-          })}>Liberar mesa</button>
+    <div className="table-detail-container">
+      {/* 1. SECCIÓN PRINCIPAL: PEDIDOS DE LA MESA Y ESTADO DE CUENTA */}
+      <section className="panel primary-orders-panel">
+        <div className="panel-header-row">
+          <div>
+            <span className="section-eyebrow">PEDIDOS DE LA MESA</span>
+            <h2>{orders.length > 0 ? `Comandas realizadas (${orders.length})` : "Comandas de la mesa"}</h2>
+            <p className="section-sub">
+              {a ? `Visita activa ${a.waitress ? "· Responsable: " + a.waitress : ""}` : "Mesa libre · Sin visita activa"}
+            </p>
+          </div>
+          {a && (
+            <div className="balance-badge-card">
+              <div className="balance-item">
+                <span>Consumos</span>
+                <strong>{money(a?.total || 0)}</strong>
+              </div>
+              <div className="balance-item">
+                <span>Pagado</span>
+                <strong>{money(a?.paid || 0)}</strong>
+              </div>
+              <div className="balance-item highlight">
+                <span>Pendiente</span>
+                <strong className={a?.balance > 0 ? "balance-due" : "balance-paid"}>
+                  {money(a?.balance || 0)}
+                </strong>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {a && (
+          <div className="table-quick-actions">
+            <button
+              className="primary action-btn-pay"
+              disabled={busy || !s.connected || !a || (!pendingPay && a.balance <= 0) || cart.length > 0 || !!pendingSave}
+              onClick={() => setPay(a.id)}
+            >
+              {pendingPay ? "Comprobar cobro" : `Cobrar cuenta (${money(a.balance || 0)})`}
+            </button>
+            {cart.length > 0 && <small className="cart-warning-hint">Guardá los consumos agregados abajo antes de cobrar.</small>}
+
+            <div className="release-table-inline">
+              {undelivered && a.balance === 0 ? (
+                <button
+                  className="primary deliver-all-btn"
+                  disabled={busy || !!pay || !!pendingPay || !s.connected || changed || cart.length > 0 || !!pendingSave}
+                  onClick={() => run(async () => {
+                    await mutate("/visits/" + a.id + "/deliver-all", {});
+                    await mutate("/visits/" + a.id + "/close");
+                    nav("/atencion", "Mesa " + table + " libre. Visita guardada en el historial.");
+                  })}
+                >
+                  ✓ Marcar pedidos como entregados y liberar mesa
+                </button>
+              ) : (
+                <button
+                  className="secondary release-btn"
+                  disabled={busy || !!pay || !!pendingPay || !s.connected || changed || undelivered || a.balance !== 0 || cart.length > 0 || !!pendingSave}
+                  onClick={() => run(async () => {
+                    await mutate("/visits/" + a.id + "/close");
+                    nav("/atencion", "Mesa " + table + " libre. Visita guardada en el historial.");
+                  })}
+                >
+                  Liberar mesa
+                </button>
+              )}
+            </div>
+          </div>
         )}
-        <small>{!s.connected ? "Sin conexión." : pendingPay || pay ? "Primero comprobá el cobro en curso." : changed ? "Revisá la visita actual." : cart.length || pendingSave ? "Primero guardá los consumos pendientes." : a.balance !== 0 ? "Primero cobrá el saldo pendiente." : undelivered ? "Saldo cobrado. Podés marcar los pedidos como entregados y liberar la mesa con un clic." : "Todo cobrado y entregado. Un clic cierra esta visita."}</small>
-      </div>}
-      <details className="account-secondary"><summary>Responsable y otras opciones</summary>
-        {a && <label>Responsable<select disabled={busy || !s.connected} value={a.waitressId || ""} onChange={e => {
-              const userId = e.target.value;
-              run(() => mutate("/visits/" + a.id + "/staff", {
-                userId
-              }, "PUT"));
-            }}><option value="" disabled>Sin asignar</option>{s.staff.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></label>}
-        {!a && <button className="secondary" disabled={busy || !s.connected || changed || !!pendingSave || reservation && ack !== reservation.acknowledgment} onClick={() => run(async () => {
-            const result = await mutate("/tables/" + table + "/open", {
-              reservationAcknowledgment: ack
-            });
-            setExpectedAccount(result.id);
-          })}>Abrir mesa sin consumos</button>}
-        <small>Cobrar, entregar y cerrar la visita son acciones independientes.</small>
-      </details>
-      <h3>Consumos guardados</h3>{!orders.length && <p>Todavía no hay consumos.</p>}{orders.map(o => <article className="saved-order" key={o.id}><div className="row"><strong>{time(o.createdAt)}</strong><Badge>{o.status}</Badge></div><small>{o.origin === "manual" ? "Carga manual" : o.origin === "qr" ? "Pedido QR" : "Pedido"}{o.createdByName ? " · " + o.createdByName : ""}</small><Items items={o.items} />{o.status !== "entregado" && <button type="button" className="secondary deliver-order-btn" disabled={busy || !s.connected} onClick={() => run(() => mutate("/orders/" + o.id + "/deliver", {}))}>Marcar como entregado</button>}</article>)}
-    </aside></div>
+
+        {/* Lista destacada de comandas realizadas */}
+        <div className="orders-list-container">
+          {!orders.length ? (
+            <div className="empty-orders-banner">
+              <span className="empty-icon">🍽️</span>
+              <div>
+                <strong>Esta mesa aún no tiene pedidos confirmados.</strong>
+                <p>Abajo tenés la sección para seleccionar productos y registrar el primer pedido.</p>
+              </div>
+            </div>
+          ) : (
+            orders.map(o => (
+              <article className={"staff-order-card " + (o.status !== "entregado" ? "pending-delivery" : "delivered")} key={o.id}>
+                <div className="staff-order-header">
+                  <div className="order-meta">
+                    <span className="order-time">🕒 {time(o.createdAt)}</span>
+                    {o.origin === "qr" ? (
+                      <Badge tone="red">📱 Pedido QR del cliente</Badge>
+                    ) : (
+                      <Badge tone="amber">📝 Comanda de salón{o.createdByName ? " · " + o.createdByName : ""}</Badge>
+                    )}
+                  </div>
+                  <Badge tone={o.status === "entregado" ? "green" : o.status === "listo para entregar" ? "amber" : "red"}>
+                    {o.status.toUpperCase()}
+                  </Badge>
+                </div>
+
+                <div className="staff-order-items">
+                  <Items items={o.items} />
+                </div>
+
+                <div className="staff-order-footer">
+                  <span className="order-subtotal">
+                    Subtotal comanda: <strong>{money(o.items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0))}</strong>
+                  </span>
+                  {o.status !== "entregado" && (
+                    <button
+                      type="button"
+                      className="primary deliver-order-btn"
+                      disabled={busy || !s.connected}
+                      onClick={() => run(() => mutate("/orders/" + o.id + "/deliver", {}))}
+                    >
+                      ✓ Marcar como entregado
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <details className="account-secondary">
+          <summary>Responsable de la mesa y opciones avanzadas</summary>
+          {a && (
+            <label>
+              Responsable
+              <select
+                disabled={busy || !s.connected}
+                value={a.waitressId || ""}
+                onChange={e => {
+                  const userId = e.target.value;
+                  run(() => mutate("/visits/" + a.id + "/staff", { userId }, "PUT"));
+                }}
+              >
+                <option value="" disabled>Sin asignar</option>
+                {s.staff.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </label>
+          )}
+          {!a && (
+            <button
+              className="secondary"
+              disabled={busy || !s.connected || changed || !!pendingSave || (reservation && ack !== reservation.acknowledgment)}
+              onClick={() => run(async () => {
+                const result = await mutate("/tables/" + table + "/open", { reservationAcknowledgment: ack });
+                setExpectedAccount(result.id);
+              })}
+            >
+              Abrir mesa sin consumos
+            </button>
+          )}
+          <small>Cobrar, entregar y cerrar la visita son acciones independientes.</small>
+        </details>
+      </section>
+
+      {/* 2. SECCIÓN SECUNDARIA (ABAJO): AGREGAR MÁS PRODUCTOS */}
+      <section className="panel add-products-panel">
+        <div className="add-products-header">
+          <span className="section-eyebrow">AGREGAR MÁS PRODUCTOS</span>
+          <h2>+ Sumar consumos a la mesa {table}</h2>
+          <p>Elegí productos de la carta para agregar a esta visita.</p>
+        </div>
+
+        <QuickEntry
+          cart={cart}
+          setCart={setCart}
+          preparation={preparation}
+          setPreparation={setPreparation}
+          disabled={busy || !!pendingSave || !s.connected}
+        />
+
+        <button
+          className="primary full save-consumptions-btn"
+          disabled={busy || !s.connected || (!pendingSave && (!cart.length || changed || (!a && reservation && ack !== reservation.acknowledgment)))}
+          onClick={() => run(save)}
+        >
+          {busy ? "Guardando…" : pendingSave ? "Reintentar guardar consumos" : "Guardar consumos"}
+        </button>
+      </section>
+    </div>
     {reserving && <Reservations table={table} account={a} onClose={() => setReserving(false)} />}
     {pay && <Payment id={pay} onClose={() => setPay(false)} onSuccess={result => {
       setPay(false);
