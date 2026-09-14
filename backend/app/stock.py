@@ -64,10 +64,10 @@ class StockProductCreateIn(StrictModel):
     name: str = Field(min_length=1, max_length=150)
     categoryId: str | None = None
     categoryName: str | None = None
-    area: Literal['beverages', 'kiosk', 'other'] | None = None
+    area: Literal['beverages', 'kiosk', 'candies', 'other'] | None = None
     price: Decimal | None = None
     available: bool = True
-    packageType: Literal['pack', 'cajón', 'caja', 'unidades'] = 'pack'
+    packageType: Literal['pack', 'cajón', 'caja', 'bolsa', 'unidades'] = 'pack'
     packages: int = Field(default=1, ge=1, le=1000000)
     unitsPerPackage: int = Field(default=1, ge=1, le=10000)
     receivedDate: date | None = None
@@ -92,7 +92,7 @@ def create_stock_product(data: StockProductCreateIn, key: str = Header(alias='Id
         cat = None
         if data.categoryId and data.categoryId != '__new__':
             cat = db.get(Category, data.categoryId)
-            if cat and data.area in ('beverages', 'kiosk') and cat.stock_area == 'other':
+            if cat and data.area in ('beverages', 'kiosk', 'candies') and cat.stock_area == 'other':
                 cat.stock_area = data.area
         if not cat:
             if data.area:
@@ -101,13 +101,13 @@ def create_stock_product(data: StockProductCreateIn, key: str = Header(alias='Id
                 cat = db.scalar(select(Category).where(Category.name == data.categoryName.strip()))
             if not cat:
                 default_name = data.categoryName.strip() if data.categoryName and data.categoryName.strip() else (
-                    'Bebidas' if data.area == 'beverages' else 'Kiosco' if data.area == 'kiosk' else 'Otros'
+                    'Bebidas' if data.area == 'beverages' else 'Kiosco' if data.area == 'kiosk' else 'Golosinas' if data.area == 'candies' else 'Otros'
                 )
                 cat = Category(
                     id=uid(),
                     name=default_name,
                     public_visible=True,
-                    sort_order=5 if data.area == 'beverages' else 6 if data.area == 'kiosk' else 10,
+                    sort_order=5 if data.area == 'beverages' else 6 if data.area == 'kiosk' else 7 if data.area == 'candies' else 10,
                     stock_area=data.area or 'other',
                     note=''
                 )
@@ -208,7 +208,7 @@ class StockAction(StrictModel):
     unitCost:Decimal|None=Field(default=None,ge=0,max_digits=18,decimal_places=6)
     totalCost:Decimal|None=Field(default=None,ge=0,max_digits=18,decimal_places=2)
     name:str|None=Field(default=None,min_length=1,max_length=150)
-    packageType:Literal['pack','cajón','caja','unidades']|None=None
+    packageType:Literal['pack','cajón','caja','bolsa','unidades']|None=None
     packages:int=Field(default=1,ge=1,le=1000000)
     unitsPerPackage:int=Field(default=1,ge=1,le=10000)
     receivedDate:date|None=None
@@ -232,6 +232,7 @@ def snapshot(db,search='',category='',mode='',area=''):
             cn = cat_name.lower()
             if 'bebida' in cn: cat_area = 'beverages'
             elif 'kiosco' in cn or 'quiosco' in cn: cat_area = 'kiosk'
+            elif 'golosina' in cn or 'caramelo' in cn or 'chicle' in cn or 'gomita' in cn: cat_area = 'candies'
         result.append(dict(id='product:'+p.id,stockId=r.id if r else None,productId=p.id,name=p.name,
             category=cat_name,stockArea=cat_area,unitsPerPackage=r.units_per_package if r else 1,coneEligible=bool(p.cone_links) or any(z.get("max",0)>0 for z in p.sizes),mode=p.stock_mode,unit=r.unit if r else 'sin conteo',
             quantity=r.quantity if r and p.stock_mode=='unit' else None,opened=None,version=r.version if r else 0,
@@ -244,7 +245,7 @@ def snapshot(db,search='',category='',mode='',area=''):
         result.append(dict(id='flavor:'+f.id,stockId=r.id if r else None,flavorId=f.id,name=f.name,category='Sabores de helado',
             mode='containers',unit='recipientes',quantity=r.quantity if r else None,opened=r.opened if r else 0,
             version=r.version if r else 0,available=f.available,manualAvailable=f.available))
-    return [r for r in result if (not search or search.casefold() in r['name'].casefold()) and (not category or r['category']==category) and (not mode or r['mode']==mode) and (not area or (area=='flavors' and r['mode']=='containers') or (area in ('beverages','kiosk') and r.get('stockArea')==area) or (area=='other' and r['mode']!='manual' and r.get('stockArea') not in ('beverages','kiosk')) or (area=='empty' and r['mode']!='manual' and r['quantity']==0) or (area=='manual' and r['mode']=='manual'))]
+    return [r for r in result if (not search or search.casefold() in r['name'].casefold()) and (not category or r['category']==category) and (not mode or r['mode']==mode) and (not area or (area=='flavors' and r['mode']=='containers') or (area in ('beverages','kiosk','candies') and r.get('stockArea')==area) or (area=='other' and r['mode']!='manual' and r.get('stockArea') not in ('beverages','kiosk','candies')) or (area=='empty' and r['mode']!='manual' and r['quantity']==0) or (area=='manual' and r['mode']=='manual'))]
 
 
 @router.get('')

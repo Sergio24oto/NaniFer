@@ -299,7 +299,27 @@ def test_stock_product_creation_with_packaging_and_area(fixture):
     dup = post(f, '/stock/products', body_bev)
     assert dup.status_code == 409
 
-    # 4. No admin retorna 403
+    # 4. Agregar golosina por bolsa
+    body_candies = {
+        'name': 'Gomitas Moras ' + key()[:6],
+        'area': 'candies',
+        'price': '1500.00',
+        'available': True,
+        'packageType': 'bolsa',
+        'packages': 3,
+        'unitsPerPackage': 50,
+        'receivedDate': str(date.today()),
+        'initialStock': True
+    }
+    r_candies = post(f, '/stock/products', body_candies)
+    assert r_candies.status_code == 200, r_candies.text
+    candies_data = r_candies.json()
+    assert candies_data['quantity'] == 150
+    assert candies_data['stockArea'] == 'candies'
+    f['product_ids'].append(candies_data['id'])
+    assert qty(candies_data['stockId']) == 150
+
+    # 5. No admin retorna 403
     promote(f, 'staff')
     assert post(f, '/stock/products', {'name': 'Otra gaseosa', 'area': 'beverages'}).status_code == 403
 

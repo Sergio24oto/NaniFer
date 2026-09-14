@@ -121,6 +121,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                   <option value="other">Otros</option>
                   <option value="beverages">Bebidas</option>
                   <option value="kiosk">Kiosco</option>
+                  <option value="candies">Golosinas</option>
                 </select>
               </label>
               <label>

@@ -58,19 +58,20 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
     if (c.stockArea === area) return true;
     if (area === "beverages" && c.name?.toLowerCase().includes("bebida")) return true;
     if (area === "kiosk" && (c.name?.toLowerCase().includes("kiosco") || c.name?.toLowerCase().includes("quiosco"))) return true;
+    if (area === "candies" && (c.name?.toLowerCase().includes("golosina") || c.name?.toLowerCase().includes("caramelo") || c.name?.toLowerCase().includes("chicle") || c.name?.toLowerCase().includes("gomita"))) return true;
     return false;
   });
-  const defaultCatName = area === "beverages" ? "Bebidas" : area === "kiosk" ? "Kiosco" : "";
+  const defaultCatName = area === "beverages" ? "Bebidas" : area === "kiosk" ? "Kiosco" : area === "candies" ? "Golosinas" : "";
   const defaultCatId = matchingCats[0]?.id || "__new__";
 
   const [name, setName] = useState(pending?.body.name || "");
   const [categoryId, setCategoryId] = useState(pending?.body.categoryId || defaultCatId);
   const [categoryName, setCategoryName] = useState(pending?.body.categoryName || (defaultCatId === "__new__" ? defaultCatName : ""));
   const [price, setPrice] = useState(pending?.body.price ?? "");
-  const [packageType, setPackageType] = useState(pending?.body.packageType || (area === "beverages" ? "pack" : "caja"));
+  const [packageType, setPackageType] = useState(pending?.body.packageType || (area === "beverages" ? "pack" : area === "candies" ? "bolsa" : "caja"));
   const [packages, setPackages] = useState(pending?.body.packages ?? 1);
   const [unitsPerPackage, setUnitsPerPackage] = useState(
-    pending?.body.unitsPerPackage ?? (packageType === "cajón" ? 24 : packageType === "pack" ? 6 : packageType === "unidades" ? 1 : 12)
+    pending?.body.unitsPerPackage ?? (packageType === "cajón" ? 24 : packageType === "pack" ? 6 : packageType === "bolsa" ? 50 : packageType === "unidades" ? 1 : 12)
   );
   const [initialStock, setInitialStock] = useState(pending?.body.initialStock ?? true);
   const [receivedDate, setReceivedDate] = useState(pending?.body.receivedDate || today());
@@ -103,6 +104,8 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
       setUnitsPerPackage(6);
     } else if (newType === "caja") {
       setUnitsPerPackage(12);
+    } else if (newType === "bolsa") {
+      setUnitsPerPackage(50);
     }
   }
 
@@ -130,7 +133,7 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
       };
       const result = await submitOnce(scope, "/stock/products", body);
       const unitsText = initialStock ? ` con ${body.packages * (packageType === "unidades" ? 1 : body.unitsPerPackage)} unidades en stock` : "";
-      onSaved(`Producto "${result.name}" agregado a ${area === "beverages" ? "Bebidas" : area === "kiosk" ? "Kiosco" : "Stock"}${unitsText}.`);
+      onSaved(`Producto "${result.name}" agregado a ${area === "beverages" ? "Bebidas" : area === "kiosk" ? "Kiosco" : area === "candies" ? "Golosinas" : "Stock"}${unitsText}.`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -141,7 +144,7 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
 
   const totalUnits = packages * (packageType === "unidades" ? 1 : unitsPerPackage);
   const unitCostCalc = totalCost && totalUnits > 0 ? (Number(totalCost) / totalUnits) : null;
-  const title = area === "beverages" ? "Agregar bebida" : area === "kiosk" ? "Agregar producto de kiosco" : "Agregar producto con stock";
+  const title = area === "beverages" ? "Agregar bebida" : area === "kiosk" ? "Agregar producto de kiosco" : area === "candies" ? "Agregar golosina" : "Agregar producto con stock";
 
   return (
     <Modal title={title} onClose={() => !busy && onClose()}>
@@ -151,6 +154,8 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
             ? "Cargá la bebida para incorporarla a la carta y registrar su ingreso inicial por envase (pack, cajón, etc.)."
             : area === "kiosk"
             ? "Cargá el artículo de kiosco para incorporarlo a la carta y controlar sus existencias por unidad."
+            : area === "candies"
+            ? "Cargá la golosina para incorporarla a la carta y controlar sus existencias por bolsa, caja, pack o unidad."
             : "Cargá el producto para incorporarlo a la carta y controlar sus existencias por unidad."}
         </p>
 
@@ -162,7 +167,7 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
               maxLength={150}
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder={area === "beverages" ? "Ej: Sprite 500ml" : area === "kiosk" ? "Ej: Alfajor Havanna" : "Nombre del producto"}
+              placeholder={area === "beverages" ? "Ej: Sprite 500ml" : area === "kiosk" ? "Ej: Alfajor Havanna" : area === "candies" ? "Ej: Gomitas frutales, Chicles Beldent" : "Nombre del producto"}
               autoFocus
             />
           </label>
@@ -181,7 +186,7 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
               required
             >
               {matchingCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              <option value="__new__">+ Crear nueva categoría {area === "beverages" ? "para Bebidas" : area === "kiosk" ? "para Kiosco" : "en esta sección"}</option>
+              <option value="__new__">+ Crear nueva categoría {area === "beverages" ? "para Bebidas" : area === "kiosk" ? "para Kiosco" : area === "candies" ? "para Golosinas" : "en esta sección"}</option>
             </select>
           </label>
 
@@ -193,7 +198,7 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
                 maxLength={100}
                 value={categoryName}
                 onChange={e => setCategoryName(e.target.value)}
-                placeholder={area === "beverages" ? "Ej: Gaseosas" : area === "kiosk" ? "Ej: Golosinas" : "Nombre de categoría"}
+                placeholder={area === "beverages" ? "Ej: Gaseosas" : area === "kiosk" ? "Ej: Chocolates" : area === "candies" ? "Ej: Gomitas y Chicles" : "Nombre de categoría"}
               />
             </label>
           )}
@@ -237,7 +242,7 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
                     value={packageType}
                     onChange={e => handlePackageTypeChange(e.target.value)}
                   >
-                    {["pack", "cajón", "caja", "unidades"].map(x => <option key={x} value={x}>{x}</option>)}
+                    {["bolsa", "caja", "pack", "cajón", "unidades"].map(x => <option key={x} value={x}>{x}</option>)}
                   </select>
                 </label>
 
@@ -501,7 +506,7 @@ function Movement({
       <fieldset disabled={busy || !!pending || !!preview}><legend>Datos del movimiento</legend>
         {body.action === 'rename' ? <label>Nombre del cucurucho<input required maxLength={150} value={body.name} onChange={e => patch({
             name: e.target.value
-          })} /></label> : body.packageType ? <><label>Presentación de compra<select value={body.packageType} onChange={e=>patch({packageType:e.target.value,...(e.target.value==='unidades'?{unitsPerPackage:1}:{})})}>{['pack','cajón','caja','unidades'].map(x=><option key={x}>{x}</option>)}</select></label><label>Cantidad de envases<input required type="number" min="1" max="1000000" value={body.packages} onChange={e=>patch({packages:Number(e.target.value)})}/></label><label>Unidades por envase<input required disabled={body.packageType==='unidades'} type="number" min="1" max="10000" value={body.unitsPerPackage} onChange={e=>patch({unitsPerPackage:Number(e.target.value)})}/></label><p><strong>{body.packages} × {body.unitsPerPackage} = {body.packages*body.unitsPerPackage} unidades</strong></p><label>Fecha de recepción<input required type="date" value={body.receivedDate} onChange={e=>patch({receivedDate:e.target.value})}/></label></> : <label>{body.action === 'count'  ? 'Cantidad física contada' : body.action === 'receive' && row.unit === 'porciones' ? 'Cantidad de porciones disponibles' : body.action === 'receive' ? (row.mode === 'containers' ? 'Cantidad de potes recibidos' : 'Cantidad de unidades recibidas') : body.action === 'open' ? 'Cantidad de potes a abrir' : body.action === 'finish' ? 'Cantidad de potes terminados' : 'Cantidad'}<input type="number" min={body.action === 'count' ? 0 : 1} max="1000000000" step="1" required value={body.quantity} onChange={e => patch({
+          })} /></label> : body.packageType ? <><label>Presentación de compra<select value={body.packageType} onChange={e=>patch({packageType:e.target.value,...(e.target.value==='unidades'?{unitsPerPackage:1}:{})})}>{['pack','cajón','caja','bolsa','unidades'].map(x=><option key={x}>{x}</option>)}</select></label><label>Cantidad de envases<input required type="number" min="1" max="1000000" value={body.packages} onChange={e=>patch({packages:Number(e.target.value)})}/></label><label>Unidades por envase<input required disabled={body.packageType==='unidades'} type="number" min="1" max="10000" value={body.unitsPerPackage} onChange={e=>patch({unitsPerPackage:Number(e.target.value)})}/></label><p><strong>{body.packages} × {body.unitsPerPackage} = {body.packages*body.unitsPerPackage} unidades</strong></p><label>Fecha de recepción<input required type="date" value={body.receivedDate} onChange={e=>patch({receivedDate:e.target.value})}/></label></> : <label>{body.action === 'count'  ? 'Cantidad física contada' : body.action === 'receive' && row.unit === 'porciones' ? 'Cantidad de porciones disponibles' : body.action === 'receive' ? (row.mode === 'containers' ? 'Cantidad de potes recibidos' : 'Cantidad de unidades recibidas') : body.action === 'open' ? 'Cantidad de potes a abrir' : body.action === 'finish' ? 'Cantidad de potes terminados' : 'Cantidad'}<input type="number" min={body.action === 'count' ? 0 : 1} max="1000000000" step="1" required value={body.quantity} onChange={e => patch({
             quantity: Number(e.target.value)
           })} /></label>}
         {row.mode === 'containers' && ['count', 'out'].includes(body.action) && <label>Afecta a<select value={body.bucket} onChange={e => patch({
@@ -623,7 +628,8 @@ export default function Stock() {
     if (area === 'flavors') return r.mode === 'containers' || r.category?.toLowerCase().includes('sabor');
     if (area === 'beverages') return r.stockArea === 'beverages' || r.category?.toLowerCase().includes('bebida');
     if (area === 'kiosk') return r.stockArea === 'kiosk' || r.category?.toLowerCase().includes('kiosco') || r.category?.toLowerCase().includes('quiosco');
-    if (area === 'other') return r.mode !== 'manual' && r.stockArea !== 'beverages' && r.stockArea !== 'kiosk' && !r.category?.toLowerCase().includes('bebida') && !r.category?.toLowerCase().includes('kiosco') && !r.category?.toLowerCase().includes('quiosco');
+    if (area === 'candies') return r.stockArea === 'candies' || r.category?.toLowerCase().includes('golosina') || r.category?.toLowerCase().includes('caramelo') || r.category?.toLowerCase().includes('chicle') || r.category?.toLowerCase().includes('gomita');
+    if (area === 'other') return r.mode !== 'manual' && r.stockArea !== 'beverages' && r.stockArea !== 'kiosk' && r.stockArea !== 'candies' && !r.category?.toLowerCase().includes('bebida') && !r.category?.toLowerCase().includes('kiosco') && !r.category?.toLowerCase().includes('quiosco') && !r.category?.toLowerCase().includes('golosina') && !r.category?.toLowerCase().includes('caramelo') && !r.category?.toLowerCase().includes('chicle') && !r.category?.toLowerCase().includes('gomita');
     if (area === 'empty') return r.mode !== 'manual' && r.quantity === 0;
     if (area === 'manual') return r.mode === 'manual';
     return true;
@@ -649,11 +655,12 @@ export default function Stock() {
     {error && <p className="alert" role="alert">{error}<button onClick={() => void load()}>Reintentar</button></p>}{message && <p className="success" role="status">{message}</p>}
     <section className="panel">
       <h2>Control principal de stock</h2>
-      <div className="catalog-actions">{[['beverages','Bebidas'],['kiosk','Kiosco'],['flavors','Helados · Sabores']].map(([v,label])=><button key={v} className={area===v?'primary':'secondary'} onClick={()=>{setArea(v);setCategory('');setMode('');}}>{label}</button>)}</div>
+      <div className="catalog-actions">{[['beverages','Bebidas'],['kiosk','Kiosco'],['candies','Golosinas'],['flavors','Helados · Sabores']].map(([v,label])=><button key={v} className={area===v?'primary':'secondary'} onClick={()=>{setArea(v);setCategory('');setMode('');}}>{label}</button>)}</div>
       {area==='beverages'&&<div className="intro"><h3>Administrar bebidas</h3><p>Consultá bebidas y disponibilidad. Registrá compras por pack o cajón y controlá las existencias por unidad.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'beverages'})}>+ Agregar bebida</button>}</div>}
       {area==='kiosk'&&<div className="intro"><h3>Administrar kiosco</h3><p>Consultá artículos de kiosco y disponibilidad. Registrá compras por caja o pack y controlá las existencias por unidad.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'kiosk'})}>+ Agregar producto de kiosco</button>}</div>}
+      {area==='candies'&&<div className="intro"><h3>Administrar golosinas</h3><p>Consultá golosinas y disponibilidad. Registrá compras por bolsa, caja o pack y controlá las existencias por unidad o fracción.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'candies'})}>+ Agregar golosina</button>}</div>}
       {area==='flavors'&&<div className="intro"><h3>Administrar sabores de helado</h3><p>Consultá sabores y disponibilidad. El conteo de recipientes es independiente.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-flavor'})}>+ Agregar sabor</button>}</div>}
-      <label>Ver<select value={area} onChange={e=>setArea(e.target.value)}>{[['','Todos'],['beverages','Bebidas'],['kiosk','Kiosco'],['flavors','Helados · Sabores'],['other','Otros productos con stock'],['empty','Agotados'],['manual','Sin gestión de stock']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+      <label>Ver<select value={area} onChange={e=>setArea(e.target.value)}>{[['','Todos'],['beverages','Bebidas'],['kiosk','Kiosco'],['candies','Golosinas'],['flavors','Helados · Sabores'],['other','Otros productos con stock'],['empty','Agotados'],['manual','Sin gestión de stock']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
     </section>
     <div className="stock-filters"><label>Buscar<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Producto, insumo o sabor" /></label><label>Categoría<select value={category} onChange={e => setCategory(e.target.value)}><option value="">Todas</option>{[...new Set(items.map(r => r.category))].map(c => <option key={c}>{c}</option>)}</select></label><label>Modalidad<select value={mode} onChange={e => setMode(e.target.value)}><option value="">Todas</option><option value="unit">Por unidad</option><option value="containers">Recipientes de helado</option><option value="manual">Disponibilidad manual</option></select></label></div>
     {!loaded && !error && <p role="status">Consultando existencias…</p>}{loaded && !filtered.length && <p>No hay productos con estos filtros.</p>}
@@ -675,6 +682,7 @@ export default function Stock() {
       <div className="catalog-actions" style={{marginBottom:14}}>
         <button className="secondary" onClick={()=>setModal({action:'new-product',area:'beverages'})}>+ Nueva bebida</button>
         <button className="secondary" onClick={()=>setModal({action:'new-product',area:'kiosk'})}>+ Nuevo producto de kiosco</button>
+        <button className="secondary" onClick={()=>setModal({action:'new-product',area:'candies'})}>+ Nueva golosina</button>
         <button className="secondary" onClick={()=>setModal({action:'new-flavor'})}>+ Nuevo sabor</button>
       </div>
       <label>Buscar producto o insumo<input type="search" value={pickSearch} onChange={e=>setPickSearch(e.target.value)} autoFocus /></label>
