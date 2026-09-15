@@ -13,12 +13,25 @@ function Photo({ src, alt, ...props }) {
 
 function getCategoryHeaderImage(catName = "") {
   const n = catName.toLowerCase();
+  if (n.includes("comida") || n.includes("pizza") || n.includes("cena") || n.includes("almuerzo")) return "/menu/headers/comidas.webp";
+  if (n.includes("bebid") || n.includes("gaseosa") || n.includes("jugo") || n.includes("agua")) return "/menu/headers/bebidas.webp";
+  if (n.includes("golosin") || n.includes("kiosco") || n.includes("quiosco") || n.includes("chocolat") || n.includes("caramel") || n.includes("chicle") || n.includes("gomita")) return "/menu/headers/golosinas.webp";
   if (n.includes("caf") || n.includes("espresso") || n.includes("infus")) return "/menu/headers/cafes.webp";
   if (n.includes("helad") || n.includes("sabor") || n.includes("pote") || n.includes("cucurucho")) return "/menu/headers/helados.webp";
   if (n.includes("torta") || n.includes("merienda") || n.includes("desayun") || n.includes("bakery") || n.includes("panad") || n.includes("combo")) return "/menu/headers/tortas.webp";
-  if (n.includes("bebid") || n.includes("gaseosa") || n.includes("jugo") || n.includes("agua")) return "/menu/headers/bebidas.webp";
-  if (n.includes("golosin") || n.includes("kiosco") || n.includes("quiosco") || n.includes("chocolat") || n.includes("caramel") || n.includes("chicle") || n.includes("gomita")) return "/menu/headers/golosinas.webp";
   return "/menu/headers/cafes.webp";
+}
+
+function getCategoryCardImage(c) {
+  if (c.image) return c.image;
+  const n = (c.name || "").toLowerCase();
+  if (n.includes("bebid")) return "/menu/bebidas.webp";
+  if (n.includes("golosin") || n.includes("gomita") || n.includes("caramel") || n.includes("chicle")) return "/menu/golosinas.webp";
+  if (n.includes("comida") || n.includes("pizza") || n.includes("cena")) return "/menu/pizza.webp";
+  if (n.includes("helad")) return "/menu/helados.webp";
+  if (n.includes("torta")) return "/menu/tortas.webp";
+  if (n.includes("caf")) return "/menu/meriendas.webp";
+  return "/menu/bebidas.webp";
 }
 
 export default function DigitalMenu({ table }) {
@@ -143,18 +156,7 @@ export default function DigitalMenu({ table }) {
               >
                 <div className="category-photo">
                   <Photo
-                    key={
-                      c.image ||
-                      (c.name?.toLowerCase().includes("bebida")
-                        ? "/menu/bebidas.webp"
-                        : "")
-                    }
-                    src={
-                      c.image ||
-                      (c.name?.toLowerCase().includes("bebida")
-                        ? "/menu/bebidas.webp"
-                        : null)
-                    }
+                    src={getCategoryCardImage(c)}
                     alt={c.name}
                   />
                 </div>
