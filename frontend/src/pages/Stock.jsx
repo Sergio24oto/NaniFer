@@ -48,6 +48,55 @@ function NewFlavor({onClose,onSaved}){
  const [name,setName]=useState(pending?.body.name||''),[available,setAvailable]=useState(pending?.body.available??true),[busy,setBusy]=useState(false),[error,setError]=useState('');const lock=useRef(false);
  return <Modal title="Agregar sabor de helado" onClose={()=>!busy&&onClose()}><form onSubmit={async e=>{e.preventDefault();if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await submitOnce(scope,'/stock/flavors',{name,available});onSaved('Sabor agregado correctamente. Ya podés gestionar su disponibilidad y recibir sus recipientes.');}catch(e){setError(e.message);}finally{lock.current=false;setBusy(false);}}}><p>El sabor se incorpora al catálogo compartido. Los recipientes se cargan después, sin inventar existencias.</p><fieldset disabled={busy||!!pending}><label>Nombre del sabor<input required maxLength={100} value={name} onChange={e=>setName(e.target.value)} placeholder="Por ejemplo: chocolate con almendras"/></label><label className="option"><input type="checkbox" checked={available} onChange={e=>setAvailable(e.target.checked)}/>Disponible para elegir en los helados</label></fieldset>{error&&<p className="alert" role="alert">{error}</p>}{pending&&!busy&&<p className="note">El resultado aún no se confirmó. Reintentá con la misma operación.</p>}<button className="primary full" disabled={busy||!s.connected||!name.trim()}>{busy?'Guardando…':pending?'Reintentar de forma segura':'Agregar sabor'}</button></form></Modal>;
 }
+
+const PACKAGE_INFO = {
+  caja: {
+    label: "Caja",
+    singular: "caja",
+    plural: "cajas",
+    packagesLabel: "Cantidad de cajas",
+    unitsLabel: "Unidades por caja",
+    unitsHint: "Ej: 24 chocolates, 12 alfajores",
+    defaultUnits: 24
+  },
+  bolsa: {
+    label: "Bolsa",
+    singular: "bolsa",
+    plural: "bolsas",
+    packagesLabel: "Cantidad de bolsas",
+    unitsLabel: "Unidades por bolsa",
+    unitsHint: "Ej: 50 gomitas, 100 caramelos",
+    defaultUnits: 50
+  },
+  pack: {
+    label: "Pack",
+    singular: "pack",
+    plural: "packs",
+    packagesLabel: "Cantidad de packs",
+    unitsLabel: "Unidades por pack",
+    unitsHint: "Ej: 6 latas o botellas",
+    defaultUnits: 6
+  },
+  cajón: {
+    label: "Cajón",
+    singular: "cajón",
+    plural: "cajones",
+    packagesLabel: "Cantidad de cajones",
+    unitsLabel: "Unidades por cajón",
+    unitsHint: "Ej: 24 botellas retornables",
+    defaultUnits: 24
+  },
+  unidades: {
+    label: "Unidades sueltas",
+    singular: "unidad",
+    plural: "unidades",
+    packagesLabel: "Cantidad de unidades sueltas",
+    unitsLabel: "Unidades",
+    unitsHint: "Unidades directas",
+    defaultUnits: 1
+  }
+};
+
 function NewStockProduct({ area, categories, onClose, onSaved }) {
   const s = useStore(),
     scope = "stock-product-create-" + s.user.id,
@@ -64,14 +113,21 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
   const defaultCatName = area === "beverages" ? "Bebidas" : area === "kiosk" ? "Kiosco" : area === "candies" ? "Golosinas" : "";
   const defaultCatId = matchingCats[0]?.id || "__new__";
 
+  const defaultPackageType = area === "beverages" ? "pack" : area === "candies" ? "bolsa" : "caja";
+  const availablePackageTypes = area === "beverages"
+    ? ["pack", "cajón", "caja", "unidades"]
+    : area === "candies"
+    ? ["bolsa", "caja", "pack", "unidades"]
+    : ["caja", "bolsa", "pack", "unidades"];
+
   const [name, setName] = useState(pending?.body.name || "");
   const [categoryId, setCategoryId] = useState(pending?.body.categoryId || defaultCatId);
   const [categoryName, setCategoryName] = useState(pending?.body.categoryName || (defaultCatId === "__new__" ? defaultCatName : ""));
   const [price, setPrice] = useState(pending?.body.price ?? "");
-  const [packageType, setPackageType] = useState(pending?.body.packageType || (area === "beverages" ? "pack" : area === "candies" ? "bolsa" : "caja"));
+  const [packageType, setPackageType] = useState(pending?.body.packageType || defaultPackageType);
   const [packages, setPackages] = useState(pending?.body.packages ?? 1);
   const [unitsPerPackage, setUnitsPerPackage] = useState(
-    pending?.body.unitsPerPackage ?? (packageType === "cajón" ? 24 : packageType === "pack" ? 6 : packageType === "bolsa" ? 50 : packageType === "unidades" ? 1 : 12)
+    pending?.body.unitsPerPackage ?? (PACKAGE_INFO[packageType]?.defaultUnits || 12)
   );
   const [initialStock, setInitialStock] = useState(pending?.body.initialStock ?? true);
   const [receivedDate, setReceivedDate] = useState(pending?.body.receivedDate || today());
@@ -96,17 +152,7 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
 
   function handlePackageTypeChange(newType) {
     setPackageType(newType);
-    if (newType === "unidades") {
-      setUnitsPerPackage(1);
-    } else if (newType === "cajón") {
-      setUnitsPerPackage(24);
-    } else if (newType === "pack") {
-      setUnitsPerPackage(6);
-    } else if (newType === "caja") {
-      setUnitsPerPackage(12);
-    } else if (newType === "bolsa") {
-      setUnitsPerPackage(50);
-    }
+    setUnitsPerPackage(PACKAGE_INFO[newType]?.defaultUnits ?? 12);
   }
 
   async function handleSubmit(e) {
@@ -132,7 +178,9 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
         totalCost: initialStock && totalCost !== "" && totalCost != null ? Number(totalCost) : null
       };
       const result = await submitOnce(scope, "/stock/products", body);
-      const unitsText = initialStock ? ` con ${body.packages * (packageType === "unidades" ? 1 : body.unitsPerPackage)} unidades en stock` : "";
+      const pkgInfo = PACKAGE_INFO[packageType] || PACKAGE_INFO.caja;
+      const unitsCount = body.packages * (packageType === "unidades" ? 1 : body.unitsPerPackage);
+      const unitsText = initialStock ? ` con ${body.packages} ${body.packages === 1 ? pkgInfo.singular : pkgInfo.plural} (${unitsCount} unidades en stock)` : "";
       onSaved(`Producto "${result.name}" agregado a ${area === "beverages" ? "Bebidas" : area === "kiosk" ? "Kiosco" : area === "candies" ? "Golosinas" : "Stock"}${unitsText}.`);
     } catch (err) {
       setError(err.message);
@@ -142,6 +190,7 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
     }
   }
 
+  const pkgInfo = PACKAGE_INFO[packageType] || PACKAGE_INFO.caja;
   const totalUnits = packages * (packageType === "unidades" ? 1 : unitsPerPackage);
   const unitCostCalc = totalCost && totalUnits > 0 ? (Number(totalCost) / totalUnits) : null;
   const title = area === "beverages" ? "Agregar bebida" : area === "kiosk" ? "Agregar producto de kiosco" : area === "candies" ? "Agregar golosina" : "Agregar producto con stock";
@@ -151,7 +200,7 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
       <form onSubmit={handleSubmit}>
         <p>
           {area === "beverages"
-            ? "Cargá la bebida para incorporarla a la carta y registrar su ingreso inicial por envase (pack, cajón, etc.)."
+            ? "Cargá la bebida para incorporarla a la carta y registrar su ingreso inicial (pack, cajón, etc.)."
             : area === "kiosk"
             ? "Cargá el artículo de kiosco para incorporarlo a la carta y controlar sus existencias por unidad."
             : area === "candies"
@@ -231,23 +280,27 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
                 checked={initialStock}
                 onChange={e => setInitialStock(e.target.checked)}
               />
-              Registrar ingreso inicial de mercadería (envase)
+              Registrar ingreso inicial de mercadería
             </label>
 
             {initialStock && (
               <>
                 <label>
-                  Presentación de compra
+                  ¿Cómo llega la compra?
                   <select
                     value={packageType}
                     onChange={e => handlePackageTypeChange(e.target.value)}
                   >
-                    {["bolsa", "caja", "pack", "cajón", "unidades"].map(x => <option key={x} value={x}>{x}</option>)}
+                    {availablePackageTypes.map(x => (
+                      <option key={x} value={x}>
+                        {PACKAGE_INFO[x]?.label || x}
+                      </option>
+                    ))}
                   </select>
                 </label>
 
                 <label>
-                  Cantidad de envases
+                  {pkgInfo.packagesLabel}
                   <input
                     required
                     type="number"
@@ -258,21 +311,27 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
                   />
                 </label>
 
-                <label>
-                  Unidades por envase
-                  <input
-                    required
-                    disabled={packageType === "unidades"}
-                    type="number"
-                    min="1"
-                    max="10000"
-                    value={unitsPerPackage}
-                    onChange={e => setUnitsPerPackage(Number(e.target.value))}
-                  />
-                </label>
+                {packageType !== "unidades" && (
+                  <label>
+                    {pkgInfo.unitsLabel}
+                    <input
+                      required
+                      type="number"
+                      min="1"
+                      max="10000"
+                      value={unitsPerPackage}
+                      onChange={e => setUnitsPerPackage(Number(e.target.value))}
+                    />
+                    <small>{pkgInfo.unitsHint}</small>
+                  </label>
+                )}
 
                 <p>
-                  <strong>{packages} × {packageType === "unidades" ? 1 : unitsPerPackage} = {totalUnits} unidades en stock</strong>
+                  <strong>
+                    {packageType === "unidades"
+                      ? `${packages} ${packages === 1 ? "unidad" : "unidades"} en stock`
+                      : `${packages} ${packages === 1 ? pkgInfo.singular : pkgInfo.plural} × ${unitsPerPackage} unidades = ${totalUnits} unidades en stock`}
+                  </strong>
                 </p>
 
                 <label>
@@ -441,6 +500,17 @@ function Movement({
   const s = useStore(),
     scope = 'stock-move-' + row.stockId,
     pending = pendingOperation(scope);
+  const defaultPkg = (row.stockArea === 'beverages' || row.category?.toLowerCase().includes('bebida'))
+    ? 'pack'
+    : (row.stockArea === 'candies' || row.category?.toLowerCase().includes('golosina') || row.category?.toLowerCase().includes('caramelo') || row.category?.toLowerCase().includes('chicle') || row.category?.toLowerCase().includes('gomita'))
+    ? 'bolsa'
+    : 'caja';
+  const availablePkgTypes = (row.stockArea === 'beverages' || row.category?.toLowerCase().includes('bebida'))
+    ? ['pack', 'cajón', 'caja', 'unidades']
+    : (row.stockArea === 'candies' || row.category?.toLowerCase().includes('golosina') || row.category?.toLowerCase().includes('caramelo') || row.category?.toLowerCase().includes('chicle') || row.category?.toLowerCase().includes('gomita'))
+    ? ['bolsa', 'caja', 'pack', 'unidades']
+    : ['caja', 'bolsa', 'pack', 'unidades'];
+
   const [body, setBody] = useState(pending?.body || {
     action,
     quantity: action === 'open' || action === 'finish' ? 1 : 0,
@@ -452,7 +522,14 @@ function Movement({
     unitCost: null,
     totalCost: null,
     name: row.name,
-    ...(action==='receive' && row.mode!=='containers' && row.unit!=='porciones' ? {packageType:'pack',packages:1,unitsPerPackage:row.unitsPerPackage||1,receivedDate:today()} : {})
+    ...(action==='receive' && row.mode!=='containers' && row.unit!=='porciones'
+      ? {
+          packageType: defaultPkg,
+          packages: 1,
+          unitsPerPackage: row.unitsPerPackage || PACKAGE_INFO[defaultPkg]?.defaultUnits || 12,
+          receivedDate: today()
+        }
+      : {})
   });
   const [suppliers, setSuppliers] = useState([]),
     [supplierName, setSupplierName] = useState(''),
@@ -479,6 +556,16 @@ function Movement({
       ...p
     }));
   }
+
+  const movementPkgInfo = PACKAGE_INFO[body.packageType] || PACKAGE_INFO.caja;
+
+  function handleMovementPkgChange(newType) {
+    patch({
+      packageType: newType,
+      unitsPerPackage: newType === 'unidades' ? 1 : (PACKAGE_INFO[newType]?.defaultUnits || 12)
+    });
+  }
+
   async function run(fn) {
     if (lock.current) return;
     lock.current = true;
@@ -504,11 +591,99 @@ function Movement({
       })));
     }}>
       <fieldset disabled={busy || !!pending || !!preview}><legend>Datos del movimiento</legend>
-        {body.action === 'rename' ? <label>Nombre del cucurucho<input required maxLength={150} value={body.name} onChange={e => patch({
-            name: e.target.value
-          })} /></label> : body.packageType ? <><label>Presentación de compra<select value={body.packageType} onChange={e=>patch({packageType:e.target.value,...(e.target.value==='unidades'?{unitsPerPackage:1}:{})})}>{['pack','cajón','caja','bolsa','unidades'].map(x=><option key={x}>{x}</option>)}</select></label><label>Cantidad de envases<input required type="number" min="1" max="1000000" value={body.packages} onChange={e=>patch({packages:Number(e.target.value)})}/></label><label>Unidades por envase<input required disabled={body.packageType==='unidades'} type="number" min="1" max="10000" value={body.unitsPerPackage} onChange={e=>patch({unitsPerPackage:Number(e.target.value)})}/></label><p><strong>{body.packages} × {body.unitsPerPackage} = {body.packages*body.unitsPerPackage} unidades</strong></p><label>Fecha de recepción<input required type="date" value={body.receivedDate} onChange={e=>patch({receivedDate:e.target.value})}/></label></> : <label>{body.action === 'count'  ? 'Cantidad física contada' : body.action === 'receive' && row.unit === 'porciones' ? 'Cantidad de porciones disponibles' : body.action === 'receive' ? (row.mode === 'containers' ? 'Cantidad de potes recibidos' : 'Cantidad de unidades recibidas') : body.action === 'open' ? 'Cantidad de potes a abrir' : body.action === 'finish' ? 'Cantidad de potes terminados' : 'Cantidad'}<input type="number" min={body.action === 'count' ? 0 : 1} max="1000000000" step="1" required value={body.quantity} onChange={e => patch({
-            quantity: Number(e.target.value)
-          })} /></label>}
+        {body.action === 'rename' ? (
+          <label>
+            Nombre del cucurucho
+            <input
+              required
+              maxLength={150}
+              value={body.name}
+              onChange={e => patch({ name: e.target.value })}
+            />
+          </label>
+        ) : body.packageType ? (
+          <>
+            <label>
+              ¿Cómo llega la compra?
+              <select
+                value={body.packageType}
+                onChange={e => handleMovementPkgChange(e.target.value)}
+              >
+                {availablePkgTypes.map(x => (
+                  <option key={x} value={x}>
+                    {PACKAGE_INFO[x]?.label || x}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {movementPkgInfo.packagesLabel}
+              <input
+                required
+                type="number"
+                min="1"
+                max="1000000"
+                value={body.packages}
+                onChange={e => patch({ packages: Number(e.target.value) })}
+              />
+            </label>
+            {body.packageType !== 'unidades' && (
+              <label>
+                {movementPkgInfo.unitsLabel}
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  max="10000"
+                  value={body.unitsPerPackage}
+                  onChange={e => patch({ unitsPerPackage: Number(e.target.value) })}
+                />
+                <small>{movementPkgInfo.unitsHint}</small>
+              </label>
+            )}
+            <p>
+              <strong>
+                {body.packageType === 'unidades'
+                  ? `${body.packages} ${body.packages === 1 ? 'unidad' : 'unidades'} en stock`
+                  : `${body.packages} ${body.packages === 1 ? movementPkgInfo.singular : movementPkgInfo.plural} × ${body.unitsPerPackage} unidades = ${body.packages * body.unitsPerPackage} unidades en stock`}
+              </strong>
+            </p>
+            <label>
+              Fecha de recepción
+              <input
+                required
+                type="date"
+                value={body.receivedDate}
+                onChange={e => patch({ receivedDate: e.target.value })}
+              />
+            </label>
+          </>
+        ) : (
+          <label>
+            {body.action === 'count'
+              ? 'Cantidad física contada'
+              : body.action === 'receive' && row.unit === 'porciones'
+              ? 'Cantidad de porciones disponibles'
+              : body.action === 'receive'
+              ? row.mode === 'containers'
+                ? 'Cantidad de potes recibidos'
+                : 'Cantidad de unidades recibidas'
+              : body.action === 'open'
+              ? 'Cantidad de potes a abrir'
+              : body.action === 'finish'
+              ? 'Cantidad de potes terminados'
+              : 'Cantidad'}
+            <input
+              type="number"
+              min={body.action === 'count' ? 0 : 1}
+              max="1000000000"
+              step="1"
+              required
+              value={body.quantity}
+              onChange={e => patch({ quantity: Number(e.target.value) })}
+            />
+          </label>
+        )}
         {row.mode === 'containers' && ['count', 'out'].includes(body.action) && <label>Afecta a<select value={body.bucket} onChange={e => patch({
             bucket: e.target.value
           })}><option value="closed">Recipientes cerrados</option><option value="opened">Recipientes abiertos</option></select></label>}
@@ -579,7 +754,14 @@ function History({
           correction_return: 'Corrección: reposición',
           correction_out: 'Corrección: consumo',
           correction_no_return: 'Corrección: sin reposición'
-        }[r.kind] || r.kind}</strong><p>{stamp(r.createdAt)} · {r.user}</p><p>{r.before ?? 'Sin carga'} → {r.after} {row.unit}{row.mode === 'containers' ? ' · abiertos: ' + r.openedBefore + ' → ' + r.openedAfter : ''}</p>{r.purchase&&<p>{r.purchase.packages} {r.purchase.type} × {r.purchase.unitsPerPackage} unidades · Recepción: {r.purchase.date}</p>}{r.supplier && <p>Proveedor: {r.supplier} · Costo unitario: {Number(r.unitCost).toLocaleString('es-AR', {
+        }[r.kind] || r.kind}</strong><p>{stamp(r.createdAt)} · {r.user}</p><p>{r.before ?? 'Sin carga'} → {r.after} {row.unit}{row.mode === 'containers' ? ' · abiertos: ' + r.openedBefore + ' → ' + r.openedAfter : ''}</p>{r.purchase && (
+  <p>
+    {r.purchase.type === 'unidades'
+      ? `${r.purchase.packages} ${r.purchase.packages === 1 ? 'unidad suelta' : 'unidades sueltas'}`
+      : `${r.purchase.packages} ${r.purchase.packages === 1 ? (PACKAGE_INFO[r.purchase.type]?.singular || r.purchase.type) : (PACKAGE_INFO[r.purchase.type]?.plural || r.purchase.type)} × ${r.purchase.unitsPerPackage} unidades`}
+    {' · Recepción: '}{r.purchase.date}
+  </p>
+)}{r.supplier && <p>Proveedor: {r.supplier} · Costo unitario: {Number(r.unitCost).toLocaleString('es-AR', {
           maximumFractionDigits: 6
         })} · Total: {money(r.totalCost)}</p>}{r.note && <p>{r.note}</p>}{r.orderItemId && <small>Línea de pedido: {r.orderItemId}</small>}{r.correctionId && <small>Corrección: {r.correctionId}</small>}</article>)}</Modal>;
 }
