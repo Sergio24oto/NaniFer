@@ -50,11 +50,11 @@
   line-height: 1.2;
 }
 .sales-highlight {
-  background: #285f59;
+  background: var(--brand-primary, #3B2417);
   color: #fff;
 }
 .sales-highlight small {
-  color: #e0f3ef;
+  color: var(--brand-accent, #D9A94B);
 }
 .sales-page summary,
 .sale-detail summary {

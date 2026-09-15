@@ -1,5 +1,5 @@
 {
-  "name": "NaniFer \u00b7 Helader\u00eda & Caf\u00e9",
+  "name": "NaniFer · Café Bar - Heladería",
   "short_name": "NaniFer",
   "icons": [
     {
@@ -13,7 +13,7 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#faf7f2",
-  "background_color": "#faf7f2",
+  "theme_color": "#3B2417",
+  "background_color": "#F2E6C9",
   "display": "standalone"
 }

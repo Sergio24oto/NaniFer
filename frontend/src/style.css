@@ -1,12 +1,12 @@
 @import "tailwindcss";
 @theme {
-  --color-coffee: #624335;
-  --color-cream: #faf7f2;
+  --color-coffee: #3B2417;
+  --color-cream: #F2E6C9;
 }
 :root {
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  color: #403b35;
-  background: #faf7f2;
+  color: #2B1B10;
+  background: #F2E6C9;
   font-synthesis: none;
 }
 * {
@@ -14,6 +14,8 @@
 }
 body {
   margin: 0;
+  background: #F2E6C9;
+  color: #2B1B10;
 }
 button,
 a,
@@ -34,7 +36,7 @@ button:disabled {
 }
 button:focus-visible,
 a:focus-visible {
-  outline: 3px solid #be7955;
+  outline: 3px solid #D9A94B;
   outline-offset: 4px;
 }
 button:hover:not(:disabled) {
@@ -172,13 +174,15 @@ main {
   font-weight: 600;
 }
 .primary {
-  background: #624335;
-  color: #fff9f2;
+  background: var(--brand-accent, #D9A94B);
+  color: var(--brand-text, #2B1B10);
+  font-weight: 700;
+  border: none;
 }
 .secondary {
   border: 1px solid #dcd2c5;
-  background: #fffcf8;
-  color: #624335;
+  background: #fffdf9;
+  color: #5A3A22;
 }
 .full {
   width: 100%;
@@ -236,10 +240,10 @@ main {
   margin-right: 4px;
 }
 .dot-1 {
-  background: #c49b60;
+  background: #D9A94B;
 }
 .dot-2 {
-  background: #6e8e6d;
+  background: #5C7A4A;
 }
 .dot-3 {
   background: #b6bca8;
@@ -251,7 +255,7 @@ main {
 }
 .table-card {
   text-align: left;
-  background: #fffcf8;
+  background: #fffdf9;
   border: 1px solid #e5ddd2;
   border-radius: 12px;
   padding: 18px;
@@ -265,12 +269,12 @@ main {
   box-shadow: 0 5px 15px #6546350b;
 }
 .table-card.occupied {
-  background: #fcf6eb;
-  border-color: #e7d1b2;
+  background: #fdf5f3;
+  border-color: #f3cfc8;
 }
 .table-card.ready {
-  background: #f0f5eb;
-  border-color: #aac09e;
+  background: #edf3ea;
+  border-color: #c9dec5;
 }
 .row {
   display: flex;
@@ -281,31 +285,33 @@ main {
 .table-number {
   font-family: Georgia, serif;
   font-size: 28px;
-  color: #a49484;
+  color: #8c7866;
 }
 .badge {
   font-size: 9px;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  background: #eeebe5;
-  color: #8b8176;
+  background: #ece5dc;
+  color: #635043;
   padding: 5px 8px;
   border-radius: 5px;
   font-weight: 600;
 }
 .badge.green {
-  background: #e1ebdb;
-  color: #587150;
+  background: #edf3ea;
+  color: #3b532e;
+  border: 1px solid #c9dec5;
 }
 .badge.amber {
-  background: #f1e4ce;
-  color: #977143;
+  background: #fdf2dc;
+  color: #7a4e1b;
+  border: 1px solid #ebd29f;
 }
 .badge.red {
-  background: #fdf2f5;
-  color: #9f1239;
-  border: 1px solid #f8c9dc;
+  background: #fdf5f3;
+  color: #8c3b2d;
+  border: 1px solid #f3cfc8;
   font-weight: 700;
 }
 .table-bottom {
