@@ -25,14 +25,14 @@ function Login() {
       <div className="login-photo">
         <img
           src="/brand/interior.jpg"
-          alt="El salón de NaniFer, con mesas y sillas turquesa"
+          alt="El salón renovado de NaniFer Café Bar - Heladería con lámparas de mimbre y pared de ladrillo"
         />
         <div>
           <span>BIENVENIDOS A NANIFER</span>
           <h2>
-            Todo listo para
+            Los mejores momentos
             <br />
-            un lindo día.
+            se viven y se comparten.
           </h2>
         </div>
       </div>

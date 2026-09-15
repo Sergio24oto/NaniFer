@@ -1,32 +1,701 @@
-.digital-menu {max-width:1000px;margin:auto;} .menu-table {display:inline-block;color:var(--brand-primary);font-size:14px;background:#FAF4E8;padding:8px 14px;border-radius:24px;} .digital-intro {text-align:center;padding:28px 0;} .digital-intro h1 {font-size:clamp(32px,6vw,48px);margin:12px 0;} .digital-intro p {font-size:17px;line-height:1.6;} .digital-categories {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;} .digital-category {padding:0;background:#fffdfa;border:1px solid #e7ded2;border-radius:18px;overflow:hidden;text-align:left;color:var(--brand-primary);} .category-photo {aspect-ratio:4/3;background:linear-gradient(140deg,#F7EFE1,#FAF4E8);} .category-photo img {width:100%;height:100%;object-fit:cover;object-position:center;} .digital-category>span {display:flex;justify-content:space-between;padding:16px;font-size:19px;font-weight:700;} .menu-back {display:block;margin:20px 0;} .digital-products {display:grid;gap:16px;} .digital-product {display:flex;gap:18px;background:#fffdfa;padding:22px;border-radius:16px;border:1px solid #e7ded2;} .digital-product>div {flex:1;min-width:0;} .digital-product>img {width:100px;height:100px;object-fit:cover;border-radius:12px;} .menu-product-heading {display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;} .menu-product-heading h2 {margin:0;font-size:21px;} .menu-product-heading strong {color:var(--brand-accent);font-size:20px;} .digital-product h3 {font-size:15px;margin:14px 0 5px;} .digital-product p,.digital-product li {font-size:16px;line-height:1.6;} .digital-product ul {padding-left:20px;margin:0;} .menu-editor {display:grid;gap:12px;margin:20px 0;} @media(max-width:600px){.digital-categories{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.digital-category>span{font-size:16px;padding:12px;}.digital-product{padding:16px;flex-wrap:wrap;}.digital-product>img{width:72px;height:72px;}}
+/* ==========================================================================
+   NaniFer Carta Digital · Experiencia Editorial Gourmet
+   ========================================================================== */
 
-/* Portada pública: la fotografía real y los colores cálidos de NaniFer Café Bar - Heladería. */
-body.public-menu-page {background:linear-gradient(180deg,rgba(43,27,16,.68),rgba(43,27,16,.52)),url('/menu/nanifer.webp');background-position:center top;background-size:cover;background-attachment:fixed;background-color:#3B2417;}
-.public-menu-page::before {content:'';position:fixed;inset:0;background:linear-gradient(180deg,rgba(43,27,16,.3),rgba(43,27,16,.6));pointer-events:none;z-index:-1;}
-.public-menu-page header {background:var(--brand-primary);border:0;box-shadow:0 4px 30px rgba(0,0,0,0.3);}
-.public-menu-page footer {background:#FAF4E8;margin-top:32px;}
-.digital-menu {max-width:1120px;padding:32px 28px 48px;}
-.digital-intro {text-align:left;padding:50px 8px 56px;color:#fffaf3;max-width:700px;text-shadow:0 2px 16px rgba(0,0,0,0.6);}
-.digital-intro .eyebrow {color:var(--brand-accent);letter-spacing:3px;font-size:12px;font-weight:700;}
-.digital-intro h1 {color:#fffaf3;font-size:clamp(48px,8vw,86px);line-height:1.03;letter-spacing:-2px;margin:20px 0;}
-.digital-intro h1 em {color:var(--brand-accent);font-weight:normal;}
-.digital-intro p {color:#f2e6c9;font-size:18px;line-height:1.6;max-width:440px;}
-.digital-subtitle {display:inline-block;background:var(--brand-accent);color:var(--brand-text);padding:10px 16px;border-radius:24px;font-size:11px;font-weight:700;letter-spacing:2px;text-shadow:none;}
-.menu-section-title {background:#FAF4E8;padding:26px 28px 20px;border-radius:24px 24px 0 0;}
-.menu-section-title>span {color:var(--brand-wood-light);font-size:11px;letter-spacing:2px;font-weight:700;}
-.menu-section-title h2 {font-size:clamp(24px,4vw,32px);margin:8px 0;color:var(--brand-primary);}
-.digital-categories {background:#FAF4E8;padding:0 28px 28px;border-radius:0 0 24px 24px;gap:20px;}
-.digital-category {position:relative;border:0;box-shadow:0 8px 24px rgba(43,27,16,0.12);transition:box-shadow .15s;}
-.digital-category:hover {box-shadow:0 8px 24px rgba(43,27,16,0.22);}
-.category-photo {aspect-ratio:4/4;}
-.digital-category>span {padding:18px;align-items:center;gap:8px;color:var(--brand-primary);}
-.digital-category small {display:block;color:var(--brand-wood-light);font-size:9px;letter-spacing:1.5px;margin-bottom:6px;}
-.category-arrow {display:grid;place-items:center;flex-shrink:0;width:34px;height:34px;background:#F2E6C9;border-radius:50%;color:var(--brand-primary);}
-.digital-menu>h1,.digital-menu>p {color:#fffaf3;text-shadow:0 2px 8px rgba(0,0,0,0.6);}
-.digital-product {box-shadow:0 8px 24px rgba(43,27,16,0.08);border:0;}
-.digital-products {gap:18px;}
-.combo-note {padding:20px 24px;background:#FAF4E8;border-left:5px solid var(--brand-accent);border-radius:14px;margin:20px 0;color:var(--brand-primary);font-size:17px;}
-@media(max-width:600px){body.public-menu-page{background-attachment:scroll;background-size:auto 100vh;background-color:#3B2417;}.digital-menu{padding:20px 16px 32px;}.digital-intro{padding:32px 4px 38px;}.digital-intro h1{font-size:54px;}.digital-intro p{font-size:16px;}.digital-subtitle{font-size:9px;letter-spacing:1px;}.menu-section-title{padding:22px 16px 16px;}.digital-categories{padding:0 12px 16px;gap:12px;}.digital-category>span{padding:12px 10px;font-size:15px;}.category-arrow{width:25px;height:25px;}.digital-category small{font-size:8px;}.category-photo{aspect-ratio:4/4.5;}}
-@media(prefers-reduced-motion:reduce){.digital-category{transition:none;}}
+/* Fondo inmersivo con la fotografía real del salón y sus lámparas cálidas */
+body.public-menu-page {
+  background: linear-gradient(180deg, rgba(43, 27, 16, 0.72) 0%, rgba(43, 27, 16, 0.58) 50%, rgba(43, 27, 16, 0.78) 100%),
+              url('/menu/nanifer.webp');
+  background-position: center center;
+  background-size: cover;
+  background-attachment: fixed;
+  background-color: #3B2417;
+  color: var(--brand-text);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
 
-.public-cart-bar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;width:min(92%,520px);box-shadow:0 4px 20px #0003}.digital-menu{padding-bottom:110px}
+.public-menu-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 20%, rgba(217, 169, 75, 0.12), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.public-menu-page header {
+  background: rgba(59, 36, 23, 0.95);
+  backdrop-filter: blur(10px);
+  border: 0;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.digital-menu {
+  max-width: 1060px;
+  margin: auto;
+  padding: 24px 20px 120px;
+}
+
+/* Barra superior y mesa */
+.menu-top-bar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.menu-table {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #fffaf3;
+  font-size: 14px;
+  font-weight: 600;
+  background: rgba(59, 36, 23, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(217, 169, 75, 0.4);
+  padding: 8px 20px;
+  border-radius: 30px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  letter-spacing: 0.5px;
+}
+
+.table-pulse-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--brand-accent);
+  box-shadow: 0 0 10px var(--brand-accent);
+  display: inline-block;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+/* Logo oficial flotante en portada */
+.digital-brand-center {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 20px;
+}
+
+.digital-hero-logo {
+  width: min(220px, 55vw);
+  height: auto;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45));
+}
+
+/* Bienvenida / Intro */
+.digital-intro {
+  text-align: center;
+  padding: 10px 12px 36px;
+  color: #fffaf3;
+  max-width: 740px;
+  margin: 0 auto;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
+}
+
+.digital-intro .eyebrow {
+  color: var(--brand-accent);
+  letter-spacing: 3.5px;
+  font-size: 11px;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.digital-intro h1 {
+  font-family: 'Playfair Display', Georgia, serif;
+  color: #fffaf3;
+  font-size: clamp(40px, 7vw, 68px);
+  line-height: 1.06;
+  letter-spacing: -1px;
+  margin: 10px 0 16px;
+}
+
+.digital-intro h1 em {
+  color: var(--brand-accent);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Frase emocional tomada de la pizarra del local */
+.digital-quote {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  font-size: clamp(18px, 3.2vw, 24px);
+  color: #fcebd0;
+  margin: 16px auto 20px;
+  max-width: 580px;
+  line-height: 1.4;
+  border-left: none;
+  padding: 0 16px;
+  letter-spacing: 0.3px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+}
+
+.digital-subtitle {
+  display: inline-block;
+  background: var(--brand-accent);
+  color: #2B1B10;
+  padding: 8px 18px;
+  border-radius: 24px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-shadow: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  margin-bottom: 14px;
+}
+
+.digital-intro p {
+  color: #f2e6c9;
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* Categorías en portada */
+.menu-section-title {
+  background: #FAF4E8;
+  padding: 26px 28px 20px;
+  border-radius: 24px 24px 0 0;
+  border: 1px solid rgba(217, 169, 75, 0.25);
+  border-bottom: 0;
+}
+
+.menu-section-title > span {
+  color: var(--brand-wood-light);
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+.menu-section-title h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(24px, 4vw, 32px);
+  margin: 8px 0 0;
+  color: var(--brand-primary);
+}
+
+.digital-categories {
+  background: #FAF4E8;
+  padding: 0 24px 28px;
+  border-radius: 0 0 24px 24px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  border: 1px solid rgba(217, 169, 75, 0.25);
+  border-top: 0;
+  box-shadow: 0 16px 40px rgba(43, 27, 16, 0.25);
+}
+
+.digital-category {
+  padding: 0;
+  background: #fffdfa;
+  border: 1px solid #e7ded2;
+  border-radius: 18px;
+  overflow: hidden;
+  text-align: left;
+  color: var(--brand-primary);
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(43, 27, 16, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.digital-category:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(43, 27, 16, 0.18);
+}
+
+.category-photo {
+  aspect-ratio: 4/3.5;
+  background: linear-gradient(140deg, #F7EFE1, #FAF4E8);
+  overflow: hidden;
+}
+
+.category-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.digital-category:hover .category-photo img {
+  transform: scale(1.05);
+}
+
+.digital-category > span {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  gap: 8px;
+  color: var(--brand-primary);
+}
+
+.digital-category small {
+  display: block;
+  color: var(--brand-wood-light);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  margin-bottom: 4px;
+}
+
+.category-arrow {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  background: #F2E6C9;
+  border-radius: 50%;
+  color: var(--brand-primary);
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* ==========================================================================
+   VISTA DE CARTA EDITORIAL GOURMET (Al entrar a una categoría)
+   ========================================================================== */
+
+.editorial-view {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.editorial-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.editorial-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(250, 244, 232, 0.92);
+  color: var(--brand-primary);
+  border: 1px solid rgba(217, 169, 75, 0.4);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: 24px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.editorial-back-btn:hover {
+  background: #FAF4E8;
+  transform: translateX(-3px);
+}
+
+.editorial-table-chip {
+  background: rgba(59, 36, 23, 0.85);
+  color: var(--brand-accent);
+  border: 1px solid rgba(217, 169, 75, 0.35);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+/* Hoja de carta tipo restaurante/cafetería */
+.editorial-card {
+  background: #FAF4E8;
+  border-radius: 28px;
+  padding: clamp(24px, 5vw, 44px);
+  box-shadow: 0 20px 60px rgba(43, 27, 16, 0.35);
+  border: 1px solid rgba(217, 169, 75, 0.3);
+  position: relative;
+}
+
+/* Encabezado editorial con caligrafía y composición artística */
+.editorial-header {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 32px;
+  align-items: center;
+  margin-bottom: 32px;
+  padding-bottom: 28px;
+  border-bottom: 1.5px dashed rgba(169, 116, 79, 0.35);
+}
+
+.editorial-script-eyebrow {
+  font-family: 'Alex Brush', cursive, Georgia, serif;
+  font-size: clamp(38px, 6vw, 48px);
+  color: var(--brand-wood-light);
+  line-height: 0.9;
+  display: block;
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+}
+
+.editorial-title {
+  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-size: clamp(36px, 6vw, 54px);
+  font-weight: 600;
+  letter-spacing: 4px;
+  color: var(--brand-primary);
+  margin: 0 0 14px;
+  line-height: 1;
+}
+
+.editorial-brand-stamp {
+  display: inline-flex;
+  flex-direction: column;
+  border-left: 2.5px solid var(--brand-accent);
+  padding-left: 12px;
+  margin-bottom: 14px;
+}
+
+.stamp-sub {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--brand-accent);
+}
+
+.stamp-main {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--brand-wood-dark);
+}
+
+.editorial-cat-note {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--brand-wood-dark);
+  line-height: 1.5;
+  background: rgba(242, 230, 201, 0.5);
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-top: 10px;
+}
+
+/* Composición artística de cabecera */
+.editorial-art-composition {
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(43, 27, 16, 0.16);
+  border: 1px solid rgba(217, 169, 75, 0.25);
+  background: #fdfbf7;
+}
+
+.editorial-art-img {
+  width: 100%;
+  height: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.editorial-card:hover .editorial-art-img {
+  transform: scale(1.03);
+}
+
+/* Lista de productos de la carta */
+.editorial-products-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.editorial-product-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 12px;
+  border-bottom: 1px dotted rgba(169, 116, 79, 0.35);
+  border-radius: 14px;
+  transition: background 0.15s ease, transform 0.15s ease;
+  cursor: pointer;
+}
+
+.editorial-product-row:hover {
+  background: rgba(242, 230, 201, 0.45);
+}
+
+.editorial-product-row.unavailable {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.editorial-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.editorial-title-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+}
+
+.editorial-product-name {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(16px, 2.5vw, 19px);
+  font-weight: 700;
+  color: var(--brand-primary);
+  margin: 0;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.editorial-dots {
+  flex: 1;
+  border-bottom: 1.5px dotted rgba(111, 74, 50, 0.45);
+  margin: 0 6px;
+  min-width: 24px;
+  transform: translateY(-4px);
+}
+
+.editorial-price {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: clamp(16px, 2.5vw, 19px);
+  font-weight: 700;
+  color: var(--brand-primary);
+  white-space: nowrap;
+}
+
+.editorial-product-desc {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.45;
+  color: #5a4536;
+  margin: 5px 0 0;
+}
+
+.editorial-sizes-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.editorial-size-tag {
+  font-size: 12px;
+  background: rgba(242, 230, 201, 0.7);
+  color: var(--brand-primary);
+  border: 1px solid rgba(217, 169, 75, 0.3);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.editorial-unavailable-badge {
+  display: inline-block;
+  background: #f1e4ce;
+  color: #8c532b;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  margin-top: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* Botón interactivo (+) */
+.editorial-add-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--brand-accent);
+  color: #2B1B10;
+  border: 1px solid rgba(169, 116, 79, 0.2);
+  font-size: 24px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(217, 169, 75, 0.45);
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  margin-top: 2px;
+}
+
+.editorial-add-btn:hover:not(:disabled) {
+  transform: scale(1.12);
+  background: #c79639;
+  box-shadow: 0 6px 16px rgba(217, 169, 75, 0.6);
+}
+
+.editorial-add-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.editorial-add-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Panel de sabores para helados */
+.editorial-flavors-section {
+  background: rgba(242, 230, 201, 0.5);
+  border-radius: 18px;
+  padding: 22px 24px;
+  margin-top: 32px;
+  border: 1px solid rgba(217, 169, 75, 0.3);
+}
+
+.editorial-flavors-section h3 {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--brand-primary);
+  margin: 0 0 10px;
+}
+
+.editorial-flavors-section p {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #4a3424;
+  margin: 0;
+}
+
+.editorial-empty-msg {
+  text-align: center;
+  padding: 40px 16px;
+  font-size: 16px;
+  color: var(--brand-wood-light);
+  font-style: italic;
+}
+
+/* Barra flotante de pedido / carrito */
+.public-cart-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  width: min(92%, 480px);
+  background: var(--brand-primary);
+  color: #fffaf3;
+  border: 2px solid var(--brand-accent);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  border-radius: 36px;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.public-cart-bar:hover {
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+}
+
+.cart-bar-badge {
+  background: var(--brand-accent);
+  color: #2B1B10;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.cart-bar-total {
+  color: var(--brand-accent);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .editorial-header {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .editorial-art-composition {
+    order: -1;
+    max-height: 200px;
+  }
+
+  .editorial-title-line {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .editorial-dots {
+    display: none;
+  }
+
+  .editorial-product-name {
+    white-space: normal;
+    width: 100%;
+  }
+
+  .editorial-price {
+    color: var(--brand-accent);
+    margin-top: 2px;
+  }
+
+  .digital-categories {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0 14px 20px;
+    gap: 14px;
+  }
+
+  .digital-category > span {
+    font-size: 15px;
+    padding: 12px 10px;
+  }
+
+  .category-arrow {
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  body.public-menu-page {
+    background-attachment: scroll;
+    background-size: auto 100vh;
+  }
+
+  .digital-menu {
+    padding: 16px 12px 110px;
+  }
+
+  .digital-intro h1 {
+    font-size: 42px;
+  }
+
+  .editorial-card {
+    padding: 20px 16px;
+    border-radius: 20px;
+  }
+}

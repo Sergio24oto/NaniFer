@@ -43,6 +43,7 @@ header {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   border: 2px solid var(--brand-accent);
   background: var(--brand-primary);
+  padding: 4px;
 }
 
 .brand-frame img {
