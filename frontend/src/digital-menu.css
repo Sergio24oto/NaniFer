@@ -24,7 +24,8 @@ body.public-menu-page {
   z-index: -1;
 }
 
-.public-menu-page header {
+body.public-menu-page header:not(.editorial-header),
+body.public-menu-page > div > header {
   background: rgba(59, 36, 23, 0.95);
   backdrop-filter: blur(10px);
   border: 0;
@@ -324,6 +325,10 @@ body.public-menu-page {
 
 /* Encabezado editorial con caligrafía y composición artística */
 .editorial-header {
+  position: static;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
   display: grid;
   grid-template-columns: 1fr 340px;
   gap: 32px;

@@ -42,6 +42,12 @@ export default function DigitalMenu({ table }) {
 
   const s = useStore();
   const [selected, setSelected] = useState(null);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+  }, [selected]);
   const [cart, setCartState] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("nf.public.cart." + table) || "[]");
@@ -149,10 +155,7 @@ export default function DigitalMenu({ table }) {
               <button
                 className="digital-category"
                 key={c.id}
-                onClick={() => {
-                  setSelected(c.id);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
+                onClick={() => setSelected(c.id)}
               >
                 <div className="category-photo">
                   <Photo
@@ -184,10 +187,7 @@ export default function DigitalMenu({ table }) {
           <div className="editorial-nav">
             <button
               className="secondary editorial-back-btn"
-              onClick={() => {
-                setSelected(null);
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
+              onClick={() => setSelected(null)}
             >
               ← Volver a la carta
             </button>
@@ -195,7 +195,7 @@ export default function DigitalMenu({ table }) {
           </div>
 
           <article className="editorial-card">
-            <header className="editorial-header">
+            <div className="editorial-header">
               <div className="editorial-header-text">
                 <span className="editorial-script-eyebrow">menu</span>
                 <h1 className="editorial-title">{cat.name.toUpperCase()}</h1>
@@ -214,7 +214,7 @@ export default function DigitalMenu({ table }) {
                   fetchPriority="high"
                 />
               </div>
-            </header>
+            </div>
 
             <div className="editorial-products-list">
               {products.map((p) => {
