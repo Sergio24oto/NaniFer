@@ -39,6 +39,8 @@ body.public-menu-page > div > header {
   max-width: 1060px;
   margin: auto;
   padding: 24px 20px 120px;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 /* Barra superior y mesa */
@@ -217,15 +219,20 @@ body.public-menu-page > div > header {
 }
 
 .category-photo {
-  aspect-ratio: 4/3.5;
+  aspect-ratio: 4/3.3;
   background: linear-gradient(140deg, #F7EFE1, #FAF4E8);
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
 }
 
 .category-photo img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   transition: transform 0.3s ease;
 }
 
@@ -271,7 +278,9 @@ body.public-menu-page > div > header {
 
 .editorial-view {
   max-width: 960px;
+  width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .editorial-nav {
@@ -317,10 +326,13 @@ body.public-menu-page > div > header {
 .editorial-card {
   background: #FAF4E8;
   border-radius: 28px;
-  padding: clamp(24px, 5vw, 44px);
+  padding: clamp(20px, 4vw, 44px);
   box-shadow: 0 20px 60px rgba(43, 27, 16, 0.35);
   border: 1px solid rgba(217, 169, 75, 0.3);
   position: relative;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Encabezado editorial con caligrafía y composición artística */
@@ -340,7 +352,7 @@ body.public-menu-page > div > header {
 
 .editorial-script-eyebrow {
   font-family: 'Alex Brush', cursive, Georgia, serif;
-  font-size: clamp(38px, 6vw, 48px);
+  font-size: clamp(34px, 5.5vw, 48px);
   color: var(--brand-wood-light);
   line-height: 0.9;
   display: block;
@@ -350,12 +362,16 @@ body.public-menu-page > div > header {
 
 .editorial-title {
   font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
-  font-size: clamp(36px, 6vw, 54px);
+  font-size: clamp(26px, 5vw, 46px);
   font-weight: 600;
-  letter-spacing: 4px;
+  letter-spacing: clamp(1px, 0.4vw, 3px);
   color: var(--brand-primary);
   margin: 0 0 14px;
-  line-height: 1;
+  line-height: 1.15;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+  max-width: 100%;
 }
 
 .editorial-brand-stamp {
@@ -396,22 +412,28 @@ body.public-menu-page > div > header {
 .editorial-art-composition {
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(43, 27, 16, 0.16);
+  box-shadow: 0 8px 24px rgba(43, 27, 16, 0.12);
   border: 1px solid rgba(217, 169, 75, 0.25);
-  background: #fdfbf7;
+  background: #FAF4E8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
 }
 
 .editorial-art-img {
   width: 100%;
-  height: 100%;
-  max-height: 240px;
-  object-fit: cover;
+  height: auto;
+  max-height: 260px;
+  object-fit: contain;
+  object-position: center;
   display: block;
+  border-radius: 14px;
   transition: transform 0.3s ease;
 }
 
 .editorial-card:hover .editorial-art-img {
-  transform: scale(1.03);
+  transform: scale(1.02);
 }
 
 /* Lista de productos de la carta */
@@ -640,12 +662,21 @@ body.public-menu-page > div > header {
 @media (max-width: 768px) {
   .editorial-header {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 18px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
   }
 
   .editorial-art-composition {
     order: -1;
-    max-height: 200px;
+    max-height: 250px;
+    padding: 6px;
+  }
+
+  .editorial-art-img {
+    max-height: 240px;
+    object-fit: contain;
+    object-position: center;
   }
 
   .editorial-title-line {
@@ -692,15 +723,40 @@ body.public-menu-page > div > header {
   }
 
   .digital-menu {
-    padding: 16px 12px 110px;
+    padding: 16px 10px 110px;
   }
 
   .digital-intro h1 {
-    font-size: 42px;
+    font-size: 38px;
   }
 
   .editorial-card {
-    padding: 20px 16px;
+    padding: 18px 12px;
     border-radius: 20px;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .editorial-title {
+    font-size: clamp(22px, 6vw, 30px);
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    line-height: 1.15;
+  }
+
+  .editorial-art-composition {
+    max-height: 210px;
+    padding: 4px;
+  }
+
+  .editorial-art-img {
+    max-height: 200px;
+    object-fit: contain;
+  }
+
+  .editorial-product-row {
+    padding: 14px 8px;
+    gap: 10px;
   }
 }

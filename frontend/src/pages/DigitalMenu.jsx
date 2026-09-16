@@ -18,7 +18,7 @@ function getCategoryHeaderImage(catName = "") {
   if (n.includes("golosin") || n.includes("kiosco") || n.includes("quiosco") || n.includes("chocolat") || n.includes("caramel") || n.includes("chicle") || n.includes("gomita")) return "/menu/headers/golosinas.webp";
   if (n.includes("caf") || n.includes("espresso") || n.includes("infus")) return "/menu/headers/cafes.webp";
   if (n.includes("helad") || n.includes("sabor") || n.includes("pote") || n.includes("cucurucho")) return "/menu/headers/helados.webp";
-  if (n.includes("torta") || n.includes("merienda") || n.includes("desayun") || n.includes("bakery") || n.includes("panad") || n.includes("combo")) return "/menu/headers/tortas.webp";
+  if (n.includes("torta") || n.includes("merienda") || n.includes("desayun") || n.includes("bakery") || n.includes("panad")) return "/menu/headers/tortas.webp";
   return "/menu/headers/cafes.webp";
 }
 
@@ -198,7 +198,7 @@ export default function DigitalMenu({ table }) {
             <div className="editorial-header">
               <div className="editorial-header-text">
                 <span className="editorial-script-eyebrow">menu</span>
-                <h1 className="editorial-title">{cat.name.toUpperCase()}</h1>
+                <h1 className="editorial-title">{cat.name.replace(/\//g, " / ").toUpperCase()}</h1>
                 <div className="editorial-brand-stamp">
                   <span className="stamp-sub">NANIFER</span>
                   <span className="stamp-main">CAFÉ BAR · HELADERÍA</span>
