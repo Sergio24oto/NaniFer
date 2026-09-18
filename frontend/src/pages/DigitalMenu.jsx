@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useStore } from "../store";
-import { money, estimate } from "../domain";
+import { useStore, request } from "../store";
+import { money, estimate, operationId } from "../domain";
 import Product from "./Product";
-import PublicCart from "./PublicCart";
+import PublicCart, { publicDevice } from "./PublicCart";
 
 function Photo({ src, alt, ...props }) {
   const [failed, setFailed] = useState(false);
@@ -57,6 +57,31 @@ export default function DigitalMenu({ table }) {
   });
   const [product, setProduct] = useState(null);
   const [showCart, setShowCart] = useState(false);
+  const [callingWaiter, setCallingWaiter] = useState(false);
+  const [waiterNotified, setWaiterNotified] = useState(false);
+  const [callError, setCallError] = useState("");
+
+  const handleCallWaiter = async () => {
+    if (callingWaiter) return;
+    setCallingWaiter(true);
+    setCallError("");
+    try {
+      const key = operationId();
+      await request("/public/qr/" + table + "/call", {
+        method: "POST",
+        key,
+        body: {},
+        device: publicDevice(),
+      });
+      setWaiterNotified(true);
+      setTimeout(() => setWaiterNotified(false), 8000);
+    } catch (e) {
+      setCallError(e.message || "No se pudo avisar a la moza. Por favor intentá nuevamente.");
+      setTimeout(() => setCallError(""), 6000);
+    } finally {
+      setCallingWaiter(false);
+    }
+  };
 
   const setCart = (c) => {
     localStorage.setItem("nf.public.cart." + table, JSON.stringify(c));
@@ -121,7 +146,27 @@ export default function DigitalMenu({ table }) {
         <span className="menu-table">
           <span className="table-pulse-dot" /> Estás en la mesa {table}
         </span>
+        <button
+          type="button"
+          className={"call-waiter-nav-btn" + (waiterNotified ? " success" : "")}
+          onClick={handleCallWaiter}
+          disabled={callingWaiter}
+          title="Avisar a la moza para que se acerque a tu mesa"
+        >
+          {callingWaiter ? "Avisando…" : waiterNotified ? "✓ ¡Moza avisada!" : "🛎️ Llamar a la moza"}
+        </button>
       </div>
+
+      {waiterNotified && (
+        <div className="waiter-notified-banner" role="status">
+          🛎️ <strong>¡La moza fue avisada!</strong> En breve se acercará a la mesa {table}.
+        </div>
+      )}
+      {callError && (
+        <div className="waiter-error-banner" role="alert">
+          ⚠️ {callError}
+        </div>
+      )}
 
       {!cat ? (
         <>

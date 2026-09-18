@@ -46,8 +46,17 @@ body.public-menu-page > div > header {
 /* Barra superior y mesa */
 .menu-top-bar {
   display: flex;
-  justify-content: center;
-  margin-bottom: 24px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+  .menu-top-bar {
+    justify-content: center;
+  }
 }
 
 .menu-table {
@@ -64,6 +73,73 @@ body.public-menu-page > div > header {
   border-radius: 30px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   letter-spacing: 0.5px;
+}
+
+.call-waiter-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(59, 36, 23, 0.9);
+  color: #fffaf3;
+  border: 1.5px solid rgba(217, 169, 75, 0.6);
+  padding: 8px 18px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease;
+}
+
+.call-waiter-nav-btn:hover:not(:disabled) {
+  background: rgba(85, 52, 34, 0.95);
+  border-color: #d9a94b;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(217, 169, 75, 0.3);
+}
+
+.call-waiter-nav-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.call-waiter-nav-btn.success {
+  background: rgba(46, 125, 50, 0.85);
+  border-color: #81c784;
+  color: #ffffff;
+}
+
+.waiter-notified-banner {
+  background: rgba(39, 174, 96, 0.25);
+  border: 1.5px solid #2ecc71;
+  color: #f1f9f5;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  margin-bottom: 20px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  animation: fadeInDown 0.3s ease-out;
+}
+
+.waiter-error-banner {
+  background: rgba(231, 76, 60, 0.25);
+  border: 1.5px solid #e74c3c;
+  color: #fdedec;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  margin-bottom: 20px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  animation: fadeInDown 0.3s ease-out;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .table-pulse-dot {

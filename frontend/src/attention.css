@@ -71,7 +71,177 @@ button:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
 .release-table {margin:16px 0;padding:14px;border:1px solid #a7cbb8;border-radius:12px;background:#f0f8f3;} .release-table button {min-height:48px;font-size:17px;border:2px solid #317452;color:#23593f;background:white;} .release-table button.primary {background:#246d51;color:white;border:none;} .release-table button.primary:not(:disabled):hover {background:#1b543e;} .release-table small {display:block;margin-top:8px;color:#405d4c;font-size:14px;} .release-table button:disabled {opacity:.5;cursor:not-allowed;}
 
 .table-card-actions {display:flex;flex-direction:column;gap:8px;} .table-open {border:0;background:transparent;text-align:left;width:100%;padding:0;color:inherit;flex:1;} .table-open .row {width:100%;} .reserve-table {min-height:36px;width:100%;} .has-reservation {border-color:#A9744F;} .draft-hint {display:block;background:#fdf2dc;color:#7a4e1b;padding:5px 8px;border-radius:6px;margin-top:6px;} .counter-card {border:2px solid var(--brand-secondary);}
-.call-badge{background:#d7eee4;color:#174a39;padding:10px;border-radius:10px;display:grid;gap:6px}.table-card:has(.call-badge){animation:call-attention 5s ease-out}@keyframes call-attention{0%,35%{background:#80cfac;box-shadow:0 0 0 3px #4a9b76}100%{box-shadow:none}}
+/* --- Llamados de atención de Moza --- */
+.calls-alert-banner {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border: 2px solid #e17055;
+  color: #632d00;
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin: 0 0 18px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 4px 14px rgba(225, 112, 85, 0.25);
+  animation: banner-glow 2s infinite ease-in-out;
+}
+
+@keyframes banner-glow {
+  0%, 100% { box-shadow: 0 4px 14px rgba(225, 112, 85, 0.25); }
+  50% { box-shadow: 0 6px 22px rgba(225, 112, 85, 0.45); }
+}
+
+.calls-alert-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.calls-alert-icon {
+  font-size: 26px;
+  display: inline-block;
+  animation: ring-bell 1.4s infinite ease-in-out;
+}
+
+@keyframes ring-bell {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(-14deg); }
+  30% { transform: rotate(14deg); }
+  45% { transform: rotate(-8deg); }
+  60% { transform: rotate(8deg); }
+  75% { transform: rotate(0deg); }
+}
+
+.calls-alert-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.call-quick-attend-btn {
+  background: #27ae60;
+  color: white;
+  border: none;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(39, 174, 96, 0.3);
+  transition: background 0.15s, transform 0.15s;
+}
+
+.call-quick-attend-btn:hover {
+  background: #219150;
+  transform: translateY(-1px);
+}
+
+.salon-compact .table-card.calling,
+.salon-compact .table-card:has(.call-badge) {
+  border: 2.5px solid #e17055 !important;
+  background: #fff8f5 !important;
+  animation: calling-card-pulse 2s infinite ease-in-out;
+}
+
+@keyframes calling-card-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(225, 112, 85, 0.3), 0 4px 12px rgba(225, 112, 85, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(225, 112, 85, 0.55), 0 6px 18px rgba(225, 112, 85, 0.3);
+  }
+}
+
+.call-badge {
+  background: #ffeaa7;
+  border: 1.5px solid #fdcb6e;
+  color: #632d00;
+  padding: 8px 10px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.call-badge-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.call-badge-title strong {
+  color: #d63031;
+}
+
+.attend-call-btn {
+  background: #27ae60;
+  color: white;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  width: 100%;
+  min-height: 32px;
+  transition: background 0.15s;
+}
+
+.attend-call-btn:hover {
+  background: #219150;
+}
+
+/* Banner de llamado en vista detalle de mesa */
+.call-banner-detail {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border: 2px solid #e17055;
+  color: #632d00;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 14px rgba(225, 112, 85, 0.2);
+  margin-bottom: 16px;
+  animation: banner-glow 2s infinite ease-in-out;
+}
+
+.call-banner-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.call-banner-icon {
+  font-size: 28px;
+  animation: ring-bell 1.4s infinite ease-in-out;
+  display: inline-block;
+}
+
+.attend-detail-btn {
+  background: #27ae60 !important;
+  color: white !important;
+  border: none !important;
+  font-weight: 700 !important;
+  padding: 10px 18px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.attend-detail-btn:hover:not(:disabled) {
+  background: #219150 !important;
+  transform: translateY(-1px);
+}
 
 /* --- UX Moza: Mesas ocupadas con pedidos realizados en Salón --- */
 .salon-compact .table-card.occupied.has-orders {

@@ -18,9 +18,40 @@ export function Salon({
   const date = reservationDate || s.calendarToday;
   const opened = s.accounts.filter(a => !a.closedAt && a.table != null);
   const ready = s.orders.filter(o => o.status === "listo para entregar");
+  const pendingCalls = (s.calls || []).filter(c => c.status === "pending" || c.pending_table != null);
   return <main className="salon-compact">
     <div className="page-heading"><div className="intro"><span className="eyebrow">ATENCIÓN</span><h1>Mesas y Mostrador</h1><p>{opened.length} de 15 mesas ocupadas · {money(opened.reduce((n, a) => n + a.balance, 0))} pendiente</p></div><button className="secondary" onClick={() => nav("/atencion/comandera")}><ClipboardList size={17} /> Mozas · {ready.length} listos</button></div>
     {message && <p className="success" role="status">{message}</p>}
+    {pendingCalls.length > 0 && (
+      <div className="calls-alert-banner" role="alert">
+        <div className="calls-alert-content">
+          <span className="calls-alert-icon">🛎️</span>
+          <div>
+            <strong>¡Llamado de atención en salón!</strong>
+            <p>
+              {pendingCalls.length === 1
+                ? `La Mesa ${pendingCalls[0].table} está llamando a la moza.`
+                : `Mesas llamando a la moza: ${pendingCalls.map(c => `Mesa ${c.table}`).join(", ")}.`}
+            </p>
+          </div>
+        </div>
+        <div className="calls-alert-actions">
+          {pendingCalls.map(c => (
+            <button
+              key={c.id}
+              type="button"
+              className="call-quick-attend-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                mutate('/calls/' + c.id + '/attend', {});
+              }}
+            >
+              ✓ Atender Mesa {c.table}
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
     <details className="reservation-date"><summary>Ver reservas de otra fecha</summary><label>Fecha de reservas<input type="date" value={date || ""} onInput={e => setReservationDate(e.currentTarget.value)} /></label><button className="text-button" onClick={() => setReservationDate("")}>Volver a hoy</button><small>La ocupación y los saldos siempre son los actuales.</small></details>
     <div className="table-grid"><button className="table-card counter-card" onClick={() => nav("/atencion/mostrador")}><div className="row"><h2>Mostrador</h2><Coffee size={24} /></div><strong>Nueva compra</strong><small>Sin mesa · seleccionar y cobrar</small>{readDraft(s.user.id,"counter")?.cart.length>0&&<small className="draft-hint">Consumos sin confirmar</small>}</button>
       {Array.from({
@@ -28,12 +59,32 @@ export function Salon({
       }, (_, i) => {
         const n = i + 1,
           a = activeAccount(s, n),
-          r = ready.some(o => o.table === n);
+          r = ready.some(o => o.table === n),
+          call = pendingCalls.find(c => c.table === n);
         const all = (s.reservations || []).filter(x => x.table === n);
         const reservation = all.find(x => x.date === date) || (!reservationDate ? all.find(x => x.date > s.calendarToday) || all[0] : null);
         const tableOrders = s.orders.filter(o => o.accountId === a?.id);
         const hasOrders = a && tableOrders.length > 0;
-        return <article key={n} className={"table-card table-card-actions " + (a ? "occupied " : "") + (hasOrders ? "has-orders " : "") + (r ? "ready" : "") + (reservation ? " has-reservation" : "")}><button className="table-open" onClick={() => nav("/atencion/mesas/" + n)}>
+        return <article key={n} className={"table-card table-card-actions " + (a ? "occupied " : "") + (hasOrders ? "has-orders " : "") + (r ? "ready" : "") + (reservation ? " has-reservation" : "") + (call ? " calling" : "")}>
+          {call && (
+            <div className="call-badge">
+              <div className="call-badge-title">
+                <span>🛎️ <strong>¡Llaman a la moza!</strong></span>
+                <small>{time(call.createdAt)}</small>
+              </div>
+              <button
+                type="button"
+                className="attend-call-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  mutate('/calls/' + call.id + '/attend', {});
+                }}
+              >
+                ✓ Marcar atendido
+              </button>
+            </div>
+          )}
+          <button className="table-open" onClick={() => nav("/atencion/mesas/" + n)}>
           <div className="row">
             <h2>Mesa {n}</h2>
             {hasOrders ? (
@@ -98,6 +149,7 @@ export function Account({
     undelivered = orders.some(o => o.status !== "entregado");
   const reservation = (s.reservations || []).find(r => r.table === table && r.date === s.calendarToday);
   const changed = expectedAccount !== (a?.id || null);
+  const tableCalls = (s.calls || []).filter(c => c.table === table && (c.status === "pending" || c.pending_table != null));
   async function run(fn) {
     if (lock.current) return;
     lock.current = true;
@@ -134,6 +186,25 @@ export function Account({
         setAck(null);
       }}>Revisé la mesa: usar la visita actual</button></p>}
     {!a && reservation && <div className="note"><p>Mesa reservada para {reservation.name} a las {reservation.time}.</p><label className="option"><input type="checkbox" checked={ack === reservation.acknowledgment} onChange={e => setAck(e.target.checked ? reservation.acknowledgment : null)} />Continuar con esta mesa teniendo en cuenta la reserva</label></div>}
+    {tableCalls.map(c => (
+      <div className="call-banner-detail" key={c.id}>
+        <div className="call-banner-info">
+          <span className="call-banner-icon">🛎️</span>
+          <div>
+            <strong>¡Esta mesa está llamando a la moza!</strong>
+            <p>Llamado registrado a las {time(c.createdAt)}. Acercate a la mesa para asistirlos.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="attend-detail-btn"
+          disabled={busy || !s.connected}
+          onClick={() => run(() => mutate('/calls/' + c.id + '/attend', {}))}
+        >
+          ✓ Marcar llamado como atendido
+        </button>
+      </div>
+    ))}
     <div className="table-detail-container">
       {/* 1. SECCIÓN PRINCIPAL: PEDIDOS DE LA MESA Y ESTADO DE CUENTA */}
       <section className="panel primary-orders-panel">
