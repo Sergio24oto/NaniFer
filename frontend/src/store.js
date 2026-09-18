@@ -66,11 +66,13 @@ export async function request(
     throw error;
   }
   if (!response.ok) {
-    const e = new Error(
+    const errorMsg =
       typeof data.detail === "string"
         ? data.detail
-        : "Revisá los datos del formulario.",
-    );
+        : Array.isArray(data.detail)
+          ? data.detail.map((d) => d.msg || JSON.stringify(d)).join(", ")
+          : "Revisá los datos del formulario.";
+    const e = new Error(errorMsg);
     e.status = response.status;
     e.uncertain = response.status >= 500;
     if (e.uncertain) update({ connected: false });

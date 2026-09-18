@@ -22,7 +22,7 @@ export const time = (d) =>
   });
 export function itemInput(i) {
   return {
-    productId: i.productId,
+    productId: i.productId || i.product || "",
     size: i.size || "",
     flavors: i.flavors || [],
     extras: i.extras || [],

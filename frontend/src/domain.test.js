@@ -21,6 +21,14 @@ test("el pedido enviado excluye nombres y precios calculados en el cliente", () 
   assert.equal(input.productId, "coffee");
   assert.equal("unitPrice" in input, false);
   assert.equal("name" in input, false);
+
+  const inputFromQuickAdd = itemInput({
+    product: "brownie",
+    quantity: 1,
+    name: "Brownie de chocolate",
+    unitPrice: 3500,
+  });
+  assert.equal(inputFromQuickAdd.productId, "brownie");
 });
 test("la estimación visual suma tamaño y extras", () => {
   assert.equal(

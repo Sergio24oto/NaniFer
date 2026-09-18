@@ -65,7 +65,12 @@ export default function DigitalMenu({ table }) {
 
   const handleQuickAdd = (p) => {
     const existingIndex = cart.findIndex(
-      (item) => item.product === p.id && !item.size && !item.flavors?.length && !item.extras?.length && !item.notes
+      (item) =>
+        (item.productId === p.id || item.product === p.id) &&
+        !item.size &&
+        !item.flavors?.length &&
+        !item.extras?.length &&
+        !item.notes
     );
     if (existingIndex >= 0) {
       const updated = [...cart];
@@ -75,6 +80,7 @@ export default function DigitalMenu({ table }) {
       setCart([
         ...cart,
         {
+          productId: p.id,
           product: p.id,
           name: p.name,
           quantity: 1,
