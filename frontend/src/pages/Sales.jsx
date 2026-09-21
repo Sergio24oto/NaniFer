@@ -1,8 +1,26 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Download, ReceiptText, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import {
+  Download,
+  ReceiptText,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
+  Trophy,
+  DollarSign,
+  Package,
+  AlertTriangle,
+  ArrowUpDown,
+  BarChart3,
+} from "lucide-react";
 import { Modal, Badge } from "../components";
 import { money } from "../domain";
-import { salesQuery, salesPdfPath, hasCorrections } from "../salesView";
+import {
+  salesQuery,
+  salesPdfPath,
+  hasCorrections,
+  calculateProductPerformance,
+  sortAndFilterProducts,
+} from "../salesView";
 import { useStore, request, submitOnce, pendingOperation } from "../store";
 
 const dateTime = (value) =>
@@ -339,6 +357,25 @@ export default function Sales() {
   const seq = useRef(0);
   const inputsDirty = useRef(false);
   const query = salesQuery(range);
+  const [view, setView] = useState("operations"); // "operations" | "products"
+  const [productSort, setProductSort] = useState("units"); // "units" | "revenue"
+  const [productCategory, setProductCategory] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+
+  const productPerf = useMemo(
+    () => calculateProductPerformance(data?.sales || [], state.catalog?.products || []),
+    [data?.sales, state.catalog?.products],
+  );
+
+  const displayedProducts = useMemo(
+    () =>
+      sortAndFilterProducts(productPerf.soldProducts, {
+        sortBy: productSort,
+        category: productCategory,
+        search: productSearch,
+      }),
+    [productPerf.soldProducts, productSort, productCategory, productSearch],
+  );
   function chooseRange(next) {
     inputsDirty.current = !!(next && !next.last);
     setRange(next);
@@ -568,112 +605,408 @@ export default function Sales() {
               Sin correcciones en este período
             </p>
           )}
-          <details className="panel">
-            <summary>Totales por jornada</summary>
-            <div className="sales-table-scroll">
-              <table className="sales-table">
-                <thead>
-                  <tr>
-                    <th>Jornada</th>
-                    <th>Operaciones</th>
-                    <th>Total</th>
-                    <th>Cobros registrados</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.days.map((d) => (
-                    <tr key={d.day}>
-                      <td>{day(d.day)}</td>
-                      <td>{d.count}</td>
-                      <td>{money(d.total)}</td>
-                      <td>{money(d.paid)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
-          <section className="panel sales-list">
-            <h2>Ventas cobradas</h2>
-            {!data.count ? (
-              <div className="sales-empty">
-                <ReceiptText size={32} />
-                <h3>No hay ventas cobradas en este período</h3>
-                <p>Las cuentas con saldo sin cobrar no se incluyen.</p>
-              </div>
-            ) : (
-              <>
+
+          <div className="sales-tabs" role="tablist" aria-label="Secciones del informe de ventas">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "operations"}
+              className={`sales-tab-btn ${view === "operations" ? "active" : ""}`}
+              onClick={() => setView("operations")}
+            >
+              <ReceiptText size={18} />
+              <span>Operaciones y Cobros</span>
+              <span className="tab-pill">{data.count}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "products"}
+              className={`sales-tab-btn ${view === "products" ? "active" : ""}`}
+              onClick={() => setView("products")}
+            >
+              <TrendingUp size={18} />
+              <span>Rendimiento de Productos (Más y menos vendidos)</span>
+              <span className="tab-pill">{productPerf.soldProducts.length}</span>
+            </button>
+          </div>
+
+          {view === "operations" ? (
+            <>
+              <details className="panel">
+                <summary>Totales por jornada</summary>
                 <div className="sales-table-scroll">
                   <table className="sales-table">
                     <thead>
                       <tr>
-                        <th>Venta / origen</th>
-                        <th>Fecha y hora</th>
-                        <th>Responsable del cobro</th>
-                        <th>Medio</th>
+                        <th>Jornada</th>
+                        <th>Operaciones</th>
                         <th>Total</th>
-                        <th></th>
+                        <th>Cobros registrados</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {data.sales
-                        .slice(visiblePage * 20, visiblePage * 20 + 20)
-                        .map((s) => (
-                          <tr key={s.id}>
-                            <td>
-                              <span>Venta #{s.number}</span>
-                              <small>
-                                {s.table == null ? "Mostrador" : "Mesa " + s.table}
-                                {s.version > 0 && " · Corregida"}
-                              </small>
-                            </td>
-                            <td>
-                              {dateTime(s.createdAt)}
-                              <small>Jornada {day(s.day)}</small>
-                            </td>
-                            <td>{s.cashier}</td>
-                            <td>{s.method}</td>
-                            <td>
-                              <strong>{money(s.total)}</strong>
-                            </td>
-                            <td>
-                              <button
-                                className="secondary"
-                                disabled={!!error || !state.connected}
-                                onClick={() => setSelected(s.id)}
-                              >
-                                Ver detalle
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                      {data.days.map((d) => (
+                        <tr key={d.day}>
+                          <td>{day(d.day)}</td>
+                          <td>{d.count}</td>
+                          <td>{money(d.total)}</td>
+                          <td>{money(d.paid)}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
-                <div className="sales-pagination">
-                  <button
-                    className="secondary"
-                    aria-label="Página anterior"
-                    disabled={!visiblePage}
-                    onClick={() => setPage(visiblePage - 1)}
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <span>
-                    Página {visiblePage + 1} de {pages} · {data.count} ventas
+              </details>
+              <section className="panel sales-list">
+                <h2>Ventas cobradas</h2>
+                {!data.count ? (
+                  <div className="sales-empty">
+                    <ReceiptText size={32} />
+                    <h3>No hay ventas cobradas en este período</h3>
+                    <p>Las cuentas con saldo sin cobrar no se incluyen.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="sales-table-scroll">
+                      <table className="sales-table">
+                        <thead>
+                          <tr>
+                            <th>Venta / origen</th>
+                            <th>Fecha y hora</th>
+                            <th>Responsable del cobro</th>
+                            <th>Medio</th>
+                            <th>Total</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.sales
+                            .slice(visiblePage * 20, visiblePage * 20 + 20)
+                            .map((s) => (
+                              <tr key={s.id}>
+                                <td>
+                                  <span>Venta #{s.number}</span>
+                                  <small>
+                                    {s.table == null ? "Mostrador" : "Mesa " + s.table}
+                                    {s.version > 0 && " · Corregida"}
+                                  </small>
+                                </td>
+                                <td>
+                                  {dateTime(s.createdAt)}
+                                  <small>Jornada {day(s.day)}</small>
+                                </td>
+                                <td>{s.cashier}</td>
+                                <td>{s.method}</td>
+                                <td>
+                                  <strong>{money(s.total)}</strong>
+                                </td>
+                                <td>
+                                  <button
+                                    className="secondary"
+                                    disabled={!!error || !state.connected}
+                                    onClick={() => setSelected(s.id)}
+                                  >
+                                    Ver detalle
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="sales-pagination">
+                      <button
+                        className="secondary"
+                        aria-label="Página anterior"
+                        disabled={!visiblePage}
+                        onClick={() => setPage(visiblePage - 1)}
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <span>
+                        Página {visiblePage + 1} de {pages} · {data.count} ventas
+                      </span>
+                      <button
+                        className="secondary"
+                        aria-label="Página siguiente"
+                        disabled={visiblePage >= pages - 1}
+                        onClick={() => setPage(visiblePage + 1)}
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </section>
+            </>
+          ) : (
+            <div className="sales-products-view">
+              {/* KPIs de Rendimiento */}
+              <div className="product-perf-kpis">
+                <div className="perf-kpi-card highlight">
+                  <div className="perf-kpi-header">
+                    <span className="perf-kpi-title">Más vendido (Unidades)</span>
+                    <Trophy size={18} color="#d4af37" />
+                  </div>
+                  {productPerf.kpis.topByUnits ? (
+                    <>
+                      <strong className="perf-kpi-name" title={productPerf.kpis.topByUnits.name}>
+                        {productPerf.kpis.topByUnits.name}
+                      </strong>
+                      <div className="perf-kpi-value">{productPerf.kpis.topByUnits.unitsSold} u.</div>
+                      <small className="perf-kpi-subtitle">
+                        {money(productPerf.kpis.topByUnits.revenue)} recaudados ({productPerf.kpis.topByUnits.shareUnits.toFixed(1)}% del volumen)
+                      </small>
+                    </>
+                  ) : (
+                    <small className="perf-kpi-subtitle">Sin ventas registradas</small>
+                  )}
+                </div>
+
+                <div className="perf-kpi-card highlight">
+                  <div className="perf-kpi-header">
+                    <span className="perf-kpi-title">Mayor recaudación ($)</span>
+                    <DollarSign size={18} color="#27ae60" />
+                  </div>
+                  {productPerf.kpis.topByRevenue ? (
+                    <>
+                      <strong className="perf-kpi-name" title={productPerf.kpis.topByRevenue.name}>
+                        {productPerf.kpis.topByRevenue.name}
+                      </strong>
+                      <div className="perf-kpi-value">{money(productPerf.kpis.topByRevenue.revenue)}</div>
+                      <small className="perf-kpi-subtitle">
+                        {productPerf.kpis.topByRevenue.unitsSold} u. vendidas ({productPerf.kpis.topByRevenue.shareRevenue.toFixed(1)}% de la facturación)
+                      </small>
+                    </>
+                  ) : (
+                    <small className="perf-kpi-subtitle">Sin ventas registradas</small>
+                  )}
+                </div>
+
+                <div className="perf-kpi-card">
+                  <div className="perf-kpi-header">
+                    <span className="perf-kpi-title">Variedad con ventas</span>
+                    <Package size={18} color="#8c7e75" />
+                  </div>
+                  <strong className="perf-kpi-name">{productPerf.kpis.distinctSold} productos</strong>
+                  <div className="perf-kpi-value">{productPerf.kpis.totalUnitsSold} u.</div>
+                  <small className="perf-kpi-subtitle">Unidades totales despachadas en el período</small>
+                </div>
+
+                <div className="perf-kpi-card">
+                  <div className="perf-kpi-header">
+                    <span className="perf-kpi-title">Sin salida en el período</span>
+                    <AlertTriangle size={18} color="#e17055" />
+                  </div>
+                  <strong className="perf-kpi-name">{productPerf.kpis.distinctUnsold} productos</strong>
+                  <div className="perf-kpi-value" style={{ color: productPerf.kpis.distinctUnsold > 0 ? "#c0392b" : "#27ae60" }}>
+                    {productPerf.kpis.distinctUnsold} ítems
+                  </div>
+                  <small className="perf-kpi-subtitle">Productos en carta con 0 pedidos en estas fechas</small>
+                </div>
+              </div>
+
+              {/* Filtros y herramientas de productos */}
+              <div className="product-perf-toolbar">
+                <div className="perf-toolbar-group">
+                  <span className="perf-toolbar-label">
+                    <ArrowUpDown size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
+                    Ordenar por:
                   </span>
                   <button
-                    className="secondary"
-                    aria-label="Página siguiente"
-                    disabled={visiblePage >= pages - 1}
-                    onClick={() => setPage(visiblePage + 1)}
+                    type="button"
+                    className={`perf-sort-btn ${productSort === "units" ? "active" : ""}`}
+                    onClick={() => setProductSort("units")}
                   >
-                    <ChevronRight size={16} />
+                    🥇 Más vendidos (Unidades)
+                  </button>
+                  <button
+                    type="button"
+                    className={`perf-sort-btn ${productSort === "revenue" ? "active" : ""}`}
+                    onClick={() => setProductSort("revenue")}
+                  >
+                    💰 Mayor recaudación ($)
                   </button>
                 </div>
-              </>
-            )}
-          </section>
+
+                <div className="perf-toolbar-group">
+                  {productPerf.categories.length > 0 && (
+                    <select
+                      className="perf-category-select"
+                      value={productCategory}
+                      onChange={(e) => setProductCategory(e.target.value)}
+                      aria-label="Filtrar por categoría"
+                    >
+                      <option value="">Todas las categorías</option>
+                      {productPerf.categories.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  <input
+                    type="search"
+                    className="perf-search-input"
+                    placeholder="Buscar producto…"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    aria-label="Buscar producto por nombre"
+                  />
+                </div>
+              </div>
+
+              {/* Tabla de Ranking de Productos */}
+              <section className="panel sales-list">
+                <div className="panel-header-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <div>
+                    <h2 style={{ margin: 0 }}>Ranking de Productos</h2>
+                    <small style={{ color: "#70645d" }}>
+                      {displayedProducts.length} {displayedProducts.length === 1 ? "producto mostrado" : "productos mostrados"}
+                      {productCategory ? ` en ${productCategory}` : ""}
+                      {productSort === "units" ? " · Ordenado por cantidad de pedidos" : " · Ordenado por dinero recaudado"}
+                    </small>
+                  </div>
+                </div>
+
+                {!displayedProducts.length ? (
+                  <div className="sales-empty">
+                    <BarChart3 size={32} />
+                    <h3>No hay productos que coincidan con la búsqueda</h3>
+                    <p>Probá cambiando el término o seleccionando otra categoría.</p>
+                  </div>
+                ) : (
+                  <div className="sales-table-scroll">
+                    <table className="sales-table ranking-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 50, textAlign: "center" }}>#</th>
+                          <th>Producto</th>
+                          <th style={{ minWidth: 160 }}>Rotación relativa</th>
+                          <th style={{ textAlign: "right" }}>Unidades</th>
+                          <th style={{ textAlign: "right" }}>Recaudación</th>
+                          <th style={{ textAlign: "right" }}>% del total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayedProducts.map((p, idx) => {
+                          const rank = idx + 1;
+                          const maxVal =
+                            productSort === "revenue"
+                              ? productPerf.kpis.topByRevenue?.revenue || 1
+                              : productPerf.kpis.topByUnits?.unitsSold || 1;
+                          const currVal = productSort === "revenue" ? p.revenue : p.unitsSold;
+                          const progressPct = Math.min(
+                            100,
+                            Math.max(4, Math.round((currVal / maxVal) * 100)),
+                          );
+
+                          return (
+                            <tr key={p.id}>
+                              <td className="ranking-pos-cell" style={{ textAlign: "center", verticalAlign: "middle" }}>
+                                {rank === 1 ? (
+                                  <span className="ranking-badge medal-1" title="Primer puesto">🥇</span>
+                                ) : rank === 2 ? (
+                                  <span className="ranking-badge medal-2" title="Segundo puesto">🥈</span>
+                                ) : rank === 3 ? (
+                                  <span className="ranking-badge medal-3" title="Tercer puesto">🥉</span>
+                                ) : (
+                                  <span className="ranking-num">#{rank}</span>
+                                )}
+                              </td>
+                              <td>
+                                <strong>{p.name}</strong>
+                                <div>
+                                  <span className="category-pill">{p.category}</span>
+                                </div>
+                              </td>
+                              <td style={{ verticalAlign: "middle" }}>
+                                <div className="perf-progress-container">
+                                  <div className="perf-progress-track">
+                                    <div
+                                      className={`perf-progress-bar ${rank <= 3 ? "top-three" : ""}`}
+                                      style={{ width: `${progressPct}%` }}
+                                    />
+                                  </div>
+                                  <span className="perf-progress-text">
+                                    {productSort === "revenue"
+                                      ? money(p.revenue)
+                                      : `${p.unitsSold} u.`}
+                                  </span>
+                                </div>
+                              </td>
+                              <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 700 }}>
+                                {p.unitsSold} u.
+                              </td>
+                              <td style={{ textAlign: "right", verticalAlign: "middle" }}>
+                                <strong>{money(p.revenue)}</strong>
+                              </td>
+                              <td style={{ textAlign: "right", verticalAlign: "middle", color: "#70645d", fontWeight: 600 }}>
+                                {productSort === "revenue"
+                                  ? `${p.shareRevenue.toFixed(1)}%`
+                                  : `${p.shareUnits.toFixed(1)}%`}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              {/* Sección de Productos Sin Salida en el Período */}
+              {productPerf.unsoldProducts.length > 0 && (
+                <details className="panel unsold-products-panel">
+                  <summary>
+                    <div className="unsold-summary-title">
+                      <AlertTriangle size={18} className="unsold-icon" />
+                      <span>Productos sin ventas en este período ({productPerf.unsoldProducts.length})</span>
+                    </div>
+                    <small>Hacé clic aquí para ver qué ítems del menú no registraron ninguna salida</small>
+                  </summary>
+                  <div className="unsold-intro-hint">
+                    <p>
+                      Estos productos están dados de alta en la carta de NaniFer pero no tuvieron ventas en las fechas seleccionadas.
+                      Te sirve para evaluar si conviene sacarlos de la carta, promocionarlos o si no conviene reponer ingredientes que puedan echarse a perder.
+                    </p>
+                  </div>
+                  <div className="sales-table-scroll">
+                    <table className="sales-table unsold-table">
+                      <thead>
+                        <tr>
+                          <th>Producto</th>
+                          <th>Categoría</th>
+                          <th>Precio de lista</th>
+                          <th>Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {productPerf.unsoldProducts.map((p) => (
+                          <tr key={p.id}>
+                            <td>
+                              <strong>{p.name}</strong>
+                            </td>
+                            <td>
+                              <span className="category-pill">{p.category}</span>
+                            </td>
+                            <td>{money(p.price)}</td>
+                            <td>
+                              <Badge tone={p.available ? "amber" : "neutral"}>
+                                {p.available ? "Activo (0 ventas)" : "Pausado"}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
         </>
       )}
       {detail && (

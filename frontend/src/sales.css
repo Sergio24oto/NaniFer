@@ -321,3 +321,311 @@ dialog:has(.sale-detail) {
 .sales-connection {
   margin: 10px 0;
 }
+
+/* ==========================================================================
+   Pestañas de Navegación en Ventas (Operaciones vs Rendimiento de Productos)
+   ========================================================================== */
+.sales-tabs {
+  display: flex;
+  gap: 12px;
+  margin: 22px 0 20px;
+  border-bottom: 2px solid #eee5df;
+  padding-bottom: 2px;
+  overflow-x: auto;
+}
+
+.sales-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #70645d;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.sales-tab-btn:hover {
+  color: var(--brand-primary, #3B2417);
+  background: #faf5f2;
+}
+
+.sales-tab-btn.active {
+  color: var(--brand-primary, #3B2417);
+  border-bottom-color: var(--brand-accent, #D9A94B);
+  background: #fff;
+  font-weight: 700;
+}
+
+.sales-tab-btn .tab-pill {
+  background: #efe9e5;
+  color: #554841;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.sales-tab-btn.active .tab-pill {
+  background: var(--brand-primary, #3B2417);
+  color: #fff;
+}
+
+/* ==========================================================================
+   Dashboard de Rendimiento de Productos (KPIs y Analítica)
+   ========================================================================== */
+.sales-products-view {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.product-perf-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.perf-kpi-card {
+  background: #fff;
+  border: 1px solid #e7ded7;
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(59, 36, 23, 0.04);
+}
+
+.perf-kpi-card.highlight {
+  background: linear-gradient(135deg, #fffaf4 0%, #fff4e5 100%);
+  border-color: #ecc48f;
+}
+
+.perf-kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.perf-kpi-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #8c7e75;
+}
+
+.perf-kpi-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--brand-primary, #3B2417);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.perf-kpi-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--brand-primary, #3B2417);
+  line-height: 1.15;
+}
+
+.perf-kpi-subtitle {
+  font-size: 12px;
+  color: #8c7e75;
+  margin-top: 2px;
+}
+
+/* Barra de herramientas y filtros */
+.product-perf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: #faf5f2;
+  padding: 12px 18px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 1px solid #eee5df;
+}
+
+.perf-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.perf-toolbar-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #70645d;
+}
+
+.perf-sort-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+  border: 1px solid #d9d0c9;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  color: #554841;
+  transition: all 0.15s ease;
+}
+
+.perf-sort-btn:hover {
+  background: #f4eee9;
+  border-color: #bfaea2;
+}
+
+.perf-sort-btn.active {
+  background: var(--brand-primary, #3B2417);
+  color: #fff;
+  border-color: var(--brand-primary, #3B2417);
+}
+
+.perf-search-input {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid #d9d0c9;
+  font-size: 13px;
+  min-width: 170px;
+  background: #fff;
+}
+
+.perf-search-input:focus {
+  outline: none;
+  border-color: var(--brand-primary, #3B2417);
+  box-shadow: 0 0 0 2px rgba(59, 36, 23, 0.15);
+}
+
+.perf-category-select {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid #d9d0c9;
+  font-size: 13px;
+  background: #fff;
+  color: #554841;
+  font-weight: 500;
+}
+
+.perf-category-select:focus {
+  outline: none;
+  border-color: var(--brand-primary, #3B2417);
+}
+
+/* Tabla de Ranking */
+.ranking-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.ranking-badge {
+  font-size: 20px;
+  display: inline-block;
+  line-height: 1;
+}
+
+.ranking-num {
+  font-weight: 700;
+  color: #8c7e75;
+  font-size: 14px;
+}
+
+.category-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #efe8e2;
+  color: #554841;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+/* Barra de progreso de rotación */
+.perf-progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 130px;
+  max-width: 220px;
+}
+
+.perf-progress-track {
+  width: 100%;
+  height: 8px;
+  background: #eee5df;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.perf-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #d9a94b 0%, #b8862d 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.perf-progress-bar.top-three {
+  background: linear-gradient(90deg, #27ae60 0%, #2ecc71 100%);
+}
+
+.perf-progress-text {
+  font-size: 11px;
+  color: #70645d;
+  font-weight: 600;
+}
+
+/* Acordeón de productos sin ventas */
+.unsold-products-panel {
+  margin-top: 26px;
+  border: 1.5px dashed #ecc48f;
+  background: #fffaf4;
+}
+
+.unsold-products-panel summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.unsold-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #7a4e1b;
+}
+
+.unsold-icon {
+  color: #d97706;
+}
+
+.unsold-intro-hint {
+  padding: 8px 0 14px;
+  color: #7a5e4d;
+  font-size: 13px;
+  line-height: 1.45;
+  border-bottom: 1px solid #f0e2d5;
+  margin-bottom: 12px;
+}
+
+.unsold-table th {
+  background: #fdf5eb;
+}
+
