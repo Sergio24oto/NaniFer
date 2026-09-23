@@ -178,8 +178,18 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                 <textarea maxLength={500} value={value.description || ''} onChange={e => change('description', e.target.value)} />
               </label>
 
-              <label>
-                Sabores o variedades disponibles (opcional)
+              <div
+                style={{
+                  background: '#f0f9ff',
+                  border: '1.5px solid #7dd3fc',
+                  borderRadius: '10px',
+                  padding: '14px 16px',
+                  margin: '16px 0',
+                }}
+              >
+                <label style={{ fontWeight: 'bold', color: '#0369a1', display: 'block', marginBottom: '6px' }}>
+                  🥤 Sabores o variedades de este producto (opcional)
+                </label>
                 <input
                   value={flavorInput}
                   onChange={e => {
@@ -191,20 +201,32 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                     );
                   }}
                   placeholder="Ej: Durazno, Naranja, Multifruta, Manzana"
+                  style={{ width: '100%', background: '#fff' }}
                 />
-              </label>
-              <small>
-                Separados por comas. Si cargás opciones, el cliente o la moza deberán elegir obligatoriamente 1 sabor al pedirlo (ej. jugos Baggio, gaseosas de sabor, tés).
-              </small>
-              {value.flavorOptions?.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.35rem', marginBottom: '0.5rem' }}>
-                  {value.flavorOptions.map((fl, idx) => (
-                    <span key={idx} style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: '12px', padding: '2px 8px', fontSize: '0.8rem', fontWeight: 500 }}>
-                      {fl}
-                    </span>
-                  ))}
-                </div>
-              )}
+                <small style={{ display: 'block', color: '#075985', marginTop: '6px', lineHeight: '1.4' }}>
+                  Escribí los sabores separados por coma. Si cargás opciones acá (por ejemplo para <em>Baggio</em>, <em>Gaseosas</em>, <em>Tés</em>), el cliente o la moza deberán elegir obligatoriamente 1 sabor al pedirlo.
+                </small>
+                {value.flavorOptions?.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '10px' }}>
+                    {value.flavorOptions.map((fl, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          background: '#0284c7',
+                          color: '#ffffff',
+                          borderRadius: '16px',
+                          padding: '3px 10px',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                        }}
+                      >
+                        ✓ {fl}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <label className="option">
                 <input type="checkbox" checked={value.available} onChange={e => change('available', e.target.checked)} />
@@ -258,6 +280,9 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                       Máximo de sabores (0 si no corresponde)
                       <input type="number" min="0" max="10" value={z.max || 0} onChange={e => edit('max', Number(e.target.value))} />
                     </label>
+                    <small style={{ color: '#64748b', display: 'block', marginTop: '-4px', marginBottom: '8px' }}>
+                      (Aplica únicamente a helados que eligen de los sabores generales de heladería).
+                    </small>
                     <label>
                       <input type="checkbox" checked={z.enabled !== false} onChange={e => edit('enabled', e.target.checked)} />
                       Habilitada
