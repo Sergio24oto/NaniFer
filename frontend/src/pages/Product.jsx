@@ -14,6 +14,12 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   const unit = estimate(p, size, extras);
   const toggle = (v, list, set) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  const productFlavors = p.flavorOptions || [];
+  const requiresFlavorOption = !manual && productFlavors.length > 0;
+  const missingFlavorOption = requiresFlavorOption && chosen.length !== 1;
+  const requiresIceCreamFlavors = !manual && !productFlavors.length && max;
+  const missingIceCreamFlavors = requiresIceCreamFlavors && !chosen.length;
+
   return (
     <Modal title={p.name} onClose={onClose}>
       <p>{p.description}</p>
@@ -38,7 +44,23 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           ))}
         </fieldset>
       )}
-      {!manual && max && (
+      {productFlavors.length > 0 && (
+        <fieldset>
+          <legend>Sabor o variedad {manual ? "(opcional)" : "· Elegí 1"}</legend>
+          {productFlavors.map((fl) => (
+            <label className="option" key={fl}>
+              <input
+                type="radio"
+                name="productFlavor"
+                checked={chosen.includes(fl)}
+                onChange={() => setChosen([fl])}
+              />
+              {fl}
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {!manual && !productFlavors.length && max && (
         <fieldset>
           <legend>Sabores · elegí de 1 a {max}</legend>
           {catalog.flavors.map((f) => (
@@ -101,7 +123,8 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
         disabled={
           !p.available ||
           (p.sizes?.length > 0 && !p.sizes.some(z => z.name === size && z.available !== false)) ||
-          (!manual && max && !chosen.length) ||
+          missingIceCreamFlavors ||
+          missingFlavorOption ||
           !Number.isInteger(quantity) ||
           quantity < 1 ||
           quantity > 99
@@ -119,7 +142,11 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           })
         }
       >
-        Agregar · {money(unit * quantity)}
+        {missingFlavorOption
+          ? "Elegí un sabor · " + money(unit * quantity)
+          : missingIceCreamFlavors
+          ? "Elegí los sabores · " + money(unit * quantity)
+          : "Agregar · " + money(unit * quantity)}
       </button>
     </Modal>
   );

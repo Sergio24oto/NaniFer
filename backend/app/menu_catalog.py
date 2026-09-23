@@ -67,6 +67,7 @@ def management(db=Depends(get_db), auth=Depends(admin)):
                 archived=p.archived,
                 manageStock=p.stock_mode == 'unit',
                 sizes=p.sizes or [],
+                flavorOptions=p.flavor_options or [],
             )
             for p in db.scalars(select(Product).order_by(Product.name))
         ],
@@ -178,6 +179,7 @@ class ProductIn(StrictModel):
     available: bool = True
     manageStock: bool | None = None
     sizes: list = Field(default_factory=list)
+    flavorOptions: list[str] = Field(default_factory=list)
 
     @field_validator('name')
     @classmethod
@@ -197,6 +199,7 @@ def apply_product(db, p, data: ProductIn):
     p.image = image_path(data.image)
     p.available = data.available
     p.sizes = data.sizes
+    p.flavor_options = [opt.strip() for opt in data.flavorOptions if opt.strip()]
     if data.manageStock is not None:
         if data.manageStock:
             p.stock_mode = 'unit'

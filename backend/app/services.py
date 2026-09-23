@@ -77,16 +77,25 @@ def priced_item(db, item, *, require_flavors=True):
     if size and not size.get('enabled',True):fail('Presentación deshabilitada.',422)
     if not p.sizes and item.size:
         fail("Este producto no tiene tamaños.", 422)
-    maximum = (size or {}).get("max", 0)
-    if (maximum and not (1 if require_flavors else 0) <= len(item.flavors) <= maximum) or (
-        not maximum and item.flavors
-    ):
-        fail("Cantidad de sabores inválida.", 422)
-    if len(set(item.flavors)) != len(item.flavors):
-        fail("No repitas sabores.", 422)
-    available = set(db.scalars(select(Flavor.name).where(Flavor.available == True)))
-    if any(f not in available for f in item.flavors):
-        fail("Sabor agotado.", 422)
+    product_flavors = p.flavor_options or []
+    if product_flavors:
+        if require_flavors and len(item.flavors) != 1:
+            fail("Elegí un sabor para este producto.", 422)
+        if len(item.flavors) > 1:
+            fail("Elegí solo 1 sabor.", 422)
+        if any(f not in product_flavors for f in item.flavors):
+            fail("Sabor no disponible para este producto.", 422)
+    else:
+        maximum = (size or {}).get("max", 0)
+        if (maximum and not (1 if require_flavors else 0) <= len(item.flavors) <= maximum) or (
+            not maximum and item.flavors
+        ):
+            fail("Cantidad de sabores inválida.", 422)
+        if len(set(item.flavors)) != len(item.flavors):
+            fail("No repitas sabores.", 422)
+        available = set(db.scalars(select(Flavor.name).where(Flavor.available == True)))
+        if any(f not in available for f in item.flavors):
+            fail("Sabor agotado.", 422)
     extras = {e["name"]: e for e in p.extras}
     if len(set(item.extras)) != len(item.extras) or any(
         e not in extras for e in item.extras

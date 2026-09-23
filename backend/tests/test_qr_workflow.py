@@ -83,3 +83,30 @@ def test_pack_receipt_presentations_and_stock_disabled(qr):
   p=db.get(Product,f['product']);p.stock_mode='manual';p.sizes=[{'name':'Docena','salePrice':9500,'stockUnits':12,'enabled':True}];db.commit()
  assert send(a,f,items=items).json()['total']==9500;assert qty(sid)==6
  own=a.get(f"/api/public/qr/{f['table']}/orders").json();assert sorted(o['total'] for o in own)==[9000,9500]
+
+def test_product_flavor_options_validation(qr):
+ f=qr;a=client()
+ with SessionLocal() as db:
+  p=db.get(Product,f['product'])
+  p.flavor_options=['Naranja','Durazno','Multifruta']
+  db.commit()
+ try:
+  # Missing flavor -> 422
+  r=send(a,f,items=[{'productId':f['product'],'quantity':1}])
+  assert r.status_code==422, r.text
+  # Invalid flavor -> 422
+  r=send(a,f,items=[{'productId':f['product'],'quantity':1,'flavors':['Frutilla']}])
+  assert r.status_code==422, r.text
+  # Multiple flavors -> 422
+  r=send(a,f,items=[{'productId':f['product'],'quantity':1,'flavors':['Naranja','Durazno']}])
+  assert r.status_code==422, r.text
+  # Valid flavor -> 200
+  r=send(a,f,items=[{'productId':f['product'],'quantity':1,'flavors':['Naranja']}])
+  assert r.status_code==200, r.text
+  data=r.json()
+  assert data['items'][0]['flavors']==['Naranja']
+ finally:
+  with SessionLocal() as db:
+   p=db.get(Product,f['product'])
+   p.flavor_options=[]
+   db.commit()

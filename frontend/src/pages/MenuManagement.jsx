@@ -8,6 +8,10 @@ function Editor({ item, kind, data, onClose, onSaved }) {
   const isCategory = kind === 'categories';
   const scope = 'new-catalog-' + kind;
   const pending = !item?.id && pendingOperation(scope);
+  const initialFlavors = item?.flavorOptions || pending?.body?.flavorOptions || [];
+  const [flavorInput, setFlavorInput] = useState(
+    Array.isArray(initialFlavors) ? initialFlavors.join(', ') : (initialFlavors || '')
+  );
   const [value, setValue] = useState(
     pending?.body || item || {
       name: '',
@@ -21,7 +25,8 @@ function Editor({ item, kind, data, onClose, onSaved }) {
       note: '',
       stockArea: 'other',
       manageStock: false,
-      sizes: []
+      sizes: [],
+      flavorOptions: Array.isArray(initialFlavors) ? initialFlavors : []
     }
   );
   const [busy, setBusy] = useState(false);
@@ -52,6 +57,11 @@ function Editor({ item, kind, data, onClose, onSaved }) {
         stockArea: value.stockArea || 'other'
       };
     } else {
+      const parsedFlavors = flavorInput
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
       body = {
         name: value.name,
         description: value.description || '',
@@ -60,7 +70,8 @@ function Editor({ item, kind, data, onClose, onSaved }) {
         image: value.image || null,
         available: value.available,
         ...(!item?.id || value.manageStock !== item.manageStock ? { manageStock: value.manageStock ?? false } : {}),
-        sizes: value.sizes || []
+        sizes: value.sizes || [],
+        flavorOptions: parsedFlavors
       };
     }
 
@@ -166,6 +177,35 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                 Descripción
                 <textarea maxLength={500} value={value.description || ''} onChange={e => change('description', e.target.value)} />
               </label>
+
+              <label>
+                Sabores o variedades disponibles (opcional)
+                <input
+                  value={flavorInput}
+                  onChange={e => {
+                    const text = e.target.value;
+                    setFlavorInput(text);
+                    change(
+                      'flavorOptions',
+                      text.split(',').map(s => s.trim()).filter(Boolean)
+                    );
+                  }}
+                  placeholder="Ej: Durazno, Naranja, Multifruta, Manzana"
+                />
+              </label>
+              <small>
+                Separados por comas. Si cargás opciones, el cliente o la moza deberán elegir obligatoriamente 1 sabor al pedirlo (ej. jugos Baggio, gaseosas de sabor, tés).
+              </small>
+              {value.flavorOptions?.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.35rem', marginBottom: '0.5rem' }}>
+                  {value.flavorOptions.map((fl, idx) => (
+                    <span key={idx} style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: '12px', padding: '2px 8px', fontSize: '0.8rem', fontWeight: 500 }}>
+                      {fl}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <label className="option">
                 <input type="checkbox" checked={value.available} onChange={e => change('available', e.target.checked)} />
                 Habilitar venta (sujeta a precio y stock)
@@ -466,6 +506,11 @@ export default function MenuManagement() {
                           : 'Habilitado según stock'}
                       </p>
                       {item.description && <p>{item.description}</p>}
+                      {item.flavorOptions?.length > 0 && (
+                        <p style={{ color: '#0369a1', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                          <strong>Sabores:</strong> {item.flavorOptions.join(' · ')}
+                        </p>
+                      )}
                     </>
                   )}
 

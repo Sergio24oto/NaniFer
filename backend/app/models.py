@@ -70,6 +70,7 @@ class Product(Base):
     cone_links: Mapped[dict] = mapped_column(JSON, default=dict)
     sizes: Mapped[list] = mapped_column(JSON, default=list)
     extras: Mapped[list] = mapped_column(JSON, default=list)
+    flavor_options: Mapped[list] = mapped_column(JSON, default=list)
 
 
 class Flavor(Base):

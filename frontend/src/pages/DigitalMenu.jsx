@@ -89,6 +89,10 @@ export default function DigitalMenu({ table }) {
   };
 
   const handleQuickAdd = (p) => {
+    if ((p.flavorOptions || []).length > 0 || (p.sizes || []).length > 0 || (p.extras || []).length > 0) {
+      setProduct(p);
+      return;
+    }
     const existingIndex = cart.findIndex(
       (item) =>
         (item.productId === p.id || item.product === p.id) &&
@@ -269,7 +273,7 @@ export default function DigitalMenu({ table }) {
 
             <div className="editorial-products-list">
               {products.map((p) => {
-                const hasOptions = (p.sizes?.length > 0) || (p.extras?.length > 0);
+                const hasOptions = (p.sizes?.length > 0) || (p.extras?.length > 0) || (p.flavorOptions?.length > 0);
                 return (
                   <div
                     key={p.id}
@@ -300,6 +304,14 @@ export default function DigitalMenu({ table }) {
                               {z.name} {z.salePrice != null ? money(z.salePrice) : z.price ? "(+" + money(z.price) + ")" : ""}
                             </span>
                           ))}
+                        </div>
+                      )}
+
+                      {p.flavorOptions?.length > 0 && (
+                        <div className="editorial-sizes-pills">
+                          <span className="editorial-size-tag" style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
+                            Sabores: {p.flavorOptions.join(" · ")}
+                          </span>
                         </div>
                       )}
 
