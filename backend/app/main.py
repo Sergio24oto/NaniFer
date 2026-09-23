@@ -23,7 +23,46 @@ from .auth import COOKIE, digest, verify, current_session, password_hash
 from .schemas import LoginIn, OrderIn, PayIn, StatusIn, StaffIn, ManualOrderIn, OpenIn
 from .services import *
 
-app = FastAPI(title="NaniFer POS", version="0.2.0")
+import logging
+from contextlib import asynccontextmanager
+
+def ensure_schema():
+    # 1. Run Alembic upgrade head
+    try:
+        from alembic.config import Config
+        from alembic import command
+        from pathlib import Path
+        backend_dir = Path(__file__).resolve().parent.parent
+        alembic_ini = backend_dir / "alembic.ini"
+        if alembic_ini.exists():
+            cfg = Config(str(alembic_ini))
+            cfg.set_main_option("script_location", str(backend_dir / "migrations"))
+            command.upgrade(cfg, "head")
+            logging.info("Alembic schema migrated to head.")
+    except Exception as e:
+        logging.warning("Alembic auto-upgrade bypassed or failed: %s", e)
+
+    # 2. Resilient direct column verification for products.flavor_options
+    try:
+        from sqlalchemy import inspect, text
+        from .db import engine
+        with engine.begin() as conn:
+            inspector = inspect(conn)
+            cols = [c['name'] for c in inspector.get_columns('products')]
+            if 'flavor_options' not in cols:
+                conn.execute(text("ALTER TABLE products ADD COLUMN flavor_options JSON NULL"))
+                conn.execute(text("UPDATE products SET flavor_options = '[]' WHERE flavor_options IS NULL"))
+                logging.info("Added missing column flavor_options to products table.")
+    except Exception as e:
+        logging.error("Fallback schema check failed: %s", e)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ensure_schema()
+    yield
+
+app = FastAPI(title="NaniFer POS", version="0.2.0", lifespan=lifespan)
+ensure_schema()
 login_attempts = defaultdict(list)
 DUMMY_HASH = password_hash(secrets.token_urlsafe(24))
 
@@ -48,7 +87,7 @@ async def browser_guard(request, call_next):
 
 @app.exception_handler(SQLAlchemyError)
 async def db_error(request, exc):
-    # Never return driver details, connection strings or bound credentials.
+    logging.exception("Database error occurred on %s: %s", request.url.path, exc)
     return JSONResponse(
         status_code=503,
         content={
