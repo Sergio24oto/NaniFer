@@ -56,6 +56,32 @@ def ensure_schema():
     except Exception as e:
         logging.error("Fallback schema check failed: %s", e)
 
+    # 3. Initial catalog seed and default admin user when starting on a fresh database
+    try:
+        import os
+        from .db import SessionLocal
+        from .cli import seed
+        with SessionLocal() as db:
+            if not db.scalar(select(Table.number).limit(1)):
+                seed(db)
+                logging.info("Initial NaniFer catalog and 15 tables seeded.")
+            admin_user = os.environ.get("ADMIN_DEFAULT_USER", "administrador").strip()
+            admin_pass = os.environ.get("ADMIN_DEFAULT_PASSWORD", "").strip()
+            if admin_user and admin_pass and not db.scalar(select(User).where(User.username == admin_user)):
+                db.add(
+                    User(
+                        id=uid(),
+                        username=admin_user,
+                        name="Administrador",
+                        role="admin",
+                        password_hash=password_hash(admin_pass),
+                    )
+                )
+                db.commit()
+                logging.info("Default admin user '%s' created.", admin_user)
+    except Exception as e:
+        logging.error("Initial seed/user check failed: %s", e)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_schema()
