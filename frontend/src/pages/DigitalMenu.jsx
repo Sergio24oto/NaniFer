@@ -34,6 +34,57 @@ function getCategoryCardImage(c) {
   return "/menu/bebidas.webp";
 }
 
+const BEVERAGE_SECTIONS = [
+  {
+    id: "gaseosas",
+    icon: "🥤",
+    shortLabel: "Gaseosas y Aguas",
+    eyebrow: "REFRESCOS Y AGUAS",
+    title: "GASEOSAS, AGUAS Y SABORIZADAS",
+    subtitle: "Línea de gaseosas, aguas minerales, Paso de los Toros, Aquarius y Levité.",
+  },
+  {
+    id: "jugos",
+    icon: "🍊",
+    shortLabel: "Jugos y Licuados",
+    eyebrow: "FRUTALES Y NATURALES",
+    title: "JUGOS, LICUADOS Y BATIDOS",
+    subtitle: "Exprimidos naturales, licuados, batidos, smoothies, Citric, Cepita y Baggio.",
+  },
+  {
+    id: "cervezas",
+    icon: "🍺",
+    shortLabel: "Cervezas y Aperitivos",
+    eyebrow: "PORRONES, LATAS Y APERITIVOS",
+    title: "CERVEZAS Y BEBIDAS CON ALCOHOL",
+    subtitle: "Latas 473ml, latones 710ml, porrones individuales, sin alcohol y aperitivos.",
+  },
+  {
+    id: "cervezas-litro",
+    icon: "🍻",
+    shortLabel: "Cervezas 1 Litro",
+    eyebrow: "PARA COMPARTIR",
+    title: "CERVEZAS DE LITRO",
+    subtitle: "Botellas de 1 litro bien heladas para compartir en la mesa.",
+  },
+];
+
+function getBeverageSectionId(p) {
+  const id = (p.id || "").toLowerCase();
+  const text = `${p.name || ""} ${p.description || ""}`.toLowerCase();
+
+  if (id.startsWith("beb-litro-") || (text.includes("litro") && /brahma|miller|heineken|warsteiner|quilmes|stella|corona|imperial|santa fe|cerveza|andes|patagonia/.test(text))) {
+    return "cervezas-litro";
+  }
+  if (/brahma|corona|stella|quilmes|miller|heineken|imperial|santa fe|warsteiner|patagonia|andes|cerveza|porrón|porron|latón|laton|473|710|stout|golden|lager|ipa|fernet|granadina|aperitivo|vino|sidra|gin|campari/.test(text)) {
+    return "cervezas";
+  }
+  if (/jugo|licuado|batido|smoothie|limonada|citric|cepita|baggio|chocolatada|ilolay|exprimido/.test(text)) {
+    return "jugos";
+  }
+  return "gaseosas";
+}
+
 export default function DigitalMenu({ table }) {
   useEffect(() => {
     document.body.classList.add("public-menu-page");
@@ -42,8 +93,10 @@ export default function DigitalMenu({ table }) {
 
   const s = useStore();
   const [selected, setSelected] = useState(null);
+  const [subFilter, setSubFilter] = useState("all");
 
   useEffect(() => {
+    setSubFilter("all");
     window.scrollTo(0, 0);
     if (document.documentElement) document.documentElement.scrollTop = 0;
     if (document.body) document.body.scrollTop = 0;
@@ -271,8 +324,9 @@ export default function DigitalMenu({ table }) {
               </div>
             </div>
 
-            <div className="editorial-products-list">
-              {products.map((p) => {
+            {(() => {
+              const isBebidas = (cat.name || "").toLowerCase().includes("bebid");
+              const renderProductRow = (p) => {
                 const hasOptions = (p.sizes?.length > 0) || (p.extras?.length > 0) || (p.flavorOptions?.length > 0);
                 return (
                   <div
@@ -336,14 +390,89 @@ export default function DigitalMenu({ table }) {
                     </button>
                   </div>
                 );
-              })}
+              };
 
-              {!products.length && (
-                <p className="editorial-empty-msg">
-                  Todavía no hay productos en esta categoría. Consultá a la moza.
-                </p>
-              )}
-            </div>
+              if (!isBebidas) {
+                return (
+                  <div className="editorial-products-list">
+                    {products.map(renderProductRow)}
+                    {!products.length && (
+                      <p className="editorial-empty-msg">
+                        Todavía no hay productos en esta categoría. Consultá a la moza.
+                      </p>
+                    )}
+                  </div>
+                );
+              }
+
+              const groupedSections = BEVERAGE_SECTIONS.map((sec) => ({
+                ...sec,
+                items: products.filter((p) => getBeverageSectionId(p) === sec.id),
+              })).filter((sec) => sec.items.length > 0);
+
+              const visibleSections =
+                subFilter === "all"
+                  ? groupedSections
+                  : groupedSections.filter((sec) => sec.id === subFilter);
+
+              return (
+                <>
+                  {groupedSections.length > 1 && (
+                    <nav className="editorial-subnav" aria-label="Subcategorías de bebidas">
+                      <span className="editorial-subnav-label">IR RÁPIDO A SECCIÓN:</span>
+                      <div className="editorial-subnav-pills">
+                        <button
+                          type="button"
+                          className={`editorial-subnav-pill ${subFilter === "all" ? "active" : ""}`}
+                          onClick={() => setSubFilter("all")}
+                        >
+                          <span className="subnav-pill-icon">✨</span>
+                          <span>Ver todas ({products.length})</span>
+                        </button>
+                        {groupedSections.map((sec) => (
+                          <button
+                            key={sec.id}
+                            type="button"
+                            className={`editorial-subnav-pill ${subFilter === sec.id ? "active" : ""}`}
+                            onClick={() => setSubFilter(sec.id)}
+                          >
+                            <span className="subnav-pill-icon">{sec.icon}</span>
+                            <span>{sec.shortLabel}</span>
+                            <small className="subnav-pill-count">{sec.items.length}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </nav>
+                  )}
+
+                  <div className="editorial-subsections-container">
+                    {visibleSections.map((sec) => (
+                      <section key={sec.id} className="editorial-subsection" id={`sec-${sec.id}`}>
+                        <div className="editorial-subsection-banner">
+                          <div className="editorial-subsection-badge" aria-hidden="true">
+                            {sec.icon}
+                          </div>
+                          <div className="editorial-subsection-titles">
+                            <span className="editorial-subsection-eyebrow">{sec.eyebrow}</span>
+                            <h2 className="editorial-subsection-title">{sec.title}</h2>
+                            <p className="editorial-subsection-subtitle">{sec.subtitle}</p>
+                          </div>
+                        </div>
+                        <div className="editorial-products-list">
+                          {sec.items.map(renderProductRow)}
+                        </div>
+                      </section>
+                    ))}
+
+                    {!products.length && (
+                      <p className="editorial-empty-msg">
+                        Todavía no hay productos en esta categoría. Consultá a la moza.
+                      </p>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
 
             {products.some((p) => p.sizes?.some((z) => z.max > 0)) && (
               <section className="editorial-flavors-section">

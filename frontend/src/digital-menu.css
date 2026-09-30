@@ -836,3 +836,175 @@ body.public-menu-page > div > header {
     gap: 10px;
   }
 }
+
+/* ==========================================================================
+   SUB-CATEGORÍAS EDITORIALES DENTRO DE BEBIDAS (Cervezas, Jugos, Gaseosas)
+   ========================================================================== */
+
+.editorial-subnav {
+  background: rgba(242, 230, 201, 0.55);
+  border: 1px solid rgba(217, 169, 75, 0.38);
+  border-radius: 18px;
+  padding: 14px 16px;
+  margin-bottom: 28px;
+}
+
+.editorial-subnav-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--brand-wood-light);
+  margin-bottom: 10px;
+}
+
+.editorial-subnav-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.editorial-subnav-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fffdf9;
+  color: var(--brand-primary);
+  border: 1.5px solid rgba(169, 116, 79, 0.3);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 2px 6px rgba(43, 27, 16, 0.06);
+}
+
+.editorial-subnav-pill:hover {
+  border-color: var(--brand-accent);
+  background: #fff8ec;
+  transform: translateY(-1px);
+}
+
+.editorial-subnav-pill.active {
+  background: var(--brand-primary);
+  color: #fffaf3;
+  border-color: var(--brand-accent);
+  box-shadow: 0 4px 12px rgba(59, 36, 23, 0.25);
+}
+
+.subnav-pill-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.subnav-pill-count {
+  background: rgba(217, 169, 75, 0.25);
+  color: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+.editorial-subnav-pill.active .subnav-pill-count {
+  background: var(--brand-accent);
+  color: #2B1B10;
+}
+
+.editorial-subsections-container {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.editorial-subsection {
+  position: relative;
+}
+
+.editorial-subsection-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(59, 36, 23, 0.07) 0%, rgba(217, 169, 75, 0.16) 100%);
+  border: 1px solid rgba(217, 169, 75, 0.45);
+  border-left: 4px solid var(--brand-accent);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 14px rgba(43, 27, 16, 0.05);
+}
+
+.editorial-subsection-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--brand-primary);
+  color: var(--brand-accent);
+  border: 1.5px solid var(--brand-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(59, 36, 23, 0.2);
+}
+
+.editorial-subsection-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.editorial-subsection-eyebrow {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2.2px;
+  color: var(--brand-wood-light);
+  margin-bottom: 3px;
+}
+
+.editorial-subsection-title {
+  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-size: clamp(20px, 3.2vw, 26px);
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--brand-primary);
+  margin: 0 0 4px;
+  line-height: 1.15;
+}
+
+.editorial-subsection-subtitle {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  font-size: 15px;
+  color: #5a4536;
+  margin: 0;
+  line-height: 1.35;
+}
+
+@media (max-width: 600px) {
+  .editorial-subnav {
+    padding: 12px;
+    margin-bottom: 22px;
+  }
+
+  .editorial-subnav-pill {
+    padding: 7px 11px;
+    font-size: 12px;
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .editorial-subsection-banner {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .editorial-subsection-badge {
+    width: 42px;
+    height: 42px;
+    font-size: 20px;
+  }
+}
+
