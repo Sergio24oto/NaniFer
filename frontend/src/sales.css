@@ -245,10 +245,10 @@ dialog:has(.sale-detail) {
   margin-bottom: 22px;
 }
 .sales-quick-filters button[aria-pressed="true"] {
-  color: #a5104b;
-  background: #fce9f1;
-  border-color: #ca105b;
-  box-shadow: inset 0 0 0 1px #ca105b;
+  color: #3B2417;
+  background: #fbf3e5;
+  border-color: #D9A94B;
+  box-shadow: inset 0 0 0 1.5px #D9A94B;
 }
 .sales-page button:disabled,
 .sale-detail button:disabled {

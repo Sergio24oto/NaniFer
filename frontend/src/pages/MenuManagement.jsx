@@ -252,14 +252,25 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                       <input required value={z.name} onChange={e => edit('name', e.target.value)} />
                     </label>
                     <label>
-                      Precio propio ($)
+                      Precio propio / final ($)
                       <input
                         type="number"
                         min="0"
-                        step="0.01"
+                        step="1"
                         value={z.salePrice ?? ''}
-                        placeholder={'Base + adicional: ' + (Number(value.price || 0) + Number(z.price || 0))}
+                        placeholder={z.price ? 'Usando adicional +' + z.price : 'Precio total (ej: 3500)'}
                         onChange={e => edit('salePrice', e.target.value === '' ? null : e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      O Adicional sobre precio base (+ $)
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={z.price || ''}
+                        placeholder="Ej: 600 (para que muestre '+ $ 600')"
+                        onChange={e => edit('price', e.target.value === '' ? 0 : Number(e.target.value))}
                       />
                     </label>
                     <label>

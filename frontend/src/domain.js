@@ -2,8 +2,9 @@ export const money = (n) =>
   new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
-    maximumFractionDigits: 2,
-  }).format(n || 0);
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Math.round(n || 0));
 export const statuses = [
   "pendiente",
   "en preparación",

@@ -519,10 +519,9 @@ export default function Sales() {
           <strong>Podés consultar las ventas de la jornada actual.</strong>
         )}
         <p>
-          De 04:00 a 04:00 del día siguiente · Buenos Aires
           {admin
-            ? " · Hasta 31 jornadas inclusive"
-            : " · Historial disponible para el administrador"}
+            ? "Hasta 31 jornadas inclusive"
+            : "Historial disponible para el administrador"}
         </p>
       </div>
       {data &&
@@ -567,7 +566,7 @@ export default function Sales() {
         <>
           <div className="sales-period">
             <h2>{data.periodTitle}</h2>
-            <p>{data.periodNote} · Buenos Aires</p>
+            <p>{data.periodNote?.replace(/ · Buenos Aires|Buenos Aires/g, "")}</p>
           </div>
           <div
             className={`sales-summary ${hasCorrections(data) ? "" : "without-corrections"}`}

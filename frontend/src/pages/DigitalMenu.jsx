@@ -355,7 +355,16 @@ export default function DigitalMenu({ table }) {
                         <div className="editorial-sizes-pills">
                           {p.sizes.map((z) => (
                             <span key={z.name} className="editorial-size-tag">
-                              {z.name} {z.salePrice != null ? money(z.salePrice) : z.price ? "(+" + money(z.price) + ")" : ""}
+                              {z.name}{" "}
+                              {z.salePrice != null
+                                ? p.price != null && Number(z.salePrice) === Number(p.price)
+                                  ? ""
+                                  : p.price != null && Number(z.salePrice) > Number(p.price)
+                                  ? "(+" + money(Number(z.salePrice) - Number(p.price)) + ")"
+                                  : money(z.salePrice)
+                                : z.price
+                                ? "(+" + money(z.price) + ")"
+                                : ""}
                             </span>
                           ))}
                         </div>

@@ -39,7 +39,17 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
                 }}
               />
               {z.name}{z.available === false ? " · Sin stock" : ""}
-              <span>{z.salePrice != null ? money(z.salePrice) : z.price ? "+ " + money(z.price) : "Incluido"}</span>
+              <span>
+                {z.salePrice != null
+                  ? p.price != null && Number(z.salePrice) === Number(p.price)
+                    ? "Incluido"
+                    : p.price != null && Number(z.salePrice) > Number(p.price)
+                    ? "+ " + money(Number(z.salePrice) - Number(p.price))
+                    : money(z.salePrice)
+                  : z.price
+                  ? "+ " + money(z.price)
+                  : "Incluido"}
+              </span>
             </label>
           ))}
         </fieldset>
@@ -60,7 +70,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           ))}
         </fieldset>
       )}
-      {!manual && !productFlavors.length && max && (
+      {!manual && !productFlavors.length && Boolean(max && max > 0) && (
         <fieldset>
           <legend>Sabores · elegí de 1 a {max}</legend>
           {catalog.flavors.map((f) => (
