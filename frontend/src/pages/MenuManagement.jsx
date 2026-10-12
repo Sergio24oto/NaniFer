@@ -1,22 +1,39 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Camera, Tag, Layers, Plus, Trash2, Sliders, ChevronDown, ChevronUp, GripVertical, X } from 'lucide-react';
 import { request, useStore, refresh, submitOnce, pendingOperation } from '../store';
 import { Modal, Badge } from '../components';
 import { money } from '../domain';
+import '../menu-management.css';
 
 function Editor({ item, kind, data, onClose, onSaved }) {
   const isFlavor = kind === 'flavors';
   const isCategory = kind === 'categories';
+  const isProduct = !isFlavor && !isCategory;
   const scope = 'new-catalog-' + kind;
   const pending = !item?.id && pendingOperation(scope);
   const initialFlavors = item?.flavorOptions || pending?.body?.flavorOptions || [];
   const [flavorInput, setFlavorInput] = useState(
     Array.isArray(initialFlavors) ? initialFlavors.join(', ') : (initialFlavors || '')
   );
+
+  const initialSizes = (pending?.body?.sizes || item?.sizes || []).map(z => ({
+    ...z,
+    salePrice: z.salePrice != null ? z.salePrice : (item?.price != null && z.price ? Number(item.price) + Number(z.price) : (z.price || '')),
+    price: z.price || 0,
+    stockUnits: z.stockUnits || 1,
+    max: z.max || 0,
+    enabled: z.enabled !== false,
+  }));
+
   const [value, setValue] = useState(
-    pending?.body || item || {
+    pending?.body || item ? {
+      ...(pending?.body || item),
+      sizes: initialSizes,
+      flavorOptions: Array.isArray(initialFlavors) ? initialFlavors : []
+    } : {
       name: '',
       description: '',
-      categoryId: data.categories[0]?.id || '',
+      categoryId: data?.categories?.[0]?.id || '',
       price: '',
       image: '',
       available: true,
@@ -26,9 +43,15 @@ function Editor({ item, kind, data, onClose, onSaved }) {
       stockArea: 'other',
       manageStock: false,
       sizes: [],
-      flavorOptions: Array.isArray(initialFlavors) ? initialFlavors : []
+      flavorOptions: []
     }
   );
+
+  const [pricingMode, setPricingMode] = useState(
+    initialSizes.length > 0 ? 'variants' : 'simple'
+  );
+  const [showPhotoGallery, setShowPhotoGallery] = useState(false);
+  const [expandedVariants, setExpandedVariants] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [uncertain, setUncertain] = useState(!!pending);
@@ -46,13 +69,13 @@ function Editor({ item, kind, data, onClose, onSaved }) {
 
     let body;
     if (isFlavor) {
-      body = { name: value.name.trim(), available: value.available };
+      body = { name: value.name.trim(), available: Boolean(value.available) };
     } else if (isCategory) {
       body = {
-        name: value.name,
+        name: value.name.trim(),
         image: value.image || null,
-        order: Number(value.order),
-        visible: value.visible,
+        order: Number(value.order || 0),
+        visible: Boolean(value.visible),
         note: value.note || '',
         stockArea: value.stockArea || 'other'
       };
@@ -62,15 +85,41 @@ function Editor({ item, kind, data, onClose, onSaved }) {
         .map(s => s.trim())
         .filter(Boolean);
 
+      let finalSizes = [];
+      let finalPrice = value.price === '' || value.price == null ? null : Number(value.price);
+
+      if (pricingMode === 'variants') {
+        finalSizes = (value.sizes || [])
+          .filter(z => z.name && z.name.trim())
+          .map((z, idx) => ({
+            name: z.name.trim(),
+            salePrice: z.salePrice !== '' && z.salePrice != null ? Number(z.salePrice) : null,
+            price: z.price ? Number(z.price) : 0,
+            stockUnits: Number(z.stockUnits || 1),
+            max: Number(z.max || 0),
+            enabled: z.enabled !== false,
+            order: idx,
+            equivalent: Number(z.equivalent || 1)
+          }));
+
+        // Si tiene variantes, el precio base para la carta es el mínimo de sus opciones
+        const prices = finalSizes
+          .map(z => z.salePrice != null ? z.salePrice : z.price)
+          .filter(p => p > 0);
+        if (prices.length > 0) {
+          finalPrice = Math.min(...prices);
+        }
+      }
+
       body = {
-        name: value.name,
-        description: value.description || '',
+        name: value.name.trim(),
+        description: value.description ? value.description.trim() : '',
         categoryId: value.categoryId,
-        price: value.price === '' || value.price == null ? null : value.price,
+        price: finalPrice,
         image: value.image || null,
-        available: value.available,
-        ...(!item?.id || value.manageStock !== item.manageStock ? { manageStock: value.manageStock ?? false } : {}),
-        sizes: value.sizes || [],
+        available: Boolean(value.available),
+        ...(!item?.id || Boolean(value.manageStock) !== Boolean(item.manageStock) ? { manageStock: Boolean(value.manageStock) } : {}),
+        sizes: finalSizes,
         flavorOptions: parsedFlavors
       };
     }
@@ -92,26 +141,29 @@ function Editor({ item, kind, data, onClose, onSaved }) {
     }
   }
 
-  const modalTitle = (item?.id ? 'Editar ' : 'Nueva alta de ') + (isFlavor ? 'sabor de helado' : isCategory ? 'categoría' : 'producto');
+  const modalTitle = (item?.id ? 'Editar ' : 'Nuevo ') + (isFlavor ? 'sabor de helado' : isCategory ? 'categoría' : 'producto');
 
   return (
-    <Modal title={modalTitle} onClose={() => { if (!busy && !uncertain) onClose(); }}>
+    <Modal
+      title={modalTitle}
+      onClose={() => { if (!busy && !uncertain) onClose(); }}
+      className={isProduct ? 'product-modal-wide' : ''}
+    >
       <form onSubmit={handleSubmit}>
         <fieldset disabled={busy || uncertain} className="catalog-fields">
-          <label>
-            Nombre
-            <input
-              required
-              maxLength={isCategory || isFlavor ? 100 : 150}
-              value={value.name}
-              onChange={e => change('name', e.target.value)}
-              placeholder={isFlavor ? 'Ej: Dulce de leche granizado' : ''}
-              autoFocus
-            />
-          </label>
-
           {isFlavor && (
             <>
+              <label>
+                Nombre del sabor
+                <input
+                  required
+                  maxLength={100}
+                  value={value.name}
+                  onChange={e => change('name', e.target.value)}
+                  placeholder="Ej: Dulce de leche granizado"
+                  autoFocus
+                />
+              </label>
               <label className="option">
                 <input
                   type="checkbox"
@@ -127,6 +179,17 @@ function Editor({ item, kind, data, onClose, onSaved }) {
           {isCategory && (
             <>
               <label>
+                Nombre de la categoría
+                <input
+                  required
+                  maxLength={100}
+                  value={value.name}
+                  onChange={e => change('name', e.target.value)}
+                  placeholder="Ej: Cafetería, Bebidas, Helados..."
+                  autoFocus
+                />
+              </label>
+              <label>
                 Área de stock
                 <select value={value.stockArea || 'other'} onChange={e => change('stockArea', e.target.value)}>
                   <option value="other">Otros</option>
@@ -141,53 +204,322 @@ function Editor({ item, kind, data, onClose, onSaved }) {
               </label>
               <label>
                 Nota para clientes
-                <textarea maxLength={500} value={value.note || ''} onChange={e => change('note', e.target.value)} />
+                <textarea maxLength={500} value={value.note || ''} onChange={e => change('note', e.target.value)} placeholder="Nota informativa que verán los clientes..." />
               </label>
               <label className="option">
                 <input type="checkbox" checked={value.visible} onChange={e => change('visible', e.target.checked)} />
                 Mostrar categoría en la carta pública
               </label>
-              <small>Ocultarla conserva sus productos para atención interna.</small>
+              <small>Ocultarla conserva sus productos para atención interna de mozos.</small>
             </>
           )}
 
-          {!isCategory && !isFlavor && (
+          {isProduct && (
             <>
-              <label>
-                Categoría
-                <select required value={value.categoryId} onChange={e => change('categoryId', e.target.value)}>
-                  <option value="">Elegir categoría</option>
-                  {data.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </label>
-              <label>
-                Precio de venta ($) · opcional
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  max="9999999999.99"
-                  value={value.price ?? ''}
-                  onChange={e => change('price', e.target.value)}
-                  placeholder="Sin precio definido"
-                />
-              </label>
-              <small>Sin precio: muestra “Consultar precio” y no se puede vender desde atención. Los precios anteriores de los pedidos no cambian.</small>
-              <label>
-                Descripción
-                <textarea maxLength={500} value={value.description || ''} onChange={e => change('description', e.target.value)} />
-              </label>
+              {/* Bloque superior: Foto + Nombre / Categoría / Descripción */}
+              <div className="editor-top-grid">
+                <div className="photo-uploader-box">
+                  <div
+                    className="photo-preview-wrap"
+                    onClick={() => setShowPhotoGallery(prev => !prev)}
+                    title="Hacé clic para elegir foto de la carta"
+                  >
+                    {value.image ? (
+                      <img src={value.image} alt={value.name || 'Foto del producto'} />
+                    ) : (
+                      <div className="photo-placeholder">
+                        <Camera size={28} />
+                        <span>Elegir foto</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="photo-actions">
+                    <button
+                      type="button"
+                      onClick={() => setShowPhotoGallery(prev => !prev)}
+                    >
+                      {value.image ? 'Cambiar' : 'Elegir'}
+                    </button>
+                    {value.image && (
+                      <button
+                        type="button"
+                        onClick={() => { change('image', ''); setShowPhotoGallery(false); }}
+                      >
+                        Quitar
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-              <div
-                style={{
-                  background: '#f0f9ff',
-                  border: '1.5px solid #7dd3fc',
-                  borderRadius: '10px',
-                  padding: '14px 16px',
-                  margin: '16px 0',
-                }}
-              >
-                <label style={{ fontWeight: 'bold', color: '#0369a1', display: 'block', marginBottom: '6px' }}>
+                <div className="editor-main-fields">
+                  <div className="editor-field">
+                    <label>Nombre del producto *</label>
+                    <input
+                      required
+                      maxLength={150}
+                      value={value.name}
+                      onChange={e => change('name', e.target.value)}
+                      placeholder="Ej: Coca Cola, Café cortado, Hamburguesa..."
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="editor-field">
+                    <label>Categoría *</label>
+                    <select required value={value.categoryId} onChange={e => change('categoryId', e.target.value)}>
+                      <option value="">Elegir categoría</option>
+                      {(data?.categories || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="editor-field">
+                    <label>Descripción (opcional)</label>
+                    <textarea
+                      maxLength={500}
+                      rows={2}
+                      value={value.description || ''}
+                      onChange={e => change('description', e.target.value)}
+                      placeholder="Ingredientes, detalles o preparación que verá el cliente..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Selector de galería de fotos */}
+              {showPhotoGallery && (
+                <div className="photo-gallery-picker">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h4>Elegí una foto de la carta:</h4>
+                    <button type="button" className="text-button" onClick={() => setShowPhotoGallery(false)}>Cerrar</button>
+                  </div>
+                  <div className="gallery-grid">
+                    {(data?.images || []).map(src => (
+                      <div
+                        key={src}
+                        className={`gallery-item ${value.image === src ? 'selected' : ''}`}
+                        onClick={() => { change('image', src); setShowPhotoGallery(false); }}
+                        title={src.split('/').pop()}
+                      >
+                        <img src={src} alt={src.split('/').pop()} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sección Precio(s): Simple vs Variantes */}
+              <div className="editor-card">
+                <div className="editor-card-header">
+                  <h3>
+                    <Tag size={17} style={{ color: '#2563eb' }} />
+                    Precio(s)
+                  </h3>
+                  <div className="pricing-segmented-control">
+                    <button
+                      type="button"
+                      className={pricingMode === 'simple' ? 'active' : ''}
+                      onClick={() => setPricingMode('simple')}
+                    >
+                      Simple
+                    </button>
+                    <button
+                      type="button"
+                      className={pricingMode === 'variants' ? 'active' : ''}
+                      onClick={() => {
+                        setPricingMode('variants');
+                        if (!value.sizes || value.sizes.length === 0) {
+                          change('sizes', [{
+                            name: 'Estándar',
+                            salePrice: value.price || '',
+                            price: 0,
+                            stockUnits: 1,
+                            max: 0,
+                            enabled: true,
+                            order: 0,
+                          }]);
+                        }
+                      }}
+                    >
+                      Variantes
+                      {value.sizes?.length > 0 && (
+                        <span className="count-pill">{value.sizes.length}</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {pricingMode === 'simple' ? (
+                  <div className="simple-price-box">
+                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>
+                      Precio de venta ($)
+                    </label>
+                    <div className="simple-price-input-wrap">
+                      <span>$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={value.price ?? ''}
+                        onChange={e => change('price', e.target.value)}
+                        placeholder="Sin precio definido"
+                      />
+                    </div>
+                    <small style={{ color: '#64748b', marginTop: '4px' }}>
+                      Precio único para este producto. Si se deja vacío, figurará como "Consultar precio".
+                    </small>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ fontSize: '12.5px', color: '#64748b', marginBottom: '12px', lineHeight: '1.4' }}>
+                      Cargá los tamaños o presentaciones (ej: <em>Chico, Mediano, Grande</em> o <em>Lata, 1.5L</em>) con su precio final directo en pesos.
+                    </p>
+
+                    <div className="variants-list">
+                      {(value.sizes || []).map((z, i) => {
+                        const edit = (k, v) => change('sizes', value.sizes.map((x, n) => n === i ? { ...x, [k]: v } : x));
+                        const isExpanded = Boolean(expandedVariants[i]);
+                        return (
+                          <div className="variant-row-card" key={i}>
+                            <div className="variant-main-row">
+                              <span className="variant-drag-handle" title="Variante">
+                                <GripVertical size={16} />
+                              </span>
+                              <input
+                                className="variant-name-input"
+                                placeholder="Nombre: ej. Mediano, 500ml, Doble"
+                                value={z.name || ''}
+                                onChange={e => edit('name', e.target.value)}
+                                required
+                              />
+                              <div className="variant-price-wrap">
+                                <span>$</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  placeholder="Precio: ej. 5000"
+                                  value={z.salePrice != null && z.salePrice !== '' ? z.salePrice : (z.price ? z.price : '')}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    edit('salePrice', val === '' ? '' : Number(val));
+                                    edit('price', 0);
+                                  }}
+                                />
+                              </div>
+                              <div className="variant-actions">
+                                <button
+                                  type="button"
+                                  className="variant-expand-btn"
+                                  onClick={() => setExpandedVariants(prev => ({ ...prev, [i]: !prev[i] }))}
+                                  title="Opciones avanzadas"
+                                >
+                                  <Sliders size={13} />
+                                  {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="variant-delete-btn"
+                                  onClick={() => change('sizes', value.sizes.filter((_, n) => n !== i))}
+                                  title="Eliminar variante"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="variant-advanced-panel">
+                                {value.manageStock && (
+                                  <label>
+                                    Unidades de stock por venta
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max="1000"
+                                      value={z.stockUnits || 1}
+                                      onChange={e => edit('stockUnits', Number(e.target.value))}
+                                    />
+                                  </label>
+                                )}
+                                <label>
+                                  Máximo de sabores (heladería)
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="10"
+                                    value={z.max || 0}
+                                    onChange={e => edit('max', Number(e.target.value))}
+                                  />
+                                </label>
+                                <label style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={z.enabled !== false}
+                                    onChange={e => edit('enabled', e.target.checked)}
+                                  />
+                                  Habilitada para la venta
+                                </label>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      type="button"
+                      className="add-variant-btn"
+                      onClick={() => {
+                        change('sizes', [
+                          ...(value.sizes || []),
+                          {
+                            name: '',
+                            salePrice: '',
+                            price: 0,
+                            max: 0,
+                            enabled: true,
+                            order: (value.sizes || []).length,
+                            equivalent: 1,
+                            stockUnits: 1,
+                          }
+                        ]);
+                      }}
+                    >
+                      <Plus size={16} />
+                      Agregar variante
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Control de Stock estilo OlaClick */}
+              <div className="editor-card">
+                <div className="stock-toggle-row">
+                  <div className="stock-toggle-info">
+                    <strong>
+                      <Layers size={17} style={{ color: value.manageStock ? '#0284c7' : '#16a34a' }} />
+                      Control de Stock
+                    </strong>
+                    <p className={value.manageStock ? 'stock-strict-hint' : 'stock-free-hint'}>
+                      {value.manageStock
+                        ? '📦 Control estricto activado: descuenta existencias físicas del módulo de Stock en cada venta.'
+                        : '🟢 Venta libre (Recomendado): se puede vender siempre sin límites ni bloqueo a los mozos.'}
+                    </p>
+                  </div>
+                  <label className="switch-control" title={value.manageStock ? 'Desactivar control de stock' : 'Activar control de stock'}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(value.manageStock)}
+                      onChange={e => change('manageStock', e.target.checked)}
+                    />
+                    <span className="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Sabores / Modificadores específicos del producto */}
+              <div className="editor-card">
+                <label style={{ fontWeight: 'bold', color: '#0369a1', display: 'block', marginBottom: '6px', fontSize: '13.5px' }}>
                   🥤 Sabores o variedades de este producto (opcional)
                 </label>
                 <input
@@ -204,128 +536,51 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                   style={{ width: '100%', background: '#fff' }}
                 />
                 <small style={{ display: 'block', color: '#075985', marginTop: '6px', lineHeight: '1.4' }}>
-                  Escribí los sabores separados por coma. Si cargás opciones acá (por ejemplo para <em>Baggio</em>, <em>Gaseosas</em>, <em>Tés</em>), el cliente o la moza deberán elegir obligatoriamente 1 sabor al pedirlo.
+                  Escribí los sabores separados por coma. Si cargás opciones acá (por ejemplo para <em>Baggio</em>, <em>Gaseosas</em> o <em>Aguas</em>), el cliente o la moza deberán elegir obligatoriamente 1 sabor al pedirlo.
                 </small>
                 {value.flavorOptions?.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '10px' }}>
+                  <div className="flavor-chips-wrap">
                     {value.flavorOptions.map((fl, idx) => (
-                      <span
-                        key={idx}
-                        style={{
-                          background: '#0284c7',
-                          color: '#ffffff',
-                          borderRadius: '16px',
-                          padding: '3px 10px',
-                          fontSize: '0.85rem',
-                          fontWeight: 600,
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                        }}
-                      >
+                      <span key={idx} className="flavor-chip">
                         ✓ {fl}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = value.flavorOptions.filter((_, n) => n !== idx);
+                            change('flavorOptions', updated);
+                            setFlavorInput(updated.join(', '));
+                          }}
+                          title="Quitar sabor"
+                        >
+                          <X size={13} />
+                        </button>
                       </span>
                     ))}
                   </div>
                 )}
               </div>
 
-              <label className="option">
-                <input type="checkbox" checked={value.available} onChange={e => change('available', e.target.checked)} />
-                Habilitar venta (sujeta a precio y stock)
-              </label>
-
-              <label>
-                Gestionar stock de este producto
-                <select value={value.manageStock ? 'yes' : 'no'} onChange={e => change('manageStock', e.target.value === 'yes')}>
-                  <option value="no">No</option>
-                  <option value="yes">Sí</option>
-                </select>
-              </label>
-              <small>Sin gestión se registra la venta sin descontar existencias. Al activarla, cargá la entrada inicial desde Stock. Desactivarla también retira vínculos de cucuruchos para nuevos pedidos.</small>
-
-              <h3>Presentaciones comerciales</h3>
-              {(value.sizes || []).map((z, i) => {
-                const edit = (k, v) => change('sizes', value.sizes.map((x, n) => n === i ? { ...x, [k]: v } : x));
-                return (
-                  <fieldset key={i}>
-                    <label>
-                      Nombre de presentación
-                      <input required value={z.name} onChange={e => edit('name', e.target.value)} />
-                    </label>
-                    <label>
-                      Precio propio / final ($)
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={z.salePrice ?? ''}
-                        placeholder={z.price ? 'Usando adicional +' + z.price : 'Precio total (ej: 3500)'}
-                        onChange={e => edit('salePrice', e.target.value === '' ? null : e.target.value)}
-                      />
-                    </label>
-                    <label>
-                      O Adicional sobre precio base (+ $)
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={z.price || ''}
-                        placeholder="Ej: 600 (para que muestre '+ $ 600')"
-                        onChange={e => edit('price', e.target.value === '' ? 0 : Number(e.target.value))}
-                      />
-                    </label>
-                    <label>
-                      Orden
-                      <input type="number" min="0" max="9999" value={z.order || 0} onChange={e => edit('order', Number(e.target.value))} />
-                    </label>
-                    <label>
-                      Equivalencia informativa
-                      <input type="number" min="1" max="1000" value={z.equivalent || 1} onChange={e => edit('equivalent', Number(e.target.value))} />
-                    </label>
-                    {value.manageStock && (
-                      <label>
-                        Unidades de stock por venta
-                        <input type="number" min="1" max="1000" value={z.stockUnits || 1} onChange={e => edit('stockUnits', Number(e.target.value))} />
-                      </label>
-                    )}
-                    <label>
-                      Máximo de sabores (0 si no corresponde)
-                      <input type="number" min="0" max="10" value={z.max || 0} onChange={e => edit('max', Number(e.target.value))} />
-                    </label>
-                    <small style={{ color: '#64748b', display: 'block', marginTop: '-4px', marginBottom: '8px' }}>
-                      (Aplica únicamente a helados que eligen de los sabores generales de heladería).
-                    </small>
-                    <label>
-                      <input type="checkbox" checked={z.enabled !== false} onChange={e => edit('enabled', e.target.checked)} />
-                      Habilitada
-                    </label>
-                    <button type="button" onClick={() => change('sizes', value.sizes.filter((_, n) => n !== i))}>
-                      Quitar presentación
-                    </button>
-                  </fieldset>
-                );
-              })}
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => change('sizes', [...(value.sizes || []), { name: '', salePrice: null, price: 0, max: 0, enabled: true, order: (value.sizes || []).length, equivalent: 1, stockUnits: 1 }])}
-              >
-                + Agregar presentación
-              </button>
-            </>
-          )}
-
-          {!isFlavor && (
-            <>
-              <label>
-                Foto
-                <select value={value.image || ''} onChange={e => change('image', e.target.value)}>
-                  <option value="">Sin foto</option>
-                  {[...new Set([...data.images, ...(value.image ? [value.image] : [])])].map(src => (
-                    <option key={src} value={src}>{src.split('/').pop()}</option>
-                  ))}
-                </select>
-              </label>
-              <small>Las fotos se cargan en frontend/public/menu. Se conservan las opciones, sabores y vínculos de stock existentes al editar.</small>
+              {/* Habilitar venta */}
+              <div className="editor-card" style={{ marginBottom: '10px' }}>
+                <div className="stock-toggle-row">
+                  <div className="stock-toggle-info">
+                    <strong>Habilitar para la venta inmediata</strong>
+                    <p style={{ color: '#64748b' }}>
+                      {value.available
+                        ? 'Visible y disponible para atención de mozos y carta digital.'
+                        : 'Pausado: el producto no se podrá pedir.'}
+                    </p>
+                  </div>
+                  <label className="switch-control">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(value.available)}
+                      onChange={e => change('available', e.target.checked)}
+                    />
+                    <span className="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
             </>
           )}
         </fieldset>
@@ -333,9 +588,23 @@ function Editor({ item, kind, data, onClose, onSaved }) {
         {error && <p className="alert" role="alert">{error}</p>}
         {uncertain && <p className="note">La respuesta no se confirmó. Reintentá el mismo guardado antes de cerrar.</p>}
 
-        <button className="primary full" disabled={busy || !s.connected}>
-          {busy ? 'Guardando…' : uncertain ? 'Reintentar guardado' : 'Guardar cambios'}
-        </button>
+        <div className="editor-footer-actions">
+          <button
+            type="button"
+            className="cancel-btn"
+            onClick={onClose}
+            disabled={busy}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            className="save-btn"
+            disabled={busy || !s.connected}
+          >
+            {busy ? 'Guardando…' : uncertain ? 'Reintentar guardado' : item?.id ? 'Guardar cambios' : 'Crear producto'}
+          </button>
+        </div>
       </form>
     </Modal>
   );
@@ -530,7 +799,13 @@ export default function MenuManagement() {
                   <h2>{item.name}</h2>
                   {tab === 'products' && (
                     <>
-                      <strong>{item.price == null ? 'Consultar precio' : money(item.price)}</strong>
+                      <strong>
+                        {item.sizes?.length > 0
+                          ? `Desde ${money(item.price)} · ${item.sizes.length} variante(s)`
+                          : item.price == null
+                          ? 'Consultar precio'
+                          : money(item.price)}
+                      </strong>
                       <p>
                         {data.categories.find(c => c.id === item.categoryId)?.name} ·{' '}
                         {item.archived
@@ -539,9 +814,16 @@ export default function MenuManagement() {
                           ? 'Venta deshabilitada'
                           : item.price == null
                           ? 'Precio pendiente'
-                          : 'Habilitado según stock'}
+                          : item.manageStock
+                          ? 'Control de stock estricto'
+                          : 'Venta libre'}
                       </p>
                       {item.description && <p>{item.description}</p>}
+                      {item.sizes?.length > 0 && (
+                        <p style={{ color: '#475569', fontSize: '0.85rem', marginTop: '0.2rem' }}>
+                          <strong>Variantes:</strong> {item.sizes.map(z => `${z.name} (${money(z.salePrice != null ? z.salePrice : z.price)})`).join(' · ')}
+                        </p>
+                      )}
                       {item.flavorOptions?.length > 0 && (
                         <p style={{ color: '#0369a1', fontSize: '0.85rem', marginTop: '0.25rem' }}>
                           <strong>Sabores:</strong> {item.flavorOptions.join(' · ')}

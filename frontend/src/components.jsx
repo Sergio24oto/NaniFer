@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { X } from "lucide-react";
 import { money } from "./domain";
-export function Modal({ title, children, onClose }) {
+export function Modal({ title, children, onClose, className = "" }) {
   const ref = useRef();
   useEffect(() => {
     const el = ref.current;
@@ -9,10 +9,10 @@ export function Modal({ title, children, onClose }) {
     return () => el.close();
   }, []);
   return (
-    <dialog ref={ref} onCancel={onClose}>
+    <dialog ref={ref} onCancel={onClose} className={className}>
       <div className="modal-head">
         <h2>{title}</h2>
-        <button className="icon" aria-label="Cerrar" onClick={onClose}>
+        <button className="icon" aria-label="Cerrar" onClick={onClose} type="button">
           <X />
         </button>
       </div>

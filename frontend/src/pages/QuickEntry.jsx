@@ -26,7 +26,18 @@ export default function QuickEntry({
   const [search, setSearch] = useState("");
   const [product, setProduct] = useState(null);
   const normalize = text => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const products = catalog.products.filter(p => (!category || p.category === category) && normalize(p.name).includes(normalize(search)));
+  const products = catalog.products.filter(p => {
+    if (category && p.category !== category) return false;
+    if (!search.trim()) return true;
+    const term = normalize(search.trim());
+    const inName = normalize(p.name || "").includes(term);
+    const inCategory = normalize(p.category || "").includes(term);
+    const inDesc = normalize(p.description || "").includes(term);
+    const inPublicCats = (p.publicCategories || []).some(c => normalize(c || "").includes(term));
+    const inSizes = (p.sizes || []).some(s => normalize(s.name || "").includes(term));
+    const inFlavors = (p.flavorOptions || []).some(f => normalize(f || "").includes(term));
+    return inName || inCategory || inDesc || inPublicCats || inSizes || inFlavors;
+  });
   function choose(p) {
     if (p.sizes?.length > 1 || p.extras?.length) {
       setProduct(p);
