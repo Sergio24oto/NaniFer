@@ -287,6 +287,7 @@ dialog.product-modal-wide .modal-head h2 {
   font-size: 16px;
   font-weight: 600;
   color: #64748b;
+  pointer-events: none;
 }
 
 .simple-price-input-wrap input {
@@ -352,6 +353,7 @@ dialog.product-modal-wide .modal-head h2 {
   color: #64748b;
   font-weight: 600;
   font-size: 13px;
+  pointer-events: none;
 }
 
 .variant-price-wrap input {

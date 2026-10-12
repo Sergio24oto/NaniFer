@@ -60,6 +60,13 @@ function Editor({ item, kind, data, onClose, onSaved }) {
 
   const change = (key, v) => setValue(old => ({ ...old, [key]: v }));
 
+  const updateVariant = (index, updates) => {
+    setValue(old => ({
+      ...old,
+      sizes: (old.sizes || []).map((x, n) => n === index ? { ...x, ...updates } : x)
+    }));
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (lock.current) return;
@@ -327,17 +334,24 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                       className={pricingMode === 'variants' ? 'active' : ''}
                       onClick={() => {
                         setPricingMode('variants');
-                        if (!value.sizes || value.sizes.length === 0) {
-                          change('sizes', [{
-                            name: 'Estándar',
-                            salePrice: value.price || '',
-                            price: 0,
-                            stockUnits: 1,
-                            max: 0,
-                            enabled: true,
-                            order: 0,
-                          }]);
-                        }
+                        setValue(old => {
+                          if (!old.sizes || old.sizes.length === 0) {
+                            return {
+                              ...old,
+                              sizes: [{
+                                name: 'Estándar',
+                                salePrice: old.price || '',
+                                price: 0,
+                                stockUnits: 1,
+                                max: 0,
+                                enabled: true,
+                                order: 0,
+                                equivalent: 1,
+                              }]
+                            };
+                          }
+                          return old;
+                        });
                       }}
                     >
                       Variantes
@@ -376,8 +390,8 @@ function Editor({ item, kind, data, onClose, onSaved }) {
 
                     <div className="variants-list">
                       {(value.sizes || []).map((z, i) => {
-                        const edit = (k, v) => change('sizes', value.sizes.map((x, n) => n === i ? { ...x, [k]: v } : x));
                         const isExpanded = Boolean(expandedVariants[i]);
+                        const currentPrice = z.salePrice != null && z.salePrice !== '' ? z.salePrice : (z.price ? z.price : '');
                         return (
                           <div className="variant-row-card" key={i}>
                             <div className="variant-main-row">
@@ -388,7 +402,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                                 className="variant-name-input"
                                 placeholder="Nombre: ej. Mediano, 500ml, Doble"
                                 value={z.name || ''}
-                                onChange={e => edit('name', e.target.value)}
+                                onChange={e => updateVariant(i, { name: e.target.value })}
                                 required
                               />
                               <div className="variant-price-wrap">
@@ -398,11 +412,13 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                                   min="0"
                                   step="1"
                                   placeholder="Precio: ej. 5000"
-                                  value={z.salePrice != null && z.salePrice !== '' ? z.salePrice : (z.price ? z.price : '')}
+                                  value={currentPrice}
                                   onChange={e => {
                                     const val = e.target.value;
-                                    edit('salePrice', val === '' ? '' : Number(val));
-                                    edit('price', 0);
+                                    updateVariant(i, {
+                                      salePrice: val === '' ? '' : val,
+                                      price: 0
+                                    });
                                   }}
                                 />
                               </div>
@@ -419,7 +435,12 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                                 <button
                                   type="button"
                                   className="variant-delete-btn"
-                                  onClick={() => change('sizes', value.sizes.filter((_, n) => n !== i))}
+                                  onClick={() => {
+                                    setValue(old => ({
+                                      ...old,
+                                      sizes: (old.sizes || []).filter((_, n) => n !== i)
+                                    }));
+                                  }}
                                   title="Eliminar variante"
                                 >
                                   <Trash2 size={15} />
@@ -437,7 +458,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                                       min="1"
                                       max="1000"
                                       value={z.stockUnits || 1}
-                                      onChange={e => edit('stockUnits', Number(e.target.value))}
+                                      onChange={e => updateVariant(i, { stockUnits: Number(e.target.value) })}
                                     />
                                   </label>
                                 )}
@@ -448,14 +469,14 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                                     min="0"
                                     max="10"
                                     value={z.max || 0}
-                                    onChange={e => edit('max', Number(e.target.value))}
+                                    onChange={e => updateVariant(i, { max: Number(e.target.value) })}
                                   />
                                 </label>
                                 <label style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
                                   <input
                                     type="checkbox"
                                     checked={z.enabled !== false}
-                                    onChange={e => edit('enabled', e.target.checked)}
+                                    onChange={e => updateVariant(i, { enabled: e.target.checked })}
                                   />
                                   Habilitada para la venta
                                 </label>
@@ -470,19 +491,22 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                       type="button"
                       className="add-variant-btn"
                       onClick={() => {
-                        change('sizes', [
-                          ...(value.sizes || []),
-                          {
-                            name: '',
-                            salePrice: '',
-                            price: 0,
-                            max: 0,
-                            enabled: true,
-                            order: (value.sizes || []).length,
-                            equivalent: 1,
-                            stockUnits: 1,
-                          }
-                        ]);
+                        setValue(old => ({
+                          ...old,
+                          sizes: [
+                            ...(old.sizes || []),
+                            {
+                              name: '',
+                              salePrice: '',
+                              price: 0,
+                              max: 0,
+                              enabled: true,
+                              order: (old.sizes || []).length,
+                              equivalent: 1,
+                              stockUnits: 1,
+                            }
+                          ]
+                        }));
                       }}
                     >
                       <Plus size={16} />
