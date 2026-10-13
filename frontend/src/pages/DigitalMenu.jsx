@@ -1,106 +1,33 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Search, LayoutGrid, List, Plus, Info, Store, X, PhoneCall } from "lucide-react";
 import { useStore, request } from "../store";
-import { money, estimate, operationId } from "../domain";
+import { money, operationId } from "../domain";
+import { Modal } from "../components";
 import Product from "./Product";
 import PublicCart, { publicDevice } from "./PublicCart";
+import "../olaclick-menu.css";
 
-function Photo({ src, alt, ...props }) {
-  const [failed, setFailed] = useState(false);
-  return src && !failed ? (
-    <img {...props} src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} />
-  ) : null;
-}
-
-function getCategoryHeaderImage(catName = "") {
-  const n = catName.toLowerCase();
-  if (n.includes("comida") || n.includes("pizza") || n.includes("cena") || n.includes("almuerzo")) return "/menu/headers/comidas.webp";
-  if (n.includes("bebid") || n.includes("gaseosa") || n.includes("jugo") || n.includes("agua")) return "/menu/headers/bebidas.webp";
-  if (n.includes("golosin") || n.includes("kiosco") || n.includes("quiosco") || n.includes("chocolat") || n.includes("caramel") || n.includes("chicle") || n.includes("gomita")) return "/menu/headers/golosinas.webp";
-  if (n.includes("caf") || n.includes("espresso") || n.includes("infus")) return "/menu/headers/cafes.webp";
-  if (n.includes("helad") || n.includes("sabor") || n.includes("pote") || n.includes("cucurucho")) return "/menu/headers/helados.webp";
-  if (n.includes("torta") || n.includes("merienda") || n.includes("desayun") || n.includes("bakery") || n.includes("panad")) return "/menu/headers/tortas.webp";
-  return "/menu/headers/cafes.webp";
-}
-
-function getCategoryCardImage(c) {
-  if (c.image) return c.image;
-  const n = (c.name || "").toLowerCase();
-  if (n.includes("bebid")) return "/menu/bebidas.webp";
-  if (n.includes("golosin") || n.includes("gomita") || n.includes("caramel") || n.includes("chicle")) return "/menu/golosinas.webp";
-  if (n.includes("comida") || n.includes("pizza") || n.includes("cena")) return "/menu/pizza.webp";
-  if (n.includes("helad")) return "/menu/helados.webp";
-  if (n.includes("torta")) return "/menu/tortas.webp";
-  if (n.includes("caf")) return "/menu/meriendas.webp";
-  return "/menu/bebidas.webp";
-}
-
-const BEVERAGE_SECTIONS = [
-  {
-    id: "gaseosas",
-    icon: "🥤",
-    shortLabel: "Gaseosas y Aguas",
-    eyebrow: "REFRESCOS Y AGUAS",
-    title: "GASEOSAS, AGUAS Y SABORIZADAS",
-    subtitle: "Línea de gaseosas, aguas minerales, Paso de los Toros, Aquarius y Levité.",
-  },
-  {
-    id: "jugos",
-    icon: "🍊",
-    shortLabel: "Jugos y Licuados",
-    eyebrow: "FRUTALES Y NATURALES",
-    title: "JUGOS, LICUADOS Y BATIDOS",
-    subtitle: "Exprimidos naturales, licuados, batidos, smoothies, Citric, Cepita y Baggio.",
-  },
-  {
-    id: "cervezas",
-    icon: "🍺",
-    shortLabel: "Cervezas y Aperitivos",
-    eyebrow: "PORRONES, LATAS Y APERITIVOS",
-    title: "CERVEZAS Y BEBIDAS CON ALCOHOL",
-    subtitle: "Latas 473ml, latones 710ml, porrones individuales, sin alcohol y aperitivos.",
-  },
-  {
-    id: "cervezas-litro",
-    icon: "🍻",
-    shortLabel: "Cervezas 1 Litro",
-    eyebrow: "PARA COMPARTIR",
-    title: "CERVEZAS DE LITRO",
-    subtitle: "Botellas de 1 litro bien heladas para compartir en la mesa.",
-  },
-];
-
-function getBeverageSectionId(p) {
-  const id = (p.id || "").toLowerCase();
-  const text = `${p.name || ""} ${p.description || ""}`.toLowerCase();
-
-  if (id.startsWith("beb-litro-") || (text.includes("litro") && /brahma|miller|heineken|warsteiner|quilmes|stella|corona|imperial|santa fe|cerveza|andes|patagonia/.test(text))) {
-    return "cervezas-litro";
-  }
-  if (/brahma|corona|stella|quilmes|miller|heineken|imperial|santa fe|warsteiner|patagonia|andes|cerveza|porrón|porron|latón|laton|473|710|stout|golden|lager|ipa|fernet|granadina|aperitivo|vino|sidra|gin|campari/.test(text)) {
-    return "cervezas";
-  }
-  if (/jugo|licuado|batido|smoothie|limonada|citric|cepita|baggio|chocolatada|ilolay|exprimido/.test(text)) {
-    return "jugos";
-  }
-  return "gaseosas";
+function getProductImage(p, catName = "") {
+  if (p.image) return p.image;
+  const n = (p.name + " " + (p.category || catName)).toLowerCase();
+  if (n.includes("helad") || n.includes("bocha") || n.includes("copa")) return "/menu/helados.webp";
+  if (n.includes("torta") || n.includes("dulce") || n.includes("postre") || n.includes("brownie") || n.includes("chocolat")) return "/menu/tortas.webp";
+  if (n.includes("pizza") || n.includes("tostad") || n.includes("sandwich") || n.includes("comid") || n.includes("hamburguesa") || n.includes("cena")) return "/menu/pizza.webp";
+  if (n.includes("caf") || n.includes("cortado") || n.includes("latte") || n.includes("submarino") || n.includes("capuchino")) return "/menu/coffebreak.jpg";
+  if (n.includes("meriend") || n.includes("medialuna") || n.includes("croissant") || n.includes("desayun")) return "/menu/meriendas.webp";
+  if (n.includes("bebid") || n.includes("gaseosa") || n.includes("cerveza") || n.includes("agua") || n.includes("jugo") || n.includes("lata") || n.includes("litro")) return "/menu/bebidas.webp";
+  if (n.includes("golosin") || n.includes("kiosco") || n.includes("caramel") || n.includes("alfajor")) return "/menu/golosinas.webp";
+  return "/menu/nanifer.webp";
 }
 
 export default function DigitalMenu({ table }) {
-  useEffect(() => {
-    document.body.classList.add("public-menu-page");
-    return () => document.body.classList.remove("public-menu-page");
-  }, []);
-
   const s = useStore();
-  const [selected, setSelected] = useState(null);
-  const [subFilter, setSubFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState("all");
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
+  const [search, setSearch] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
-  useEffect(() => {
-    setSubFilter("all");
-    window.scrollTo(0, 0);
-    if (document.documentElement) document.documentElement.scrollTop = 0;
-    if (document.body) document.body.scrollTop = 0;
-  }, [selected]);
   const [cart, setCartState] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("nf.public.cart." + table) || "[]");
@@ -108,11 +35,17 @@ export default function DigitalMenu({ table }) {
       return [];
     }
   });
+
   const [product, setProduct] = useState(null);
   const [showCart, setShowCart] = useState(false);
   const [callingWaiter, setCallingWaiter] = useState(false);
   const [waiterNotified, setWaiterNotified] = useState(false);
   const [callError, setCallError] = useState("");
+
+  const setCart = (c) => {
+    localStorage.setItem("nf.public.cart." + table, JSON.stringify(c));
+    setCartState(c);
+  };
 
   const handleCallWaiter = async () => {
     if (callingWaiter) return;
@@ -136,9 +69,10 @@ export default function DigitalMenu({ table }) {
     }
   };
 
-  const setCart = (c) => {
-    localStorage.setItem("nf.public.cart." + table, JSON.stringify(c));
-    setCartState(c);
+  const getProductCartQty = (p) => {
+    return cart
+      .filter((item) => item.productId === p.id || item.product === p.id)
+      .reduce((sum, item) => sum + item.quantity, 0);
   };
 
   const handleQuickAdd = (p) => {
@@ -176,357 +110,397 @@ export default function DigitalMenu({ table }) {
     }
   };
 
-  const cat = s.catalog.categories.find((c) => c.id === selected);
+  const handleItemClick = (p) => {
+    if (!p.available) return;
+    const hasOptions = (p.sizes?.length > 0) || (p.extras?.length > 0) || (p.flavorOptions?.length > 0);
+    if (hasOptions) {
+      setProduct(p);
+    } else {
+      handleQuickAdd(p);
+    }
+  };
 
-  if (s.error) {
-    return (
-      <main className="digital-menu">
-        <h1>No pudimos consultar el menú</h1>
-        <p role="alert">{s.error}</p>
-        <p>Consultá a la moza mientras se restablece el servicio.</p>
-      </main>
-    );
-  }
-
-  const products = cat
-    ? s.catalog.products.filter(
-        (p) => p.category === cat.name || p.publicCategories?.includes(cat.id)
-      )
-    : [];
+  const normalize = (t) =>
+    (t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
   const totalItemsCount = cart.reduce((n, i) => n + i.quantity, 0);
   const totalCartAmount = cart.reduce((n, i) => n + i.unitPrice * i.quantity, 0);
 
-  return (
-    <main className="digital-menu">
-      <div className="menu-top-bar">
-        <span className="menu-table">
-          <span className="table-pulse-dot" /> Estás en la mesa {table}
-        </span>
-        <button
-          type="button"
-          className={"call-waiter-nav-btn" + (waiterNotified ? " success" : "")}
-          onClick={handleCallWaiter}
-          disabled={callingWaiter}
-          title="Avisar a la moza para que se acerque a tu mesa"
-        >
-          {callingWaiter ? "Avisando…" : waiterNotified ? "✓ ¡Moza avisada!" : "🛎️ Llamar a la moza"}
-        </button>
-      </div>
+  const categories = useStore().catalog.categories || [];
+  const allProducts = useStore().catalog.products || [];
 
-      {waiterNotified && (
-        <div className="waiter-notified-banner" role="status">
-          🛎️ <strong>¡La moza fue avisada!</strong> En breve se acercará a la mesa {table}.
+  // Filtered by search
+  const searchResults = useMemo(() => {
+    if (!search.trim()) return null;
+    const q = normalize(search.trim());
+    return allProducts.filter((p) => {
+      const inName = normalize(p.name).includes(q);
+      const inCat = normalize(p.category).includes(q);
+      const inDesc = normalize(p.description).includes(q);
+      const inSizes = (p.sizes || []).some((z) => normalize(z.name).includes(q));
+      return inName || inCat || inDesc || inSizes;
+    });
+  }, [allProducts, search]);
+
+  // Featured products (top 4 items with image or from first category)
+  const featuredProducts = useMemo(() => {
+    return allProducts.slice(0, 4);
+  }, [allProducts]);
+
+  if (s.error) {
+    return (
+      <main className="olaclick-menu-page">
+        <div className="olaclick-container" style={{ padding: "40px 20px", textAlign: "center" }}>
+          <h2>No pudimos consultar el menú</h2>
+          <p role="alert" style={{ color: "#ef4444", margin: "14px 0" }}>{s.error}</p>
+          <p>Consultá a la moza mientras se restablece el servicio.</p>
         </div>
-      )}
-      {callError && (
-        <div className="waiter-error-banner" role="alert">
-          ⚠️ {callError}
+      </main>
+    );
+  }
+
+  const renderGridCard = (p, catName = "") => {
+    const hasOptions = (p.sizes?.length > 0) || (p.extras?.length > 0) || (p.flavorOptions?.length > 0);
+    const inCartQty = getProductCartQty(p);
+    return (
+      <article className="olaclick-card" key={p.id} onClick={() => handleItemClick(p)}>
+        <div className="olaclick-card-photo-wrap">
+          <img src={getProductImage(p, catName)} alt={p.name} loading="lazy" />
+          <button
+            type="button"
+            className={`olaclick-float-btn ${inCartQty > 0 ? "in-cart" : "empty"}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleItemClick(p);
+            }}
+            aria-label={`Agregar ${p.name}`}
+            title={hasOptions ? "Ver opciones" : "Agregar 1 al pedido"}
+          >
+            {inCartQty > 0 ? inCartQty : <Plus size={18} />}
+          </button>
         </div>
-      )}
-
-      {!cat ? (
-        <>
-          <div className="digital-brand-center">
-            <img
-              src="/brand/logo.png"
-              alt="NaniFer Café Bar - Heladería"
-              className="digital-hero-logo"
-            />
+        <div className="olaclick-card-info">
+          <div className="olaclick-card-price">
+            {p.pricePending ? "Consultar" : (p.sizes?.length > 0 ? "Desde " : "") + money(p.price)}
           </div>
+          <div className="olaclick-card-name">{p.name}</div>
+          {hasOptions && <span className="olaclick-card-options-tag">Opciones disponibles</span>}
+        </div>
+      </article>
+    );
+  };
 
-          <div className="digital-intro">
-            <span className="eyebrow">CARTA DIGITAL · BIENVENIDOS</span>
-            <h1>
-              Un ratito para<br />
-              <em>disfrutar.</em>
-            </h1>
-            <blockquote className="digital-quote">
-              «Los mejores momentos se viven, se sienten y se comparten ♡»
-            </blockquote>
-            <span className="digital-subtitle">
-              CAFETERÍA DE ESPECIALIDAD · HELADERÍA ARTESANAL · DELICIAS
-            </span>
-            <p>
-              Elegí una categoría para explorar nuestra carta.<br />
-              Armá tu pedido a tu gusto o llamá a la moza.
-            </p>
+  const renderListRow = (p, catName = "") => {
+    const hasOptions = (p.sizes?.length > 0) || (p.extras?.length > 0) || (p.flavorOptions?.length > 0);
+    const inCartQty = getProductCartQty(p);
+    return (
+      <article className="olaclick-list-row" key={p.id} onClick={() => handleItemClick(p)}>
+        <div className="olaclick-list-info">
+          <h3 className="olaclick-list-title">{p.name}</h3>
+          {p.description && <p className="olaclick-list-desc">{p.description}</p>}
+          <div className="olaclick-list-price">
+            {p.pricePending ? "Consultar" : (p.sizes?.length > 0 ? "Desde " : "") + money(p.price)}
           </div>
-
-          <div className="menu-section-title">
-            <span>NUESTRA CARTA</span>
-            <h2>¿Qué te gustaría disfrutar hoy?</h2>
-          </div>
-
-          <div className="digital-categories">
-            {s.catalog.categories.map((c) => (
-              <button
-                className="digital-category"
-                key={c.id}
-                onClick={() => setSelected(c.id)}
-              >
-                <div className="category-photo">
-                  <Photo
-                    src={getCategoryCardImage(c)}
-                    alt={c.name}
-                  />
-                </div>
-                <span>
-                  <span>
-                    <small>DESCUBRÍ</small>
-                    {c.name}
-                  </span>
-                  <span className="category-arrow" aria-hidden="true">
-                    ↗
-                  </span>
+          {p.sizes?.length > 0 && (
+            <div className="olaclick-list-variants-pills">
+              {p.sizes.map((z) => (
+                <span key={z.name} className="olaclick-variant-pill">
+                  {z.name}
                 </span>
-              </button>
-            ))}
-          </div>
-
-          {!s.catalog.categories.length && (
-            <p className="note">
-              La carta todavía no tiene categorías visibles. Consultá a la moza.
-            </p>
+              ))}
+            </div>
           )}
-        </>
-      ) : (
-        <div className="editorial-view">
-          <div className="editorial-nav">
+        </div>
+        <div className="olaclick-list-photo-wrap">
+          <img src={getProductImage(p, catName)} alt={p.name} loading="lazy" />
+          <button
+            type="button"
+            className={`olaclick-float-btn ${inCartQty > 0 ? "in-cart" : "empty"}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleItemClick(p);
+            }}
+            aria-label={`Agregar ${p.name}`}
+          >
+            {inCartQty > 0 ? inCartQty : <Plus size={16} />}
+          </button>
+        </div>
+      </article>
+    );
+  };
+
+  return (
+    <main className="olaclick-menu-page">
+      <div className="olaclick-container">
+        {/* Header estilo OlaClick */}
+        <header className="olaclick-header">
+          <div className="olaclick-store-badge">
+            <Store size={28} />
+          </div>
+          <h1 className="olaclick-store-title">NaniFer</h1>
+          <span className="olaclick-table-pill">Mesa {table}</span>
+          <button
+            type="button"
+            className="olaclick-info-btn"
+            onClick={() => setShowInfo(true)}
+          >
+            <Info size={15} />
+            Información
+          </button>
+        </header>
+
+        {/* Notificaciones de moza */}
+        {waiterNotified && (
+          <aside className="olaclick-waiter-banner" role="status">
+            <span>🛎️ ¡La moza fue avisada! Se acercará a tu mesa.</span>
+          </aside>
+        )}
+        {callError && (
+          <aside className="olaclick-waiter-banner error" role="alert">
+            <span>⚠️ {callError}</span>
+          </aside>
+        )}
+
+        {/* Barra fija de navegación: Búsqueda + Selector de Vista + Pestañas de categorías */}
+        <div className="olaclick-sticky-nav">
+          <div className="olaclick-controls-row">
             <button
-              className="secondary editorial-back-btn"
-              onClick={() => setSelected(null)}
+              type="button"
+              className={`olaclick-icon-btn ${showSearch ? "active" : ""}`}
+              onClick={() => {
+                setShowSearch((prev) => !prev);
+                if (showSearch) setSearch("");
+              }}
+              aria-label="Buscar"
+              title="Buscar en la carta"
             >
-              ← Volver a la carta
+              <Search size={18} />
             </button>
-            <span className="editorial-table-chip">Mesa {table}</span>
+
+            <button
+              type="button"
+              className="olaclick-icon-btn"
+              onClick={() => setViewMode((prev) => (prev === "grid" ? "list" : "grid"))}
+              aria-label={viewMode === "grid" ? "Ver en lista" : "Ver en cuadrícula"}
+              title={viewMode === "grid" ? "Cambiar a vista lista" : "Cambiar a vista cuadrícula"}
+            >
+              {viewMode === "grid" ? <List size={18} /> : <LayoutGrid size={18} />}
+            </button>
+
+            <button
+              type="button"
+              className={`olaclick-call-waiter-btn ${waiterNotified ? "active" : ""}`}
+              onClick={handleCallWaiter}
+              disabled={callingWaiter}
+            >
+              <PhoneCall size={14} />
+              {callingWaiter ? "Llamando…" : waiterNotified ? "Moza avisada" : "Llamar moza"}
+            </button>
           </div>
 
-          <article className="editorial-card">
-            <div className="editorial-header">
-              <div className="editorial-header-text">
-                <span className="editorial-script-eyebrow">menu</span>
-                <h1 className="editorial-title">{cat.name.replace(/\//g, " / ").toUpperCase()}</h1>
-                <div className="editorial-brand-stamp">
-                  <span className="stamp-sub">NANIFER</span>
-                  <span className="stamp-main">CAFÉ BAR · HELADERÍA</span>
-                </div>
-                {cat.note && <aside className="editorial-cat-note">{cat.note}</aside>}
-              </div>
-
-              <div className="editorial-art-composition">
-                <img
-                  src={getCategoryHeaderImage(cat.name)}
-                  alt={cat.name}
-                  className="editorial-art-img"
-                  fetchPriority="high"
+          {showSearch && (
+            <div className="olaclick-search-wrap">
+              <div className="olaclick-search-input-box">
+                <input
+                  type="search"
+                  placeholder="Buscar en la carta (ej: café, tostado, cerveza)..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  autoFocus
                 />
+                {search && (
+                  <button
+                    type="button"
+                    className="olaclick-search-clear"
+                    onClick={() => setSearch("")}
+                  >
+                    <X size={16} />
+                  </button>
+                )}
               </div>
             </div>
+          )}
 
-            {(() => {
-              const isBebidas = (cat.name || "").toLowerCase().includes("bebid");
-              const renderProductRow = (p) => {
-                const hasOptions = (p.sizes?.length > 0) || (p.extras?.length > 0) || (p.flavorOptions?.length > 0);
-                return (
-                  <div
-                    key={p.id}
-                    className={`editorial-product-row ${!p.available ? "unavailable" : ""}`}
-                    onClick={() => {
-                      if (!p.available) return;
-                      if (hasOptions) setProduct(p);
-                      else handleQuickAdd(p);
-                    }}
-                  >
-                    <div className="editorial-item-info">
-                      <div className="editorial-title-line">
-                        <h2 className="editorial-product-name">{p.name.toUpperCase()}</h2>
-                        <span className="editorial-dots" aria-hidden="true" />
-                        <span className="editorial-price">
-                          {p.pricePending ? "Consultar" : money(p.price)}
-                        </span>
-                      </div>
-
-                      {p.description && (
-                        <p className="editorial-product-desc">{p.description}</p>
-                      )}
-
-                      {p.sizes?.length > 0 && (
-                        <div className="editorial-sizes-pills">
-                          {p.sizes.map((z) => (
-                            <span key={z.name} className="editorial-size-tag">
-                              {z.name}{" "}
-                              {z.salePrice != null
-                                ? p.price != null && Number(z.salePrice) === Number(p.price)
-                                  ? ""
-                                  : p.price != null && Number(z.salePrice) > Number(p.price)
-                                  ? "(+" + money(Number(z.salePrice) - Number(p.price)) + ")"
-                                  : money(z.salePrice)
-                                : z.price
-                                ? "(+" + money(z.price) + ")"
-                                : ""}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {p.flavorOptions?.length > 0 && (
-                        <div className="editorial-sizes-pills">
-                          <span className="editorial-size-tag" style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
-                            Sabores: {p.flavorOptions.join(" · ")}
-                          </span>
-                        </div>
-                      )}
-
-                      {!p.available && !p.pricePending && (
-                        <span className="editorial-unavailable-badge">Agotado</span>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      className="editorial-add-btn"
-                      disabled={!p.available || cart.length >= 50 || !!localStorage.getItem("nf.public.pending." + table)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (hasOptions) setProduct(p);
-                        else handleQuickAdd(p);
-                      }}
-                      aria-label={`Agregar ${p.name}`}
-                      title={hasOptions ? "Personalizar y agregar" : "Agregar 1 al pedido"}
-                    >
-                      +
-                    </button>
-                  </div>
-                );
-              };
-
-              if (!isBebidas) {
-                return (
-                  <div className="editorial-products-list">
-                    {products.map(renderProductRow)}
-                    {!products.length && (
-                      <p className="editorial-empty-msg">
-                        Todavía no hay productos en esta categoría. Consultá a la moza.
-                      </p>
-                    )}
-                  </div>
-                );
-              }
-
-              const groupedSections = BEVERAGE_SECTIONS.map((sec) => ({
-                ...sec,
-                items: products.filter((p) => getBeverageSectionId(p) === sec.id),
-              })).filter((sec) => sec.items.length > 0);
-
-              const visibleSections =
-                subFilter === "all"
-                  ? groupedSections
-                  : groupedSections.filter((sec) => sec.id === subFilter);
-
-              return (
-                <>
-                  {groupedSections.length > 1 && (
-                    <nav className="editorial-subnav" aria-label="Subcategorías de bebidas">
-                      <span className="editorial-subnav-label">IR RÁPIDO A SECCIÓN:</span>
-                      <div className="editorial-subnav-pills">
-                        <button
-                          type="button"
-                          className={`editorial-subnav-pill ${subFilter === "all" ? "active" : ""}`}
-                          onClick={() => setSubFilter("all")}
-                        >
-                          <span className="subnav-pill-icon">✨</span>
-                          <span>Ver todas ({products.length})</span>
-                        </button>
-                        {groupedSections.map((sec) => (
-                          <button
-                            key={sec.id}
-                            type="button"
-                            className={`editorial-subnav-pill ${subFilter === sec.id ? "active" : ""}`}
-                            onClick={() => setSubFilter(sec.id)}
-                          >
-                            <span className="subnav-pill-icon">{sec.icon}</span>
-                            <span>{sec.shortLabel}</span>
-                            <small className="subnav-pill-count">{sec.items.length}</small>
-                          </button>
-                        ))}
-                      </div>
-                    </nav>
-                  )}
-
-                  <div className="editorial-subsections-container">
-                    {visibleSections.map((sec) => (
-                      <section key={sec.id} className="editorial-subsection" id={`sec-${sec.id}`}>
-                        <div className="editorial-subsection-banner">
-                          <div className="editorial-subsection-badge" aria-hidden="true">
-                            {sec.icon}
-                          </div>
-                          <div className="editorial-subsection-titles">
-                            <span className="editorial-subsection-eyebrow">{sec.eyebrow}</span>
-                            <h2 className="editorial-subsection-title">{sec.title}</h2>
-                            <p className="editorial-subsection-subtitle">{sec.subtitle}</p>
-                          </div>
-                        </div>
-                        <div className="editorial-products-list">
-                          {sec.items.map(renderProductRow)}
-                        </div>
-                      </section>
-                    ))}
-
-                    {!products.length && (
-                      <p className="editorial-empty-msg">
-                        Todavía no hay productos en esta categoría. Consultá a la moza.
-                      </p>
-                    )}
-                  </div>
-                </>
-              );
-            })()}
-
-            {products.some((p) => p.sizes?.some((z) => z.max > 0)) && (
-              <section className="editorial-flavors-section">
-                <h3>SABORES DISPONIBLES DE HOY</h3>
-                <p>
-                  {s.catalog.flavors
-                    .map((f) => f.name + (f.available ? "" : " (agotado)"))
-                    .join(" · ")}
-                </p>
-              </section>
-            )}
-          </article>
+          {/* Selector de Categorías Horizontal */}
+          {!search && (
+            <nav className="olaclick-tabs-scroll" aria-label="Categorías">
+              <button
+                type="button"
+                className={`olaclick-tab-btn ${activeTab === "all" ? "active" : ""}`}
+                onClick={() => setActiveTab("all")}
+              >
+                Destacados
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`olaclick-tab-btn ${activeTab === c.id ? "active" : ""}`}
+                  onClick={() => setActiveTab(c.id)}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </nav>
+          )}
         </div>
-      )}
 
-      {totalItemsCount > 0 && (
-        <button
-          className="primary public-cart-bar"
-          onClick={() => setShowCart(true)}
-        >
-          <span className="cart-bar-badge">{totalItemsCount}</span>
-          <span>Ver mi pedido</span>
-          <span className="cart-bar-total">{money(totalCartAmount)}</span>
-        </button>
-      )}
+        {/* Contenido de Productos */}
+        <div className="olaclick-content">
+          {/* Vista de Búsqueda */}
+          {searchResults !== null ? (
+            <section className="olaclick-section">
+              <h2 className="olaclick-section-title">Resultados de búsqueda ({searchResults.length})</h2>
+              {searchResults.length === 0 ? (
+                <p className="olaclick-empty-msg">No encontramos productos con esa búsqueda.</p>
+              ) : viewMode === "grid" ? (
+                <div className="olaclick-grid">
+                  {searchResults.map((p) => renderGridCard(p))}
+                </div>
+              ) : (
+                <div className="olaclick-list">
+                  {searchResults.map((p) => renderListRow(p))}
+                </div>
+              )}
+            </section>
+          ) : activeTab === "all" ? (
+            /* Vista General: Destacados + Todas las Categorías */
+            <>
+              {featuredProducts.length > 0 && (
+                <section className="olaclick-section">
+                  <h2 className="olaclick-section-title">Destacados</h2>
+                  <div className="olaclick-grid">
+                    {featuredProducts.map((p) => renderGridCard(p))}
+                  </div>
+                </section>
+              )}
 
-      {product && (
-        <Product
-          product={product}
-          onClose={() => setProduct(null)}
-          onAdd={(i) => {
-            setCart([...cart, i]);
-            setProduct(null);
-          }}
-        />
-      )}
+              {categories.map((c) => {
+                const prods = allProducts.filter(
+                  (p) => p.category === c.name || p.publicCategories?.includes(c.id)
+                );
+                if (!prods.length) return null;
+                return (
+                  <section className="olaclick-section" key={c.id}>
+                    <h2 className="olaclick-section-title">{c.name}</h2>
+                    {viewMode === "grid" ? (
+                      <div className="olaclick-grid">
+                        {prods.map((p) => renderGridCard(p, c.name))}
+                      </div>
+                    ) : (
+                      <div className="olaclick-list">
+                        {prods.map((p) => renderListRow(p, c.name))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
+            </>
+          ) : (
+            /* Vista de Categoría Específica */
+            (() => {
+              const currentCat = categories.find((c) => c.id === activeTab);
+              const prods = allProducts.filter(
+                (p) => p.category === currentCat?.name || p.publicCategories?.includes(activeTab)
+              );
+              return (
+                <section className="olaclick-section">
+                  <h2 className="olaclick-section-title">{currentCat?.name || "Productos"}</h2>
+                  {prods.length === 0 ? (
+                    <p className="olaclick-empty-msg">No hay productos disponibles en esta categoría.</p>
+                  ) : viewMode === "grid" ? (
+                    <div className="olaclick-grid">
+                      {prods.map((p) => renderGridCard(p, currentCat?.name))}
+                    </div>
+                  ) : (
+                    <div className="olaclick-list">
+                      {prods.map((p) => renderListRow(p, currentCat?.name))}
+                    </div>
+                  )}
+                </section>
+              );
+            })()
+          )}
+        </div>
 
-      {showCart && (
-        <PublicCart
-          table={table}
-          cart={cart}
-          setCart={setCart}
-          onClose={() => setShowCart(false)}
-        />
-      )}
+        {/* Barra Inferior Fija ("Ver mi pedido") estilo OlaClick */}
+        {totalItemsCount > 0 && (
+          <aside className="olaclick-bottom-bar">
+            <div className="olaclick-bottom-inner">
+              <div className="olaclick-bottom-summary">
+                <span className="olaclick-bottom-count">
+                  {totalItemsCount} {totalItemsCount === 1 ? "producto" : "productos"}
+                </span>
+                <span className="olaclick-bottom-total">{money(totalCartAmount)}</span>
+              </div>
+              <button
+                type="button"
+                className="olaclick-bottom-btn"
+                onClick={() => setShowCart(true)}
+              >
+                Ver mi pedido
+              </button>
+            </div>
+          </aside>
+        )}
+
+        {/* Modal de Información */}
+        {showInfo && (
+          <Modal title="NaniFer Café Bar & Heladería" onClose={() => setShowInfo(false)}>
+            <div className="olaclick-info-modal-content">
+              <div className="olaclick-info-item">
+                <Store size={20} style={{ color: "#2563eb", marginTop: "2px" }} />
+                <div>
+                  <strong>Salón y Atención</strong>
+                  <p>Mesa {table} activa. Podés armar tu pedido desde esta carta o llamar a la moza en cualquier momento.</p>
+                </div>
+              </div>
+
+              <div className="olaclick-info-item">
+                <PhoneCall size={20} style={{ color: "#16a34a", marginTop: "2px" }} />
+                <div>
+                  <strong>Servicio de Mesa</strong>
+                  <p>¿Necesitás algo? Presioná el botón de llamar moza y nos acercamos al instante.</p>
+                  <button
+                    type="button"
+                    className="primary"
+                    style={{ marginTop: "10px", width: "100%" }}
+                    onClick={() => {
+                      handleCallWaiter();
+                      setShowInfo(false);
+                    }}
+                    disabled={callingWaiter}
+                  >
+                    🛎️ Llamar a la moza ahora
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* Modal de Personalización de Producto */}
+        {product && (
+          <Product
+            product={product}
+            onClose={() => setProduct(null)}
+            onAdd={(i) => {
+              setCart([...cart, i]);
+              setProduct(null);
+            }}
+          />
+        )}
+
+        {/* Modal / Drawer del Carrito */}
+        {showCart && (
+          <PublicCart
+            table={table}
+            cart={cart}
+            setCart={setCart}
+            onClose={() => setShowCart(false)}
+          />
+        )}
+      </div>
     </main>
   );
 }

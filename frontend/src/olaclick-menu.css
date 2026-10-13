@@ -1,0 +1,554 @@
+/* ==========================================================================
+   OlaClick Style Digital Menu - NaniFer
+   ========================================================================== */
+
+.olaclick-menu-page {
+  background-color: #f8fafc;
+  min-height: 100vh;
+  color: #1e293b;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.olaclick-container {
+  max-width: 580px;
+  margin: 0 auto;
+  background-color: #ffffff;
+  min-height: 100vh;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.05);
+  position: relative;
+  padding-bottom: 100px;
+}
+
+/* Header */
+.olaclick-header {
+  padding: 24px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+  border-bottom: 1px solid #f1f5f9;
+  position: relative;
+}
+
+.olaclick-store-badge {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: #dbeafe;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+}
+
+.olaclick-store-badge img {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  object-fit: cover;
+}
+
+.olaclick-store-title {
+  font-size: 21px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px;
+  letter-spacing: -0.3px;
+}
+
+.olaclick-table-pill {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 2px 10px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.olaclick-info-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 18px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.olaclick-info-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+/* Call Waiter Float / Banner */
+.olaclick-waiter-banner {
+  margin: 12px 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.olaclick-waiter-banner.error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+/* Sticky Navigation & Filter Bar */
+.olaclick-sticky-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.olaclick-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 6px;
+}
+
+.olaclick-icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.olaclick-icon-btn:hover,
+.olaclick-icon-btn.active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #2563eb;
+}
+
+.olaclick-call-waiter-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.olaclick-call-waiter-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.olaclick-call-waiter-btn.active {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+/* Expandable search bar */
+.olaclick-search-wrap {
+  padding: 6px 16px 10px;
+}
+
+.olaclick-search-input-box {
+  display: flex;
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.olaclick-search-input-box input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font-size: 13.5px;
+  color: #0f172a;
+  outline: none;
+  padding: 4px;
+}
+
+.olaclick-search-clear {
+  background: transparent;
+  border: 0;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+/* Category Tabs Horizontal Scroll */
+.olaclick-tabs-scroll {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 0 16px;
+  gap: 4px;
+}
+
+.olaclick-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.olaclick-tab-btn {
+  padding: 10px 14px;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2.5px solid transparent;
+  transition: all 0.15s;
+  text-decoration: none;
+}
+
+.olaclick-tab-btn:hover {
+  color: #0f172a;
+}
+
+.olaclick-tab-btn.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+  font-weight: 700;
+}
+
+/* Menu Content Sections */
+.olaclick-content {
+  padding: 16px;
+}
+
+.olaclick-section {
+  margin-bottom: 26px;
+}
+
+.olaclick-section-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 14px;
+  letter-spacing: -0.2px;
+}
+
+/* Grid View (2 columns, OlaClick Destacados style) */
+.olaclick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.olaclick-card {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+.olaclick-card-photo-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  background: #f1f5f9;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.olaclick-card-photo-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+
+.olaclick-card:hover .olaclick-card-photo-wrap img {
+  transform: scale(1.03);
+}
+
+/* Floating Action Button / Badge on Image */
+.olaclick-float-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+  z-index: 2;
+}
+
+.olaclick-float-btn.empty {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+}
+
+.olaclick-float-btn.empty:hover {
+  transform: scale(1.08);
+  background: #1d4ed8;
+}
+
+.olaclick-float-btn.in-cart {
+  background: #ffffff;
+  color: #2563eb;
+  font-size: 13.5px;
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.olaclick-float-btn.in-cart:hover {
+  transform: scale(1.08);
+}
+
+.olaclick-card-info {
+  padding-top: 8px;
+}
+
+.olaclick-card-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.olaclick-card-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #475569;
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.olaclick-card-options-tag {
+  font-size: 11px;
+  color: #2563eb;
+  font-weight: 600;
+  margin-top: 2px;
+  display: block;
+}
+
+/* List View (OlaClick Platos style) */
+.olaclick-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.olaclick-list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+}
+
+.olaclick-list-row:last-child {
+  border-bottom: 0;
+}
+
+.olaclick-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.olaclick-list-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.olaclick-list-desc {
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.35;
+  margin: 4px 0 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.olaclick-list-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.olaclick-list-variants-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.olaclick-variant-pill {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+.olaclick-list-photo-wrap {
+  width: 88px;
+  height: 88px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.olaclick-list-photo-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.olaclick-list-photo-wrap .olaclick-float-btn {
+  top: auto;
+  bottom: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+}
+
+.olaclick-empty-msg {
+  text-align: center;
+  padding: 30px 16px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+/* Sticky Bottom Cart Bar (OlaClick style) */
+.olaclick-bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.07);
+}
+
+.olaclick-bottom-inner {
+  max-width: 580px;
+  margin: 0 auto;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.olaclick-bottom-summary {
+  display: flex;
+  flex-direction: column;
+}
+
+.olaclick-bottom-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.olaclick-bottom-total {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.olaclick-bottom-btn {
+  background: #2563eb;
+  color: #ffffff;
+  border: 0;
+  padding: 11px 22px;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  transition: all 0.15s;
+}
+
+.olaclick-bottom-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+/* Información Modal */
+.olaclick-info-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 10px 0;
+}
+
+.olaclick-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.olaclick-info-item strong {
+  display: block;
+  font-size: 13.5px;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.olaclick-info-item p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #64748b;
+}
