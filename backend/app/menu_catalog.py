@@ -170,6 +170,78 @@ def update_photo(id: str, data: PhotoIn, db=Depends(get_db), auth=Depends(admin)
     db.commit()
     return {'saved': True}
 
+class PhotoUploadIn(StrictModel):
+    data: str
+    name: str | None = None
+
+@router.post('/menu-management/upload-photo')
+def upload_photo(body: PhotoUploadIn, auth=Depends(admin)):
+    import base64
+    import io
+    import re
+    import time
+    import unicodedata
+    from PIL import Image, ImageOps
+
+    raw_data = body.data.strip()
+    if not raw_data.startswith('data:image/'):
+        fail('Formato de imagen inválido. Debe ser una imagen en base64.', 422)
+
+    try:
+        header, b64_str = raw_data.split(';base64,', 1)
+        image_bytes = base64.b64decode(b64_str)
+    except Exception:
+        fail('No se pudo procesar la imagen enviada.', 422)
+
+    if len(image_bytes) > 15 * 1024 * 1024:
+        fail('La imagen supera el límite máximo permitido (15 MB).', 422)
+
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        img = ImageOps.exif_transpose(img)
+    except Exception:
+        fail('El archivo enviado no es una imagen válida.', 422)
+
+    TARGET_SIZE = 700
+    canvas = Image.new('RGB', (TARGET_SIZE, TARGET_SIZE), (255, 255, 255))
+    pad = int(TARGET_SIZE * 0.04)
+    max_inner = TARGET_SIZE - (pad * 2)
+
+    scale = min(max_inner / img.width, max_inner / img.height)
+    new_w = max(1, int(img.width * scale))
+    new_h = max(1, int(img.height * scale))
+
+    resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    offset_x = (TARGET_SIZE - new_w) // 2
+    offset_y = (TARGET_SIZE - new_h) // 2
+
+    if resized.mode in ('RGBA', 'LA') or (resized.mode == 'P' and 'transparency' in resized.info):
+        canvas.paste(resized, (offset_x, offset_y), resized.convert('RGBA'))
+    else:
+        canvas.paste(resized, (offset_x, offset_y))
+
+    raw_name = (body.name or 'producto').strip().lower()
+    clean_name = unicodedata.normalize('NFKD', raw_name).encode('ascii', 'ignore').decode('ascii')
+    clean_name = re.sub(r'[^a-z0-9]+', '-', clean_name).strip('-')
+    if not clean_name:
+        clean_name = 'producto'
+
+    timestamp = int(time.time()) % 1000000
+    filename = f"{clean_name[:40]}-{timestamp}.webp"
+
+    root = Path(__file__).resolve().parents[2] / 'frontend/public/menu'
+    root.mkdir(parents=True, exist_ok=True)
+    out_path = root / filename
+
+    canvas.save(out_path, 'WEBP', quality=88, method=6)
+    size_kb = round(out_path.stat().st_size / 1024, 1)
+
+    return {
+        'image': f'/menu/{filename}',
+        'filename': filename,
+        'sizeKb': size_kb,
+    }
+
 class ProductIn(StrictModel):
     name: str = Field(min_length=1, max_length=150)
     description: str = Field(default='', max_length=500)

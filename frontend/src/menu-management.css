@@ -91,21 +91,67 @@ dialog.product-modal-wide .modal-head h2 {
 
 .photo-actions {
   display: flex;
+  flex-direction: column;
   gap: 6px;
+  width: 100%;
 }
 
-.photo-actions button {
+.photo-actions-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.photo-actions button,
+.photo-upload-label {
   flex: 1;
   font-size: 11px;
-  padding: 4px 8px;
+  padding: 5px 8px;
   border-radius: 6px;
   border: 1px solid #e2e8f0;
   background: #f8fafc;
   color: #475569;
+  text-align: center;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  box-sizing: border-box;
 }
 
 .photo-actions button:hover {
   background: #f1f5f9;
+}
+
+.photo-upload-label {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.photo-upload-label:hover {
+  background: #dbeafe;
+}
+
+.photo-upload-label.loading {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.photo-upload-msg {
+  font-size: 10.5px;
+  color: #16a34a;
+  font-weight: 600;
+  margin-top: 2px;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.photo-upload-msg.error {
+  color: #dc2626;
 }
 
 /* Photo Gallery Picker Modal / Drawer */

@@ -51,6 +51,8 @@ function Editor({ item, kind, data, onClose, onSaved }) {
     initialSizes.length > 0 ? 'variants' : 'simple'
   );
   const [showPhotoGallery, setShowPhotoGallery] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState('');
   const [expandedVariants, setExpandedVariants] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -59,6 +61,66 @@ function Editor({ item, kind, data, onClose, onSaved }) {
   const s = useStore();
 
   const change = (key, v) => setValue(old => ({ ...old, [key]: v }));
+
+  async function handleUploadPhoto(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    setUploadMsg('');
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = reject;
+          img.onload = () => {
+            const maxDim = 1200;
+            let w = img.width;
+            let h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.90));
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      const res = await request('/menu-management/upload-photo', {
+        method: 'POST',
+        body: {
+          data: dataUrl,
+          name: value.name || file.name.replace(/\.[^/.]+$/, '') || 'producto'
+        }
+      });
+
+      if (res?.image) {
+        change('image', res.image);
+        setUploadMsg(`¡Optimizada! (${res.sizeKb} KB, WebP)`);
+        if (data && Array.isArray(data.images) && !data.images.includes(res.image)) {
+          data.images.unshift(res.image);
+        }
+      }
+    } catch (err) {
+      setUploadMsg('Error: ' + (err.message || 'No se pudo subir'));
+    } finally {
+      setUploadingPhoto(false);
+      e.target.value = '';
+    }
+  }
 
   const updateVariant = (index, updates) => {
     setValue(old => ({
@@ -241,19 +303,38 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                     )}
                   </div>
                   <div className="photo-actions">
-                    <button
-                      type="button"
-                      onClick={() => setShowPhotoGallery(prev => !prev)}
-                    >
-                      {value.image ? 'Cambiar' : 'Elegir'}
-                    </button>
-                    {value.image && (
+                    <div className="photo-actions-row">
                       <button
                         type="button"
-                        onClick={() => { change('image', ''); setShowPhotoGallery(false); }}
+                        onClick={() => setShowPhotoGallery(prev => !prev)}
                       >
-                        Quitar
+                        {value.image ? 'Galería' : 'De galería'}
                       </button>
+                      {value.image && (
+                        <button
+                          type="button"
+                          onClick={() => { change('image', ''); setShowPhotoGallery(false); setUploadMsg(''); }}
+                        >
+                          Quitar
+                        </button>
+                      )}
+                    </div>
+
+                    <label className={`photo-upload-label ${uploadingPhoto ? 'loading' : ''}`}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={handleUploadPhoto}
+                        disabled={uploadingPhoto}
+                      />
+                      <span>{uploadingPhoto ? '⏳ Optimizando...' : '📸 Subir foto'}</span>
+                    </label>
+
+                    {uploadMsg && (
+                      <span className={`photo-upload-msg ${uploadMsg.startsWith('Error') ? 'error' : ''}`}>
+                        {uploadMsg}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -296,8 +377,20 @@ function Editor({ item, kind, data, onClose, onSaved }) {
               {showPhotoGallery && (
                 <div className="photo-gallery-picker">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <h4>Elegí una foto de la carta:</h4>
-                    <button type="button" className="text-button" onClick={() => setShowPhotoGallery(false)}>Cerrar</button>
+                    <h4>Elegí una foto de la carta o subí una:</h4>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <label className={`photo-upload-label ${uploadingPhoto ? 'loading' : ''}`} style={{ padding: '3px 8px', fontSize: '11px' }}>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={handleUploadPhoto}
+                          disabled={uploadingPhoto}
+                        />
+                        <span>{uploadingPhoto ? '⏳ Procesando...' : '➕ Subir nueva'}</span>
+                      </label>
+                      <button type="button" className="text-button" onClick={() => setShowPhotoGallery(false)}>Cerrar</button>
+                    </div>
                   </div>
                   <div className="gallery-grid">
                     {(data?.images || []).map(src => (
