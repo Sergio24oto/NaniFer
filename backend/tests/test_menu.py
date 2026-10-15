@@ -52,3 +52,34 @@ def test_pending_price_cannot_be_sold(fixture):
  p=next(p for p in data['products'] if p['id']==f['product'])
  assert p['price'] is None and p['pricePending']
  assert not next(p for p in c.get('/api/catalog').json()['products'] if p['id']==f['product'])['available']
+
+
+def test_product_in_menu_toggle_and_isolation(fixture):
+    f = fixture
+    c = f['client']
+    with SessionLocal() as db:
+        db.get(User, f['user_id']).role = 'admin'
+        p = db.get(Product, f['product'])
+        p.in_menu = False
+        db.commit()
+
+    # Product with in_menu=False is hidden from public menu, but visible in mostrador catalog
+    pub = c.get('/api/public/menu/1').json()
+    assert not any(x['id'] == f['product'] for x in pub['products'])
+    cat = c.get('/api/catalog').json()
+    assert any(x['id'] == f['product'] for x in cat['products'])
+
+    # Toggle ON via menu-management
+    r1 = c.post(f'/api/menu-management/products/{f["product"]}/toggle-menu')
+    assert r1.status_code == 200
+    assert r1.json()['inMenu'] is True
+    pub2 = c.get('/api/public/menu/1').json()
+    assert any(x['id'] == f['product'] for x in pub2['products'])
+
+    # Toggle OFF via stock
+    r2 = c.post(f'/api/stock/products/{f["product"]}/toggle-menu')
+    assert r2.status_code == 200
+    assert r2.json()['inMenu'] is False
+    pub3 = c.get('/api/public/menu/1').json()
+    assert not any(x['id'] == f['product'] for x in pub3['products'])
+

@@ -33,6 +33,7 @@ class ConfigIn(StrictModel):
     unit:Literal['unidades','porciones']='unidades'
     coneLinks:dict[str,str]=Field(default_factory=dict,max_length=50)
     available:bool
+    inMenu:bool|None=None
 
 
 class AvailabilityIn(StrictModel):
@@ -236,7 +237,7 @@ def snapshot(db,search='',category='',mode='',area=''):
         result.append(dict(id='product:'+p.id,stockId=r.id if r else None,productId=p.id,name=p.name,
             category=cat_name,stockArea=cat_area,unitsPerPackage=r.units_per_package if r else 1,coneEligible=bool(p.cone_links) or any(z.get("max",0)>0 for z in p.sizes),mode=p.stock_mode,unit=r.unit if r else 'sin conteo',
             quantity=r.quantity if r and p.stock_mode=='unit' else None,opened=None,version=r.version if r else 0,
-            available=available,availabilityReason=availability_reason(p,index),manualAvailable=p.available,coneLinks=p.cone_links,sizes=[s['name'] for s in p.sizes]))
+            available=available,availabilityReason=availability_reason(p,index),manualAvailable=p.available,coneLinks=p.cone_links,sizes=[s['name'] for s in p.sizes],inMenu=p.in_menu))
     for r in stock:
         if r.kind=='cone':result.append(dict(id=r.id,stockId=r.id,name=r.name,category='Cucuruchos',mode='unit',unit=r.unit,
             quantity=r.quantity,opened=None,version=r.version,available=(r.quantity or 0)>0,kind='cone'))
@@ -295,8 +296,29 @@ def configure_product(id:str,data:ConfigIn,key:str=Header(alias='Idempotency-Key
             db.add(row);db.flush()
         if row:row.unit=data.unit
         product.stock_mode=data.mode;product.cone_links=data.coneLinks;product.available=data.available
+        if data.inMenu is not None:
+            product.in_menu = data.inMenu
+            if product.in_menu:
+                cat = db.get(Category, product.category_id)
+                if cat and not cat.public_visible:
+                    cat.public_visible = True
         return {'id':id,'stockId':row.id if row else None}
     result=once(db,key,'stock-config:'+id,data.model_dump(),save);db.commit();return result
+
+
+@router.post('/products/{id}/toggle-menu')
+def stock_toggle_menu(id: str, auth=Depends(current_session), db=Depends(get_db)):
+    admin(auth)
+    product = db.scalar(select(Product).where(Product.id == id).with_for_update())
+    if not product:
+        fail('Producto inexistente.', 404)
+    product.in_menu = not product.in_menu
+    if product.in_menu:
+        cat = db.get(Category, product.category_id)
+        if cat and not cat.public_visible:
+            cat.public_visible = True
+    db.commit()
+    return {'id': id, 'inMenu': product.in_menu}
 
 
 @router.post('/flavors/{id}/configure')

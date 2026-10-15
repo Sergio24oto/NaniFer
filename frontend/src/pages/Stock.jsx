@@ -442,6 +442,7 @@ function Configure({
   const [mode, setMode] = useState(pending?.body.mode || row.mode);
   const [unit, setUnit] = useState(pending?.body.unit || (row.unit === 'porciones' ? 'porciones' : 'unidades'));
   const [available, setAvailable] = useState(pending?.body.available ?? row.manualAvailable);
+  const [inMenu, setInMenu] = useState(pending?.body.inMenu ?? (row.inMenu ?? true));
   const [links, setLinks] = useState(pending?.body.coneLinks || row.coneLinks || {});
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
@@ -460,6 +461,7 @@ function Configure({
         mode,
         unit,
         available,
+        inMenu,
         coneLinks: mode === "manual" ? {} : links
       });
       onSaved('Configuración guardada.');
@@ -476,6 +478,7 @@ function Configure({
     <fieldset disabled={busy || !!pending}><legend>Control y disponibilidad</legend>
       {!row.flavorId && <><label>Gestionar stock de este producto<select value={mode} onChange={e => setMode(e.target.value)}><option value="manual">No · disponibilidad manual</option><option value="unit">Sí · por unidad</option></select></label>{mode === 'unit' && <label>Unidad de control<select value={unit} onChange={e => setUnit(e.target.value)}><option value="unidades">Unidades</option><option value="porciones">Porciones de torta</option></select></label>}</>}
       <label className="option"><input type="checkbox" checked={available} onChange={e => setAvailable(e.target.checked)} />Habilitar venta {row.flavorId ? 'de este sabor' : ''}</label>
+      {!row.flavorId && <label className="option"><input type="checkbox" checked={inMenu} onChange={e => setInMenu(e.target.checked)} />Mostrar en la carta digital (/mesa/:id)</label>}
       {row.flavorId ? <p>Los recipientes se cuentan aparte. Abrir o terminar uno no cambia esta disponibilidad manual.</p> : row.coneEligible && <details><summary>Cucurucho utilizado · solo para presentaciones de helado</summary><p>Una unidad consume un cucurucho. No se agrega otro precio a la venta.</p>{(row.sizes.length ? row.sizes : ['']).map(size => <label key={size}>{size || 'Presentación única'}<select value={links[size] || ''} onChange={e => {
               const value = e.target.value;
               setLinks(old => {
@@ -814,6 +817,8 @@ export default function Stock() {
     if (area === 'other') return r.mode !== 'manual' && r.stockArea !== 'beverages' && r.stockArea !== 'kiosk' && r.stockArea !== 'candies' && !r.category?.toLowerCase().includes('bebida') && !r.category?.toLowerCase().includes('kiosco') && !r.category?.toLowerCase().includes('quiosco') && !r.category?.toLowerCase().includes('golosina') && !r.category?.toLowerCase().includes('caramelo') && !r.category?.toLowerCase().includes('chicle') && !r.category?.toLowerCase().includes('gomita');
     if (area === 'empty') return r.mode !== 'manual' && r.quantity === 0;
     if (area === 'manual') return r.mode === 'manual';
+    if (area === 'off_menu') return r.productId && !r.inMenu;
+    if (area === 'in_menu') return r.productId && r.inMenu;
     return true;
   });
   const cones = items.filter(r => r.kind === 'cone');
@@ -822,11 +827,33 @@ export default function Stock() {
     setMessage(text);
     await load();
   }
+  async function toggleMenu(row) {
+    if (!row.productId) return;
+    try {
+      const res = await request('/stock/products/' + row.productId + '/toggle-menu', { method: 'POST' });
+      row.inMenu = res.inMenu;
+      await refresh();
+      saved(res.inMenu ? `"${row.name}" se agregó a la carta digital de las mesas.` : `"${row.name}" se quitó de la carta digital (solo mostrador).`);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
   function openAction(row, action) { setMessage(''); setModal({row, action}); }
   function actions(row) {
     return isAdmin && <div className="stock-actions">
       {row.stockId && row.mode !== 'manual' && <button className="primary" disabled={!s.connected} onClick={() => openAction(row, 'receive')}>+ Agregar stock</button>}
       <button className="secondary" disabled={!s.connected} onClick={() => openAction(row, 'manage')}>Gestionar stock</button>
+      {row.productId && (
+        <button
+          className={row.inMenu ? 'secondary' : 'primary'}
+          style={{ fontSize: '11px', padding: '3px 8px' }}
+          disabled={!s.connected}
+          title={row.inMenu ? "Visible en la carta digital (/mesa/:id). Clic para quitar." : "Solo mostrador. Clic para agregar a la carta digital pública."}
+          onClick={() => toggleMenu(row)}
+        >
+          {row.inMenu ? '✓ En carta' : '+ A la carta'}
+        </button>
+      )}
     </div>;
   }
   return <main className="stock-page"><div className="page-heading"><div className="intro"><span className="eyebrow">EXISTENCIAS</span><h1>Stock</h1>{isAdmin && <button className="primary" disabled={!loaded || !s.connected} onClick={()=>{setPickSearch("");setModal({action:"pick"});}}>+ Agregar stock</button>}<p>{isAdmin ? 'Entradas, conteos y disponibilidad del local.' : 'Consulta de cantidades y disponibilidad.'}</p></div>{isAdmin && <DownloadReport filters={{
@@ -842,7 +869,7 @@ export default function Stock() {
       {area==='kiosk'&&<div className="intro"><h3>Administrar kiosco</h3><p>Consultá artículos de kiosco y disponibilidad. Registrá compras por caja o pack y controlá las existencias por unidad.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'kiosk'})}>+ Agregar producto de kiosco</button>}</div>}
       {area==='candies'&&<div className="intro"><h3>Administrar golosinas</h3><p>Consultá golosinas y disponibilidad. Registrá compras por bolsa, caja o pack y controlá las existencias por unidad o fracción.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'candies'})}>+ Agregar golosina</button>}</div>}
       {area==='flavors'&&<div className="intro"><h3>Administrar sabores de helado</h3><p>Consultá sabores y disponibilidad. El conteo de recipientes es independiente.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-flavor'})}>+ Agregar sabor</button>}</div>}
-      <label>Ver<select value={area} onChange={e=>setArea(e.target.value)}>{[['','Todos'],['beverages','Bebidas'],['kiosk','Kiosco'],['candies','Golosinas'],['flavors','Helados · Sabores'],['other','Otros productos con stock'],['empty','Agotados'],['manual','Sin gestión de stock']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+      <label>Ver<select value={area} onChange={e=>setArea(e.target.value)}>{[['','Todos'],['beverages','Bebidas'],['kiosk','Kiosco'],['candies','Golosinas'],['flavors','Helados · Sabores'],['other','Otros productos con stock'],['empty','Agotados'],['manual','Sin gestión de stock'],['off_menu','Solo mostrador (fuera de carta)'],['in_menu','En la carta digital']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
     </section>
     <div className="stock-filters"><label>Buscar<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Producto, insumo o sabor" /></label><label>Categoría<select value={category} onChange={e => setCategory(e.target.value)}><option value="">Todas</option>{[...new Set(items.map(r => r.category))].map(c => <option key={c}>{c}</option>)}</select></label><label>Modalidad<select value={mode} onChange={e => setMode(e.target.value)}><option value="">Todas</option><option value="unit">Por unidad</option><option value="containers">Recipientes de helado</option><option value="manual">Disponibilidad manual</option></select></label></div>
     {!loaded && !error && <p role="status">Consultando existencias…</p>}{loaded && !filtered.length && <p>No hay productos con estos filtros.</p>}
@@ -852,7 +879,7 @@ export default function Stock() {
             unit: 'Stock por unidad',
             containers: 'Helados · recipientes por sabor',
             manual: 'Disponibilidad manual'
-          }[group]}</h2>{group === 'containers' && <p>Vender helado no descuenta recipientes. La disponibilidad del sabor se decide manualmente.</p>}<div className="sales-table-scroll"><table className="sales-table"><thead><tr><th>{group === 'containers' ? 'Sabor' : 'Producto / insumo'}</th>{group !== 'containers' && <th>Categoría</th>}{group === 'unit' && <th>Existencia</th>}{group === 'containers' && <><th>Cerrados</th><th>Abiertos</th></>}<th>Estado de venta</th>{isAdmin && <th>Gestión</th>}</tr></thead><tbody>{rows.map(r => <tr key={r.id}><td><strong>{r.name}</strong></td>{group !== 'containers' && <td>{r.category}</td>}{group === 'unit' && <td>{r.quantity == null ? 'Sin carga inicial' : r.quantity + ' ' + r.unit}</td>}{group === 'containers' && <><td>{r.quantity ?? 'Sin carga inicial'}</td><td>{r.opened}</td></>}<td><Badge tone={r.available ? 'green' : 'amber'}>{r.availabilityReason || (r.available ? 'Disponible' : r.mode === 'manual' || r.mode === 'containers' ? 'Venta deshabilitada' : r.quantity == null ? 'Sin carga inicial de stock' : 'Sin stock')}</Badge></td>{isAdmin && <td>{actions(r)}</td>}</tr>)}</tbody></table></div></section>;
+          }[group]}</h2>{group === 'containers' && <p>Vender helado no descuenta recipientes. La disponibilidad del sabor se decide manualmente.</p>}<div className="sales-table-scroll"><table className="sales-table"><thead><tr><th>{group === 'containers' ? 'Sabor' : 'Producto / insumo'}</th>{group !== 'containers' && <th>Categoría</th>}{group === 'unit' && <th>Existencia</th>}{group === 'containers' && <><th>Cerrados</th><th>Abiertos</th></>}<th>Estado de venta</th>{isAdmin && <th>Gestión</th>}</tr></thead><tbody>{rows.map(r => <tr key={r.id}><td><strong>{r.name}</strong></td>{group !== 'containers' && <td>{r.category}</td>}{group === 'unit' && <td>{r.quantity == null ? 'Sin carga inicial' : r.quantity + ' ' + r.unit}</td>}{group === 'containers' && <><td>{r.quantity ?? 'Sin carga inicial'}</td><td>{r.opened}</td></>}<td><div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}><Badge tone={r.available ? 'green' : 'amber'}>{r.availabilityReason || (r.available ? 'Disponible' : r.mode === 'manual' || r.mode === 'containers' ? 'Venta deshabilitada' : r.quantity == null ? 'Sin carga inicial de stock' : 'Sin stock')}</Badge>{r.productId && <Badge tone={r.inMenu ? 'green' : 'slate'} style={{ fontSize: '10.5px' }}>{r.inMenu ? 'En carta digital' : 'Solo mostrador'}</Badge>}</div></td>{isAdmin && <td>{actions(r)}</td>}</tr>)}</tbody></table></div></section>;
     })}
     {isAdmin && <p className="note">Primero configurá qué productos se controlan por unidad. Después cargá la entrada o el conteo inicial. Una entrada suma; un conteo establece la cantidad física y conserva la diferencia.</p>}
     {modal?.action === 'new-flavor' && <NewFlavor onClose={()=>setModal(null)} onSaved={async (msg)=>{ await refresh(); saved(msg); }}/>}
@@ -872,11 +899,18 @@ export default function Stock() {
     </Modal>}
     {modal?.action === 'manage' && <Modal title={'Gestionar stock · ' + modal.row.name} onClose={() => setModal(null)}><p>Elegí la acción que necesitás.</p><div className="stock-management">{[
       ...(modal.row.productId || modal.row.flavorId ? [['configure', 'Configurar stock y disponibilidad']] : []),
+      ...(modal.row.productId ? [[modal.row.inMenu ? 'remove-menu' : 'add-menu', modal.row.inMenu ? '✓ En la carta digital (Quitar de la carta)' : '➕ Agregar a la carta digital (/mesa/:id)']] : []),
       ...(modal.row.stockId && modal.row.mode !== 'manual' ? [['receive', '+ Agregar stock'], ['count', 'Ajustar por conteo'], ['out', 'Registrar salida sin venta']] : []),
       ...(modal.row.stockId && modal.row.mode === 'containers' ? [['open', 'Abrir recipiente'], ['finish', 'Terminar recipiente']] : []),
       ...(modal.row.kind === 'cone' ? [['rename', 'Cambiar nombre']] : []),
       ...(modal.row.stockId ? [['history', 'Ver historial']] : [])
-    ].map(([action, label]) => <button key={action} className={action === 'receive' ? 'primary' : 'secondary'} disabled={!s.connected} onClick={() => openAction(modal.row, action)}>{label}</button>)}</div></Modal>}
+    ].map(([action, label]) => <button key={action} className={action === 'receive' || action === 'add-menu' ? 'primary' : 'secondary'} disabled={!s.connected} onClick={() => {
+      if (action === 'add-menu' || action === 'remove-menu') {
+        toggleMenu(modal.row);
+      } else {
+        openAction(modal.row, action);
+      }
+    }}>{label}</button>)}</div></Modal>}
     {modal?.action === 'configure' && <Configure row={modal.row} cones={cones} onClose={() => setModal(null)} onSaved={saved} />}
     {modal?.action === 'history' && <History row={modal.row} onClose={() => setModal(null)} />}
     {modal && labels[modal.action] && <Movement row={modal.row} action={modal.action} onClose={() => setModal(null)} onSaved={saved} />}

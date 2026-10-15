@@ -39,8 +39,18 @@ def menu(number: int, db=Depends(get_db)):
     data = catalog(db, None)
     cats = [c for c in categories(db) if c['visible']]
     visible = {c['name'] for c in cats}
-    data['categories'] = [{k: v for k, v in c.items() if k != 'visible'} for c in cats]
-    data['products'] = [p for p in data['products'] if p['category'] in visible or set(p['publicCategories']) & {c['id'] for c in cats}]
+    data['products'] = [
+        p for p in data['products']
+        if p.get('inMenu', True) and (p['category'] in visible or set(p['publicCategories']) & {c['id'] for c in cats})
+    ]
+    active_categories = {p['category'] for p in data['products']}
+    for p in data['products']:
+        active_categories.update(p.get('publicCategories', []))
+    data['categories'] = [
+        {k: v for k, v in c.items() if k != 'visible'}
+        for c in cats
+        if c['name'] in active_categories or c['id'] in active_categories
+    ]
     for p in data['products']:
         p.pop('availabilityReason', None)
         if p['pricePending']:
@@ -65,6 +75,7 @@ def management(db=Depends(get_db), auth=Depends(admin)):
                 price=None if p.price_pending else str(p.price),
                 available=p.available,
                 archived=p.archived,
+                inMenu=p.in_menu,
                 manageStock=p.stock_mode == 'unit',
                 sizes=p.sizes or [],
                 flavorOptions=p.flavor_options or [],
@@ -249,6 +260,7 @@ class ProductIn(StrictModel):
     price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     image: str | None = None
     available: bool = True
+    inMenu: bool = True
     manageStock: bool | None = None
     sizes: list = Field(default_factory=list)
     flavorOptions: list[str] = Field(default_factory=list)
@@ -270,6 +282,7 @@ def apply_product(db, p, data: ProductIn):
     p.price = data.price if data.price is not None else Decimal(0)
     p.image = image_path(data.image)
     p.available = data.available
+    p.in_menu = data.inMenu
     p.sizes = data.sizes
     p.flavor_options = [opt.strip() for opt in data.flavorOptions if opt.strip()]
     if data.manageStock is not None:
@@ -289,7 +302,7 @@ def create_product(data: ProductIn, key: str = Header(alias='Idempotency-Key'), 
     def save():
         if db.scalar(select(Product.id).where(Product.name == data.name, Product.category_id == data.categoryId, Product.archived == False)):
             fail('Ya existe este producto en la categoría. Editalo desde la lista.', 409)
-        p = Product(id=uid(), public_categories=[], sizes=[], extras=[], cone_links={})
+        p = Product(id=uid(), public_categories=[], sizes=[], extras=[], cone_links={}, in_menu=data.inMenu)
         apply_product(db, p, data)
         db.add(p)
         db.flush()
@@ -306,6 +319,19 @@ def update_product(id: str, data: ProductIn, db=Depends(get_db), auth=Depends(ad
     apply_product(db, p, data)
     db.commit()
     return {'id': id}
+
+@router.post('/menu-management/products/{id}/toggle-menu')
+def toggle_menu_product(id: str, db=Depends(get_db), auth=Depends(admin)):
+    p = db.scalar(select(Product).where(Product.id == id).with_for_update())
+    if not p:
+        fail('Producto inexistente.', 404)
+    p.in_menu = not p.in_menu
+    if p.in_menu:
+        cat = db.get(Category, p.category_id)
+        if cat and not cat.public_visible:
+            cat.public_visible = True
+    db.commit()
+    return {'id': id, 'inMenu': p.in_menu}
 
 @router.delete('/menu-management/products/{id}')
 def delete_product(id: str, permanent: bool = False, db=Depends(get_db), auth=Depends(admin)):

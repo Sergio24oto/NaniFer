@@ -28,6 +28,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
   const [value, setValue] = useState(
     pending?.body || item ? {
       ...(pending?.body || item),
+      inMenu: pending?.body?.inMenu ?? item?.inMenu ?? true,
       sizes: initialSizes,
       flavorOptions: Array.isArray(initialFlavors) ? initialFlavors : []
     } : {
@@ -37,6 +38,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
       price: '',
       image: '',
       available: true,
+      inMenu: true,
       visible: true,
       order: 0,
       note: '',
@@ -187,6 +189,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
         price: finalPrice,
         image: value.image || null,
         available: Boolean(value.available),
+        inMenu: Boolean(value.inMenu),
         ...(!item?.id || Boolean(value.manageStock) !== Boolean(item.manageStock) ? { manageStock: Boolean(value.manageStock) } : {}),
         sizes: finalSizes,
         flavorOptions: parsedFlavors
@@ -684,15 +687,37 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                     <strong>Habilitar para la venta inmediata</strong>
                     <p style={{ color: '#64748b' }}>
                       {value.available
-                        ? 'Visible y disponible para atención de mozos y carta digital.'
+                        ? 'Habilitado para atención de mozos, mostrador y venta general.'
                         : 'Pausado: el producto no se podrá pedir.'}
                     </p>
                   </div>
-                  <label className="switch-control">
+                  <label className="switch-control" title={value.available ? "Pausar venta" : "Habilitar venta"}>
                     <input
                       type="checkbox"
                       checked={Boolean(value.available)}
                       onChange={e => change('available', e.target.checked)}
+                    />
+                    <span className="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Mostrar en la carta digital */}
+              <div className="editor-card" style={{ marginBottom: '10px' }}>
+                <div className="stock-toggle-row">
+                  <div className="stock-toggle-info">
+                    <strong>Mostrar en la carta digital pública</strong>
+                    <p style={{ color: '#64748b' }}>
+                      {value.inMenu
+                        ? 'Visible para los clientes al escanear el QR de mesa (/mesa/:id).'
+                        : 'Oculto al público: solo se vende por Mostrador / Kiosco.'}
+                    </p>
+                  </div>
+                  <label className="switch-control" title={value.inMenu ? "Ocultar de la carta digital" : "Mostrar en la carta digital"}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(value.inMenu)}
+                      onChange={e => change('inMenu', e.target.checked)}
                     />
                     <span className="switch-slider"></span>
                   </label>
@@ -734,6 +759,7 @@ export default function MenuManagement() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
   const [flavorFilter, setFlavorFilter] = useState('');
+  const [menuFilter, setMenuFilter] = useState('');
   const [tab, setTab] = useState('products');
   const [archived, setArchived] = useState(false);
   const [editor, setEditor] = useState(null);
@@ -817,7 +843,11 @@ export default function MenuManagement() {
     const matchesSearch = item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase());
     if (!matchesSearch) return false;
     if (tab === 'products') {
-      return item.archived === archived && (!filter || item.categoryId === filter);
+      if (item.archived !== archived) return false;
+      if (filter && item.categoryId !== filter) return false;
+      if (menuFilter === 'in_menu' && !item.inMenu) return false;
+      if (menuFilter === 'off_menu' && item.inMenu) return false;
+      return true;
     }
     if (tab === 'flavors') {
       if (flavorFilter === 'available') return item.available;
@@ -890,6 +920,14 @@ export default function MenuManagement() {
                     {data.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </label>
+                <label>
+                  Carta digital
+                  <select value={menuFilter} onChange={e => setMenuFilter(e.target.value)}>
+                    <option value="">Todos</option>
+                    <option value="in_menu">En la carta digital</option>
+                    <option value="off_menu">Solo mostrador (kiosco)</option>
+                  </select>
+                </label>
                 <label className="option">
                   <input type="checkbox" checked={archived} onChange={e => setArchived(e.target.checked)} />
                   Ver retirados
@@ -934,6 +972,10 @@ export default function MenuManagement() {
                           : item.manageStock
                           ? 'Control de stock estricto'
                           : 'Venta libre'}
+                        {' · '}
+                        <Badge tone={item.inMenu ? 'green' : 'slate'} style={{ fontSize: '10.5px' }}>
+                          {item.inMenu ? 'En carta digital' : 'Solo mostrador'}
+                        </Badge>
                       </p>
                       {item.description && <p>{item.description}</p>}
                       {item.sizes?.length > 0 && (
@@ -973,6 +1015,28 @@ export default function MenuManagement() {
                   >
                     Editar
                   </button>
+
+                  {tab === 'products' && !item.archived && (
+                    <button
+                      className={item.inMenu ? 'secondary' : 'primary'}
+                      style={{ fontSize: '11px', padding: '4px 8px' }}
+                      disabled={!s.connected || busy}
+                      title={item.inMenu ? 'Visible en el menú digital (/mesa/:id). Clic para ocultar.' : 'Oculto del menú digital. Clic para agregar.'}
+                      onClick={async () => {
+                        try {
+                          const res = await request('/menu-management/products/' + item.id + '/toggle-menu', { method: 'POST' });
+                          item.inMenu = res.inMenu;
+                          await load();
+                          await refresh();
+                          setMessage(res.inMenu ? `"${item.name}" se agregó a la carta digital de las mesas.` : `"${item.name}" se quitó de la carta digital (solo mostrador).`);
+                        } catch (e) {
+                          setError(e.message);
+                        }
+                      }}
+                    >
+                      {item.inMenu ? 'Quitar de carta' : '+ A la carta'}
+                    </button>
+                  )}
 
                   {tab === 'products' && (
                     item.archived ? (

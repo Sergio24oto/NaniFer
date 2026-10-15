@@ -53,6 +53,10 @@ def ensure_schema():
                 conn.execute(text("ALTER TABLE products ADD COLUMN flavor_options JSON NULL"))
                 conn.execute(text("UPDATE products SET flavor_options = '[]' WHERE flavor_options IS NULL"))
                 logging.info("Added missing column flavor_options to products table.")
+            if 'in_menu' not in cols:
+                conn.execute(text("ALTER TABLE products ADD COLUMN in_menu BOOLEAN NOT NULL DEFAULT 1"))
+                conn.execute(text("UPDATE products SET in_menu = 1 WHERE in_menu IS NULL"))
+                logging.info("Added missing column in_menu to products table.")
     except Exception as e:
         logging.error("Fallback schema check failed: %s", e)
 
@@ -153,6 +157,7 @@ def catalog(db=Depends(get_db), auth=Depends(current_session)):
                 "sizes": catalog_availability(p, stock)[1],
                 "extras": p.extras,
                 "flavorOptions": p.flavor_options or [],
+                "inMenu": p.in_menu,
             }
             for p in db.scalars(select(Product).where(Product.archived == False).order_by(Product.id))
         ],

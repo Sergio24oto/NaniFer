@@ -61,6 +61,7 @@ class Product(Base):
     description: Mapped[str] = mapped_column(String(500), default="")
     price: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     available: Mapped[bool] = mapped_column(Boolean, default=True)
+    in_menu: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     emoji: Mapped[str] = mapped_column(String(20), default="")
     image: Mapped[str | None] = mapped_column(String(500), nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
