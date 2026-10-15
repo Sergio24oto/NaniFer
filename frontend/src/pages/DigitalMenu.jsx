@@ -37,6 +37,36 @@ function getCategoryCardImage(c) {
 function getProductImage(p, catName = "") {
   if (p.image) return p.image;
   const n = ((p.name || "") + " " + (p.category || catName || "")).toLowerCase();
+
+  // Fotos de bebidas individuales
+  if (n.includes("aquarius") && (n.includes("1.5") || n.includes("1,5"))) return "/menu/aquarius-15l.webp";
+  if (n.includes("aquarius")) return "/menu/aquarius-500ml.webp";
+  if (n.includes("levit") && (n.includes("1.5") || n.includes("1,5"))) return "/menu/levite-15l.webp";
+  if (n.includes("levit")) return "/menu/levite-500ml.webp";
+  if (n.includes("paso") && (n.includes("1.5") || n.includes("1,5"))) return "/menu/paso-toros-15l.webp";
+  if (n.includes("paso") && n.includes("lata")) return "/menu/gaseosa-lata.webp";
+  if (n.includes("baggio") && (n.includes("1l") || n.includes("grande") || n.includes("1 l"))) return "/menu/baggio-1l.webp";
+  if (n.includes("citric") && (n.includes("1l") || n.includes("1 l") || n.includes("1000"))) return "/menu/citric-1l.webp";
+  if (n.includes("citric")) return "/menu/citric-500ml.webp";
+  if (n.includes("cepita") && (n.includes("1.5") || n.includes("1,5"))) return "/menu/cepita-15l.webp";
+  if (n.includes("cepita") && (n.includes("1l") || n.includes("1 l"))) return "/menu/cepita-1l.webp";
+  if (n.includes("cepita")) return "/menu/cepita-botellita.webp";
+  if (n.includes("agua") && (n.includes("1.5") || n.includes("1,5"))) return "/menu/agua-mineral-15l.webp";
+  if (n.includes("miller")) return "/menu/miller-1lt.webp";
+  if (n.includes("quilmes")) return "/menu/quilmes-1lt.webp";
+  if (n.includes("warsteiner")) return "/menu/warsteiner-1lt.webp";
+  if (n.includes("heineken") && (n.includes("lat") || n.includes("710"))) return "/menu/heineken-laton.webp";
+  if (n.includes("heineken")) return "/menu/heineken-1lt.webp";
+  if (n.includes("brahma") && (n.includes("lat") || n.includes("473"))) return "/menu/brahma-lata.webp";
+  if (n.includes("brahma")) return "/menu/brahma-1lt.webp";
+  if (n.includes("corona") && (n.includes("lat") || n.includes("473"))) return "/menu/corona-lata.webp";
+  if (n.includes("corona")) return "/menu/corona-botellita.webp";
+  if (n.includes("imperial")) return "/menu/imperial-golden.webp";
+  if (n.includes("gaseosa") && (n.includes("1.25") || n.includes("vidrio"))) return "/menu/gaseosa-vidrio.webp";
+  if (n.includes("gaseosa") && n.includes("500")) return "/menu/gaseosa-500ml.webp";
+  if (n.includes("gaseosa") && n.includes("lata")) return "/menu/gaseosa-lata.webp";
+
+  // Fallbacks generales
   if (n.includes("helad") || n.includes("bocha") || n.includes("copa")) return "/menu/helados.webp";
   if (n.includes("torta") || n.includes("dulce") || n.includes("postre") || n.includes("brownie") || n.includes("chocolat")) return "/menu/tortas.webp";
   if (n.includes("pizza") || n.includes("tostad") || n.includes("sandwich") || n.includes("comid") || n.includes("hamburguesa") || n.includes("empanada") || n.includes("picada")) return "/menu/pizza.webp";

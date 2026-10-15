@@ -197,6 +197,41 @@ KIOSCO_ITEMS = [
     ('kiosco-p001', 'Twistos Queso 95g', 4500, 'Snacks'),
 ]
 
+BEBIDAS_IMAGES = [
+    ('217ef807-e599-4a77-a971-18ab3925fed3', 'Brahma 1 Lt', '/menu/brahma-1lt.webp'),
+    ('beb-agua-15l', 'Agua mineral 1.5L', '/menu/agua-mineral-15l.webp'),
+    ('agua', 'Agua mineral 500ml', '/menu/agua-mineral-15l.webp'),
+    ('beb-aquarius-15l', 'Aquarius 1.5L', '/menu/aquarius-15l.webp'),
+    ('beb-aquarius-500ml', 'Aquarius 500ml', '/menu/aquarius-500ml.webp'),
+    ('beb-baggio-1l', 'Baggio grande 1L', '/menu/baggio-1l.webp'),
+    ('beb-brahma-473', 'Brahma 473ml', '/menu/brahma-lata.webp'),
+    ('beb-cepita-15l', 'Cepita 1.5L', '/menu/cepita-15l.webp'),
+    ('beb-cepita-1l', 'Cepita 1L', '/menu/cepita-1l.webp'),
+    ('beb-cepita-200ml', 'Cepita 200ml', '/menu/cepita-botellita.webp'),
+    ('beb-cepita-300ml', 'Cepita 300ml botella', '/menu/cepita-botellita.webp'),
+    ('beb-citric-1l', 'Citric 1L', '/menu/citric-1l.webp'),
+    ('beb-citric-500ml', 'Citric 500ml', '/menu/citric-500ml.webp'),
+    ('beb-corona-473', 'Corona 473ml', '/menu/corona-lata.webp'),
+    ('beb-corona-botellita', 'Corona botellita', '/menu/corona-botellita.webp'),
+    ('beb-corona-cero', 'Corona Cero botellita', '/menu/corona-botellita.webp'),
+    ('beb-gaseosa-500ml', 'Gaseosa 500ml', '/menu/gaseosa-500ml.webp'),
+    ('beb-gaseosa-lata-220ml', 'Gaseosa lata 220ml', '/menu/gaseosa-lata.webp'),
+    ('beb-gaseosa-lata-310ml', 'Gaseosa lata 310ml', '/menu/gaseosa-lata.webp'),
+    ('beb-gaseosa-vidrio-125l', 'Gaseosa vidrio 1.25L', '/menu/gaseosa-vidrio.webp'),
+    ('beb-heineken-laton-710', 'Heineken latón 710ml', '/menu/heineken-laton.webp'),
+    ('beb-imperial-golden', 'Imperial Golden', '/menu/imperial-golden.webp'),
+    ('beb-imperial-golden-lager', 'Imperial Golden/Lager', '/menu/imperial-golden.webp'),
+    ('beb-imperial-xl-710', 'Imperial Extra-Large 710ml', '/menu/imperial-golden.webp'),
+    ('beb-levite-15l', 'Levité 1.5L', '/menu/levite-15l.webp'),
+    ('beb-levite-500ml', 'Levité 500ml', '/menu/levite-500ml.webp'),
+    ('beb-litro-brahma', 'Brahma Litro', '/menu/brahma-1lt.webp'),
+    ('beb-litro-heineken', 'Heineken Litro', '/menu/heineken-1lt.webp'),
+    ('beb-litro-miller', 'Miller Litro', '/menu/miller-1lt.webp'),
+    ('beb-litro-quilmes', 'Quilmes Litro', '/menu/quilmes-1lt.webp'),
+    ('beb-litro-warsteiner', 'Warsteiner Litro', '/menu/warsteiner-1lt.webp'),
+    ('beb-paso-toros-15l', 'Paso de los Toros 1.5L', '/menu/paso-toros-15l.webp'),
+]
+
 def upgrade():
     conn = op.get_bind()
     inspector = sa.inspect(conn)
@@ -315,6 +350,18 @@ def upgrade():
                 text("UPDATE stock_items SET name = :name WHERE product_id = :prod_id"),
                 {"name": name, "prod_id": target_id}
             )
+
+    # Update beverage product images if available
+    for prod_id, name, img_path in BEBIDAS_IMAGES:
+        conn.execute(
+            text("""
+                UPDATE products
+                SET image = :img
+                WHERE (id = :id OR LOWER(name) = LOWER(:name))
+                  AND (image IS NULL OR image = '' OR image = '/menu/bebidas.webp')
+            """),
+            {"id": prod_id, "name": name, "img": img_path}
+        )
 
 def downgrade():
     conn = op.get_bind()
