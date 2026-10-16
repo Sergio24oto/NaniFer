@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Header
 from pydantic import Field, field_validator
 from sqlalchemy import select, func
-from .models import Category, Product, Table, User, Flavor, StockItem, StockMovement, OrderItem
+from .models import Category, Product, Table, User, Flavor, StockItem, StockMovement, OrderItem, UploadedImage
 from .db import get_db
 from .auth import current_session
 from .schemas import StrictModel
@@ -69,11 +69,22 @@ def management(db=Depends(get_db), auth=Depends(admin)):
     }
 
     images = []
-    # 1. Uploaded images (most recent first)
+    # 1. Persistent uploaded images from database (survives container redeployments)
+    try:
+        for row in db.scalars(select(UploadedImage).order_by(UploadedImage.created_at.desc())):
+            img_url = f'/api/uploads/menu/{row.filename}'
+            if img_url not in images:
+                images.append(img_url)
+    except Exception:
+        pass
+
+    # 2. Local uploads directory
     if upload_dir.is_dir():
         for p in sorted(upload_dir.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
             if p.is_file() and p.suffix.lower() in ('.webp', '.jpg', '.jpeg', '.png'):
-                images.append(f'/api/uploads/menu/{p.name}')
+                img_url = f'/api/uploads/menu/{p.name}'
+                if img_url not in images:
+                    images.append(img_url)
 
     # 2. Bundled menu catalog images (excluding salon background and hero covers)
     if root.is_dir():
@@ -207,7 +218,7 @@ class PhotoUploadIn(StrictModel):
     name: str | None = None
 
 @router.post('/menu-management/upload-photo')
-def upload_photo(body: PhotoUploadIn, auth=Depends(admin)):
+def upload_photo(body: PhotoUploadIn, db=Depends(get_db), auth=Depends(admin)):
     import base64
     import io
     import re
@@ -261,18 +272,22 @@ def upload_photo(body: PhotoUploadIn, auth=Depends(admin)):
     timestamp = int(time.time() * 1000) % 100000000
     filename = f"{clean_name[:40]}-{timestamp}.webp"
 
+    buf = io.BytesIO()
+    canvas.save(buf, 'WEBP', quality=88, method=6)
+    webp_bytes = buf.getvalue()
+
     backend_dir = Path(__file__).resolve().parent.parent
     upload_dir = backend_dir / 'uploads' / 'menu'
     upload_dir.mkdir(parents=True, exist_ok=True)
     out_path = upload_dir / filename
-    canvas.save(out_path, 'WEBP', quality=88, method=6)
+    out_path.write_bytes(webp_bytes)
 
     # También guardar en frontend/public/menu y dist/menu si están disponibles
     try:
         f_pub = backend_dir.parent / 'frontend' / 'public' / 'menu'
         if f_pub.parent.is_dir():
             f_pub.mkdir(parents=True, exist_ok=True)
-            canvas.save(f_pub / filename, 'WEBP', quality=88, method=6)
+            (f_pub / filename).write_bytes(webp_bytes)
     except Exception:
         pass
 
@@ -280,11 +295,24 @@ def upload_photo(body: PhotoUploadIn, auth=Depends(admin)):
         f_dist = backend_dir.parent / 'frontend' / 'dist' / 'menu'
         if f_dist.parent.is_dir():
             f_dist.mkdir(parents=True, exist_ok=True)
-            canvas.save(f_dist / filename, 'WEBP', quality=88, method=6)
+            (f_dist / filename).write_bytes(webp_bytes)
     except Exception:
         pass
 
-    size_kb = round(out_path.stat().st_size / 1024, 1)
+    # Guardar en base de datos para persistir entre redeploys de contenedores
+    try:
+        db_img = db.get(UploadedImage, filename)
+        if not db_img:
+            db_img = UploadedImage(filename=filename, data=webp_bytes, mime_type="image/webp")
+            db.add(db_img)
+        else:
+            db_img.data = webp_bytes
+            db_img.mime_type = "image/webp"
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    size_kb = round(len(webp_bytes) / 1024, 1)
 
     return {
         'image': f'/api/uploads/menu/{filename}',
@@ -294,9 +322,9 @@ def upload_photo(body: PhotoUploadIn, auth=Depends(admin)):
 
 @router.get('/uploads/menu/{filename}')
 @router.get('/menu-images/{filename}')
-def serve_uploaded_menu_image(filename: str):
+def serve_uploaded_menu_image(filename: str, db=Depends(get_db)):
     import re
-    from fastapi.responses import FileResponse
+    from fastapi.responses import FileResponse, Response
     from fastapi import HTTPException
 
     if not re.fullmatch(r"[a-zA-Z0-9_-]+\.(webp|jpg|jpeg|png)", filename):
@@ -319,6 +347,25 @@ def serve_uploaded_menu_image(filename: str):
                 media_type=media,
                 headers={"Cache-Control": "public, max-age=31536000"}
             )
+
+    # Si el archivo no está en disco (por ejemplo tras recrear el contenedor en un redeploy),
+    # recuperarlo de la base de datos y recrear el cache local en disco.
+    try:
+        db_img = db.get(UploadedImage, filename)
+        if db_img and db_img.data:
+            try:
+                cache_file = backend_dir / 'uploads' / 'menu' / filename
+                cache_file.parent.mkdir(parents=True, exist_ok=True)
+                cache_file.write_bytes(db_img.data)
+            except Exception:
+                pass
+            return Response(
+                content=db_img.data,
+                media_type=db_img.mime_type or "image/webp",
+                headers={"Cache-Control": "public, max-age=31536000"}
+            )
+    except Exception:
+        pass
 
     raise HTTPException(status_code=404, detail="Imagen no encontrada.")
 

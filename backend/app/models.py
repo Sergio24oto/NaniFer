@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     JSON,
     UniqueConstraint,
+    LargeBinary,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 from .db import Base
@@ -258,3 +259,12 @@ class AttentionCall(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     attended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     attended_by: Mapped[str | None] = mapped_column(ForeignKey('users.id'), nullable=True)
+
+
+class UploadedImage(Base):
+    __tablename__ = "uploaded_images"
+    filename: Mapped[str] = mapped_column(String(100), primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary(length=16777215))
+    mime_type: Mapped[str] = mapped_column(String(50), default="image/webp")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
