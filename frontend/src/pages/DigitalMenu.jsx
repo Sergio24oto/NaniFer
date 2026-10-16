@@ -73,10 +73,10 @@ function getProductImage(p, catName = "") {
 
   // Fallbacks generales
   if (n.includes("helad") || n.includes("bocha") || n.includes("copa")) return "/menu/helados.webp";
-  if (n.includes("torta") || n.includes("dulce") || n.includes("postre") || n.includes("brownie") || n.includes("chocolat")) return "/menu/tortas.webp";
+  if (n.includes("torta") || n.includes("dulce") || n.includes("postre") || n.includes("brownie") || n.includes("cheesecake") || n.includes("chocolat")) return "/menu/tortas.webp";
   if (n.includes("pizza") || n.includes("tostad") || n.includes("sandwich") || n.includes("comid") || n.includes("hamburguesa") || n.includes("empanada") || n.includes("picada")) return "/menu/pizza.webp";
   if (n.includes("caf") || n.includes("cortado") || n.includes("latte") || n.includes("submarino") || n.includes("capuchino")) return "/menu/coffebreak.jpg";
-  if (n.includes("meriend") || n.includes("medialuna") || n.includes("croissant") || n.includes("desayun")) return "/menu/meriendas.webp";
+  if (n.includes("meriend") || n.includes("medialuna") || n.includes("croissant") || n.includes("desayun") || n.includes("criollo") || n.includes("canela") || n.includes("palta")) return "/menu/meriendas.webp";
   if (n.includes("bebid") || n.includes("gaseosa") || n.includes("cerveza") || n.includes("agua") || n.includes("jugo") || n.includes("lata") || n.includes("litro")) return "/menu/bebidas.webp";
   if (n.includes("golosin") || n.includes("kiosco") || n.includes("caramel") || n.includes("alfajor")) return "/menu/golosinas.webp";
   return getCategoryCardImage({ name: catName || p.category });
@@ -131,6 +131,60 @@ function getBeverageSectionId(p) {
     return "jugos";
   }
   return "gaseosas";
+}
+
+const DESAYUNO_SECTIONS = [
+  {
+    id: "infusiones",
+    icon: "☕",
+    shortLabel: "Infusiones",
+    eyebrow: "CALIENTES Y RECONFORTANTES",
+    title: "INFUSIONES",
+    subtitle: "Cafés de especialidad, espressos, cortados, submarinos y bebidas para acompañar tu momento.",
+  },
+  {
+    id: "acompanar",
+    icon: "🥐",
+    shortLabel: "Para acompañar",
+    eyebrow: "PANADERÍA Y SALADOS",
+    title: "PARA ACOMPAÑAR",
+    subtitle: "Medialunas, criollos recién horneados, tostados y tostadas con palta.",
+  },
+  {
+    id: "dulce",
+    icon: "🍰",
+    shortLabel: "Algo dulce",
+    eyebrow: "PASTELERÍA ARTESANAL",
+    title: "ALGO DULCE",
+    subtitle: "Cheesecake de frutos rojos, brownies, porciones de tortas y delicias dulces.",
+  },
+];
+
+function getDesayunoSectionId(p) {
+  const cat = (p.category || "").toLowerCase();
+  const text = `${p.name || ""} ${p.description || ""} ${p.id || ""}`.toLowerCase();
+
+  // 1. Infusiones: cafés y bebidas
+  if (
+    cat.includes("caf") ||
+    cat.includes("bebid") ||
+    /café|cafe|cortado|lagrima|lágrima|espresso|latte|submarino|capuchino|cappuccino|infusion|infusión|té|te|chocolatada|mate cocido|jugo|licuado/.test(text)
+  ) {
+    return "infusiones";
+  }
+
+  // 2. Algo dulce: tortas, tartas, cheesecake, brownies, postres
+  if (
+    cat.includes("torta") ||
+    cat.includes("postre") ||
+    cat.includes("chocolat") ||
+    /torta|cheesecake|brownie|budin|budín|tarta|lemon pie|chocotorta|mousse|panqueque|alfajor|dulce/.test(text)
+  ) {
+    return "dulce";
+  }
+
+  // 3. Para acompañar: criollos, medialunas, rol de canela, tostadas con huevo y palta, tostados
+  return "acompanar";
 }
 
 export default function DigitalMenu({ table }) {
@@ -595,7 +649,21 @@ export default function DigitalMenu({ table }) {
                 );
               };
 
-              if (!isBebidas) {
+              const isMeriendas = /merienda|desayun/.test((cat.name || "").toLowerCase());
+
+              const sectionsConfig = isBebidas
+                ? BEVERAGE_SECTIONS
+                : isMeriendas
+                ? DESAYUNO_SECTIONS
+                : null;
+
+              const getSectionId = isBebidas
+                ? getBeverageSectionId
+                : isMeriendas
+                ? getDesayunoSectionId
+                : null;
+
+              if (!sectionsConfig) {
                 return (
                   <div className="editorial-products-list">
                     {products.map(renderProductRow)}
@@ -608,9 +676,9 @@ export default function DigitalMenu({ table }) {
                 );
               }
 
-              const groupedSections = BEVERAGE_SECTIONS.map((sec) => ({
+              const groupedSections = sectionsConfig.map((sec) => ({
                 ...sec,
-                items: products.filter((p) => getBeverageSectionId(p) === sec.id),
+                items: products.filter((p) => getSectionId(p) === sec.id),
               })).filter((sec) => sec.items.length > 0);
 
               const visibleSections =
@@ -621,7 +689,7 @@ export default function DigitalMenu({ table }) {
               return (
                 <>
                   {groupedSections.length > 1 && (
-                    <nav className="editorial-subnav" aria-label="Subcategorías de bebidas">
+                    <nav className="editorial-subnav" aria-label={`Subsecciones de ${cat.name}`}>
                       <span className="editorial-subnav-label">IR RÁPIDO A SECCIÓN:</span>
                       <div className="editorial-subnav-pills">
                         <button
@@ -630,7 +698,7 @@ export default function DigitalMenu({ table }) {
                           onClick={() => setSubFilter("all")}
                         >
                           <span className="subnav-pill-icon">✨</span>
-                          <span>Ver todas ({products.length})</span>
+                          <span>Ver todo ({products.length})</span>
                         </button>
                         {groupedSections.map((sec) => (
                           <button

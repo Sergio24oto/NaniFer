@@ -33,7 +33,7 @@ def apply():
    if key=='tostado':p.public_categories=list(set((p.public_categories or [])+[cats['desayunos'].id]))
   desayuno_id = cats['desayunos'].id
   for p in db.scalars(select(Product)):
-   if p.category_id == 'demo-1' or 'caf' in p.name.lower() or 'lagrima' in p.name.lower() or 'lágrima' in p.name.lower() or 'espresso' in p.name.lower() or p.id in ('latte', 'espresso'):
+   if p.category_id in ('demo-1', 'demo-2') or 'caf' in p.name.lower() or 'lagrima' in p.name.lower() or 'lágrima' in p.name.lower() or 'espresso' in p.name.lower() or 'cheesecake' in p.name.lower() or 'brownie' in p.name.lower() or p.id in ('latte', 'espresso', 'torta', 'brownie'):
     cur = list(p.public_categories or [])
     if desayuno_id not in cur and p.category_id != desayuno_id:
      cur.append(desayuno_id)
