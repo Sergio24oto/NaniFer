@@ -29,12 +29,14 @@ function Editor({ item, kind, data, onClose, onSaved }) {
     pending?.body || item ? {
       ...(pending?.body || item),
       inMenu: pending?.body?.inMenu ?? item?.inMenu ?? true,
+      publicCategories: pending?.body?.publicCategories ?? item?.publicCategories ?? [],
       sizes: initialSizes,
       flavorOptions: Array.isArray(initialFlavors) ? initialFlavors : []
     } : {
       name: '',
       description: '',
       categoryId: data?.categories?.[0]?.id || '',
+      publicCategories: [],
       price: '',
       image: '',
       available: true,
@@ -186,6 +188,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
         name: value.name.trim(),
         description: value.description ? value.description.trim() : '',
         categoryId: value.categoryId,
+        publicCategories: (value.publicCategories || []).filter(cId => cId && cId !== value.categoryId),
         price: finalPrice,
         image: value.image || null,
         available: Boolean(value.available),
@@ -356,11 +359,49 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                   </div>
 
                   <div className="editor-field">
-                    <label>Categoría *</label>
-                    <select required value={value.categoryId} onChange={e => change('categoryId', e.target.value)}>
+                    <label>Categoría principal *</label>
+                    <select
+                      required
+                      value={value.categoryId}
+                      onChange={e => {
+                        const nextCat = e.target.value;
+                        change('categoryId', nextCat);
+                        change('publicCategories', (value.publicCategories || []).filter(cid => cid !== nextCat));
+                      }}
+                    >
                       <option value="">Elegir categoría</option>
                       {(data?.categories || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
+                  </div>
+
+                  <div className="editor-field">
+                    <label>Categorías adicionales en la carta (opción múltiple):</label>
+                    <small style={{ color: '#64748b', display: 'block', marginBottom: '8px', fontSize: '12px' }}>
+                      Marcá si este producto también debe mostrarse en otras secciones de la carta digital (por ej. Cafés en Meriendas/Desayunos además de Cafetería).
+                    </small>
+                    <div className="category-chips-select">
+                      {(data?.categories || [])
+                        .filter(c => c.id !== value.categoryId)
+                        .map(c => {
+                          const isChecked = (value.publicCategories || []).includes(c.id);
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              className={`cat-chip-btn ${isChecked ? 'selected' : ''}`}
+                              onClick={() => {
+                                const current = value.publicCategories || [];
+                                const next = isChecked ? current.filter(id => id !== c.id) : [...current, c.id];
+                                change('publicCategories', next);
+                              }}
+                              title={isChecked ? 'Quitar de esta categoría' : 'Agregar a esta categoría'}
+                            >
+                              <span className="cat-chip-icon">{isChecked ? '✓' : '+'}</span>
+                              <span>{c.name}</span>
+                            </button>
+                          );
+                        })}
+                    </div>
                   </div>
 
                   <div className="editor-field">
@@ -844,7 +885,7 @@ export default function MenuManagement() {
     if (!matchesSearch) return false;
     if (tab === 'products') {
       if (item.archived !== archived) return false;
-      if (filter && item.categoryId !== filter) return false;
+      if (filter && item.categoryId !== filter && !item.publicCategories?.includes(filter)) return false;
       if (menuFilter === 'in_menu' && !item.inMenu) return false;
       if (menuFilter === 'off_menu' && item.inMenu) return false;
       return true;
@@ -972,7 +1013,13 @@ export default function MenuManagement() {
                           : money(item.price)}
                       </strong>
                       <p>
-                        {data.categories.find(c => c.id === item.categoryId)?.name} ·{' '}
+                        <strong>{data.categories.find(c => c.id === item.categoryId)?.name || 'Sin categoría'}</strong>
+                        {item.publicCategories?.length > 0 && (
+                          <span style={{ color: '#4f46e5', fontWeight: 600, fontSize: '0.82rem', marginLeft: '4px' }}>
+                            {'(+ ' + item.publicCategories.map(cid => data.categories.find(c => c.id === cid)?.name).filter(Boolean).join(', ') + ')'}
+                          </span>
+                        )}
+                        {' · '}
                         {item.archived
                           ? 'Retirado'
                           : !item.available

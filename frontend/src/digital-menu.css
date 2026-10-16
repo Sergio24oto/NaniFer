@@ -1051,3 +1051,248 @@ body.public-menu-page > div > header {
   }
 }
 
+/* Botón flotante estilo iPhone para volver a la carta */
+.floating-ios-back-btn {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 999;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px 8px 10px;
+  border-radius: 26px;
+  background: rgba(43, 27, 16, 0.92);
+  color: #fffaf3;
+  border: 1.5px solid rgba(217, 169, 75, 0.75);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.floating-ios-back-btn:hover {
+  background: rgba(59, 36, 23, 0.98);
+  border-color: #d9a94b;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(217, 169, 75, 0.35);
+}
+
+.floating-ios-back-btn:active {
+  transform: scale(0.93);
+  background: #d9a94b;
+  color: #2b1b10;
+}
+
+.floating-ios-back-btn svg {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.floating-ios-back-btn:hover svg {
+  transform: translateX(-2px);
+}
+
+/* Indicador visual de deslizamiento desde el borde (swipe back) */
+.ios-swipe-back-indicator {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 0 22px 22px 0;
+  background: rgba(43, 27, 16, 0.9);
+  color: var(--brand-accent);
+  border: 1.5px solid rgba(217, 169, 75, 0.7);
+  border-left: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  pointer-events: none;
+  box-shadow: 2px 4px 16px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s ease-out, opacity 0.1s ease-out;
+}
+
+/* Estilos de selección de cantidad y variantes en modal Product */
+.product-modal-desc {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: -4px 0 16px;
+}
+
+.product-qty-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+}
+
+.product-qty-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.product-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 30px;
+  padding: 3px 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.stepper-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: #f1f5f9;
+  color: #1e293b;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.stepper-btn:hover:not(:disabled) {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.stepper-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.stepper-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.stepper-val {
+  min-width: 24px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* Variantes por unidad */
+.multi-flavor-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.multi-flavor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.copy-flavor-btn {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.copy-flavor-btn:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.unit-flavor-box {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px 10px;
+  margin: 0;
+  transition: border-color 0.2s ease;
+}
+
+.unit-flavor-box:focus-within {
+  border-color: #93c5fd;
+  background: #ffffff;
+}
+
+.unit-flavor-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+  font-size: 13.5px;
+  color: #1e293b;
+}
+
+.unit-badge {
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.unit-selected-tag {
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: auto;
+}
+
+.unit-flavor-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.unit-flavor-opt {
+  transition: all 0.15s ease;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.unit-flavor-opt.selected {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+

@@ -92,6 +92,7 @@ def management(db=Depends(get_db), auth=Depends(admin)):
                 image=p.image,
                 description=p.description,
                 categoryId=p.category_id,
+                publicCategories=p.public_categories or [],
                 price=None if p.price_pending else str(p.price),
                 available=p.available,
                 archived=p.archived,
@@ -325,6 +326,7 @@ class ProductIn(StrictModel):
     name: str = Field(min_length=1, max_length=150)
     description: str = Field(default='', max_length=500)
     categoryId: str
+    publicCategories: list[str] = Field(default_factory=list)
     price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     image: str | None = None
     available: bool = True
@@ -346,6 +348,7 @@ def apply_product(db, p, data: ProductIn):
     p.name = data.name
     p.description = data.description.strip()
     p.category_id = data.categoryId
+    p.public_categories = [cid for cid in dict.fromkeys(data.publicCategories) if cid and cid != data.categoryId]
     p.price_pending = data.price is None
     p.price = data.price if data.price is not None else Decimal(0)
     p.image = image_path(data.image)

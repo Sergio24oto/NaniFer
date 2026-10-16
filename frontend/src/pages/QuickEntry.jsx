@@ -95,8 +95,15 @@ export default function QuickEntry({
       <p className="delivery-hint">{preparation ? "Se envía a mozas" : "Se registra como entregado"}</p>
 
     </div>
-    {product && <Product manual product={product} onClose={() => setProduct(null)} onAdd={item => {
-      setCart(old => addLine(old, item));
+    {product && <Product manual product={product} onClose={() => setProduct(null)} onAdd={res => {
+      const list = Array.isArray(res) ? res : [res];
+      setCart(old => {
+        let acc = old;
+        for (const item of list) {
+          acc = addLine(acc, item);
+        }
+        return acc;
+      });
       setProduct(null);
     }} />}
   </section>;

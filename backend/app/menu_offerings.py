@@ -31,6 +31,13 @@ def apply():
    if not p:
     p=Product(id='menu-'+key,name=name,description=description,category_id=cats[category].id,price=Decimal('0'),price_pending=True,available=True,public_categories=[],sizes=[],extras=[]);db.add(p)
    if key=='tostado':p.public_categories=list(set((p.public_categories or [])+[cats['desayunos'].id]))
+  desayuno_id = cats['desayunos'].id
+  for p in db.scalars(select(Product)):
+   if p.category_id == 'demo-1' or 'caf' in p.name.lower() or 'lagrima' in p.name.lower() or 'lágrima' in p.name.lower() or 'espresso' in p.name.lower() or p.id in ('latte', 'espresso'):
+    cur = list(p.public_categories or [])
+    if desayuno_id not in cur and p.category_id != desayuno_id:
+     cur.append(desayuno_id)
+     p.public_categories = cur
   db.commit()
  print('Carta incorporada. Precios nuevos pendientes; productos anteriores conservados.')
 if __name__=='__main__':apply()

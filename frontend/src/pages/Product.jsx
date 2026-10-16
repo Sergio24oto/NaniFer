@@ -1,7 +1,8 @@
-import React, { useState, useRef } from "react";
-import { Modal, Badge } from "../components";
+import React, { useState } from "react";
+import { Modal } from "../components";
 import { money, estimate } from "../domain";
 import { useStore } from "../store";
+
 export default function Product({ product: initialProduct, onClose, onAdd, manual = false }) {
   const { catalog } = useStore();
   const p = catalog.products.find(x => x.id === initialProduct.id) || initialProduct;
@@ -10,19 +11,128 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   const [extras, setExtras] = useState([]);
   const [notes, setNotes] = useState("");
   const [quantity, setQuantity] = useState(1);
+  const [unitFlavors, setUnitFlavors] = useState([""]);
+
   const max = p.sizes?.find((s) => s.name === size)?.max;
   const unit = estimate(p, size, extras);
   const toggle = (v, list, set) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+
   const productFlavors = p.flavorOptions || [];
   const requiresFlavorOption = !manual && productFlavors.length > 0;
-  const missingFlavorOption = requiresFlavorOption && chosen.length !== 1;
+  const missingFlavorOption =
+    requiresFlavorOption &&
+    (unitFlavors.length < quantity ||
+      unitFlavors.slice(0, quantity).some((fl) => !fl));
+
   const requiresIceCreamFlavors = !manual && !productFlavors.length && max;
   const missingIceCreamFlavors = requiresIceCreamFlavors && !chosen.length;
 
+  const updateQuantity = (newQty) => {
+    const q = Math.max(1, Math.min(99, newQty));
+    setQuantity(q);
+    setUnitFlavors((prev) => {
+      const next = [...prev];
+      while (next.length < q) {
+        next.push("");
+      }
+      return next.slice(0, q);
+    });
+  };
+
+  const selectUnitFlavor = (index, fl) => {
+    setUnitFlavors((prev) => {
+      const next = [...prev];
+      next[index] = fl;
+      return next;
+    });
+  };
+
+  const copyFlavorToAll = (fl) => {
+    if (!fl) return;
+    setUnitFlavors(Array(quantity).fill(fl));
+  };
+
+  const firstMissingUnit = requiresFlavorOption
+    ? unitFlavors.slice(0, quantity).findIndex((fl) => !fl)
+    : -1;
+
+  const buttonText = () => {
+    if (missingFlavorOption) {
+      if (quantity === 1) return `Elegí un sabor · ${money(unit * quantity)}`;
+      const ordinals = ["1ª", "2ª", "3ª", "4ª", "5ª", "6ª", "7ª", "8ª", "9ª", "10ª"];
+      const ord = ordinals[firstMissingUnit] || `${firstMissingUnit + 1}ª`;
+      return `Elegí el sabor de la ${ord} unidad · ${money(unit * quantity)}`;
+    }
+    if (missingIceCreamFlavors) {
+      return `Elegí los sabores · ${money(unit * quantity)}`;
+    }
+    return `Agregar · ${money(unit * quantity)}`;
+  };
+
+  const handleAdd = () => {
+    if (productFlavors.length > 0) {
+      const chosenUnits = unitFlavors.slice(0, quantity);
+      const counts = {};
+      for (const fl of chosenUnits) {
+        const k = fl || "";
+        counts[k] = (counts[k] || 0) + 1;
+      }
+      const items = Object.entries(counts).map(([fl, qty]) => ({
+        productId: p.id,
+        name: p.name,
+        size,
+        flavors: fl ? [fl] : [],
+        extras,
+        notes,
+        quantity: qty,
+        unitPrice: unit,
+      }));
+      onAdd(items.length === 1 ? items[0] : items);
+    } else {
+      onAdd({
+        productId: p.id,
+        name: p.name,
+        size,
+        flavors: chosen,
+        extras,
+        notes,
+        quantity,
+        unitPrice: unit,
+      });
+    }
+  };
+
   return (
     <Modal title={p.name} onClose={onClose}>
-      <p>{p.description}</p>
+      {p.description && <p className="product-modal-desc">{p.description}</p>}
+
+      {/* Selector de cantidad interactivo */}
+      <div className="product-qty-row">
+        <span className="product-qty-label">Cantidad:</span>
+        <div className="product-stepper">
+          <button
+            type="button"
+            className="stepper-btn"
+            disabled={quantity <= 1}
+            onClick={() => updateQuantity(quantity - 1)}
+            aria-label="Disminuir cantidad"
+          >
+            −
+          </button>
+          <span className="stepper-val">{quantity}</span>
+          <button
+            type="button"
+            className="stepper-btn"
+            disabled={quantity >= 99}
+            onClick={() => updateQuantity(quantity + 1)}
+            aria-label="Aumentar cantidad"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
       {p.sizes?.length > 0 && (
         <fieldset>
           <legend>Presentación</legend>
@@ -54,22 +164,80 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           ))}
         </fieldset>
       )}
+
+      {/* Selección de sabor / variedad para cada unidad si tiene opciones */}
       {productFlavors.length > 0 && (
-        <fieldset>
-          <legend>Sabor o variedad {manual ? "(opcional)" : "· Elegí 1"}</legend>
-          {productFlavors.map((fl) => (
-            <label className="option" key={fl}>
-              <input
-                type="radio"
-                name="productFlavor"
-                checked={chosen.includes(fl)}
-                onChange={() => setChosen([fl])}
-              />
-              {fl}
-            </label>
-          ))}
-        </fieldset>
+        quantity === 1 ? (
+          <fieldset className="product-flavor-fieldset">
+            <legend>Sabor o variedad {manual ? "(opcional)" : "· Elegí 1"}</legend>
+            {productFlavors.map((fl) => (
+              <label className="option" key={fl}>
+                <input
+                  type="radio"
+                  name="productFlavor_0"
+                  checked={unitFlavors[0] === fl}
+                  onChange={() => selectUnitFlavor(0, fl)}
+                />
+                {fl}
+              </label>
+            ))}
+          </fieldset>
+        ) : (
+          <div className="multi-flavor-container">
+            <div className="multi-flavor-header">
+              <span>Sabores para las {quantity} unidades:</span>
+              {unitFlavors[0] && (
+                <button
+                  type="button"
+                  className="copy-flavor-btn"
+                  onClick={() => copyFlavorToAll(unitFlavors[0])}
+                  title={`Aplicar "${unitFlavors[0]}" a todas las unidades`}
+                >
+                  Repetir "{unitFlavors[0]}" en todas
+                </button>
+              )}
+            </div>
+
+            {Array.from({ length: quantity }, (_, idx) => {
+              const ordinals = ["1ª", "2ª", "3ª", "4ª", "5ª", "6ª", "7ª", "8ª", "9ª", "10ª"];
+              const ord = ordinals[idx] || `${idx + 1}ª`;
+              const title =
+                idx === 0
+                  ? "1ª unidad: ¿Qué sabor querés?"
+                  : `¿Y la ${ord} qué va a ser?`;
+
+              return (
+                <fieldset key={idx} className="product-flavor-fieldset unit-flavor-box">
+                  <legend className="unit-flavor-title">
+                    <span className="unit-badge">{ord}</span>
+                    <strong>{title}</strong>
+                    {unitFlavors[idx] && (
+                      <span className="unit-selected-tag">✓ {unitFlavors[idx]}</span>
+                    )}
+                  </legend>
+                  <div className="unit-flavor-options">
+                    {productFlavors.map((fl) => (
+                      <label
+                        className={`option unit-flavor-opt ${unitFlavors[idx] === fl ? "selected" : ""}`}
+                        key={fl}
+                      >
+                        <input
+                          type="radio"
+                          name={`productFlavor_${idx}`}
+                          checked={unitFlavors[idx] === fl}
+                          onChange={() => selectUnitFlavor(idx, fl)}
+                        />
+                        {fl}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              );
+            })}
+          </div>
+        )
       )}
+
       {!manual && !productFlavors.length && Boolean(max && max > 0) && (
         <fieldset>
           <legend>Sabores · elegí de 1 a {max}</legend>
@@ -93,6 +261,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           ))}
         </fieldset>
       )}
+
       {p.extras?.length > 0 && (
         <fieldset>
           <legend>Extras opcionales</legend>
@@ -109,25 +278,17 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           ))}
         </fieldset>
       )}
+
       <label>
         Observaciones
         <textarea
           value={notes}
           maxLength={300}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Por ejemplo: sin azúcar…"
+          placeholder="Por ejemplo: bien fría, vaso con hielo, etc."
         />
       </label>
-      <label>
-        Cantidad
-        <input
-          type="number"
-          min="1"
-          max="99"
-          value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
-        />
-      </label>
+
       <button
         className="primary full"
         disabled={
@@ -139,24 +300,9 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           quantity < 1 ||
           quantity > 99
         }
-        onClick={() =>
-          onAdd({
-            productId: p.id,
-            name: p.name,
-            size,
-            flavors: chosen,
-            extras,
-            notes,
-            quantity,
-            unitPrice: unit,
-          })
-        }
+        onClick={handleAdd}
       >
-        {missingFlavorOption
-          ? "Elegí un sabor · " + money(unit * quantity)
-          : missingIceCreamFlavors
-          ? "Elegí los sabores · " + money(unit * quantity)
-          : "Agregar · " + money(unit * quantity)}
+        {buttonText()}
       </button>
     </Modal>
   );

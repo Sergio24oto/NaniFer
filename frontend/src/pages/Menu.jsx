@@ -306,8 +306,25 @@ export default function Menu({ table, manual = false, onDone }) {
         <Product
           product={product}
           onClose={() => setProduct(null)}
-          onAdd={(i) => {
-            setCart([...cart, i]);
+          onAdd={(res) => {
+            const list = Array.isArray(res) ? res : [res];
+            let updated = [...cart];
+            for (const i of list) {
+              const existingIndex = updated.findIndex(
+                (item) =>
+                  (item.productId === i.productId || item.product === i.productId) &&
+                  item.size === i.size &&
+                  JSON.stringify(item.flavors || []) === JSON.stringify(i.flavors || []) &&
+                  JSON.stringify(item.extras || []) === JSON.stringify(i.extras || []) &&
+                  (item.notes || "") === (i.notes || "")
+              );
+              if (existingIndex >= 0) {
+                updated[existingIndex].quantity += i.quantity;
+              } else {
+                updated.push(i);
+              }
+            }
+            setCart(updated);
             setProduct(null);
             setSent("");
           }}

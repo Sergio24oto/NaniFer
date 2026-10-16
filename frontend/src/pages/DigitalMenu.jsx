@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useStore, request } from "../store";
 import { money, estimate, operationId } from "../domain";
 import Product from "./Product";
@@ -142,6 +142,82 @@ export default function DigitalMenu({ table }) {
   const s = useStore();
   const [selected, setSelected] = useState(null);
   const [subFilter, setSubFilter] = useState("all");
+  const [swipeProgress, setSwipeProgress] = useState(0);
+  const touchStartRef = useRef({ x: 0, y: 0, time: 0, fromEdge: false });
+
+  const handleBack = () => {
+    if (window.history.state && window.history.state.category) {
+      window.history.back();
+    } else {
+      setSelected(null);
+    }
+  };
+
+  const openCategory = (catId) => {
+    setSelected(catId);
+    try {
+      window.history.pushState({ category: catId }, "");
+    } catch {}
+  };
+
+  useEffect(() => {
+    const onPopState = (e) => {
+      if (!e.state?.category) {
+        setSelected(null);
+      } else {
+        setSelected(e.state.category);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  const handleTouchStart = (e) => {
+    if (!selected) return;
+    const touch = e.touches[0];
+    const fromEdge = touch.clientX <= 55;
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+      fromEdge,
+    };
+  };
+
+  const handleTouchMove = (e) => {
+    if (!selected || !touchStartRef.current.fromEdge) return;
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+
+    if (deltaX > 8 && Math.abs(deltaY) < 45) {
+      const progress = Math.min(1, Math.max(0, deltaX / 110));
+      setSwipeProgress(progress);
+    } else if (Math.abs(deltaY) > 35) {
+      touchStartRef.current.fromEdge = false;
+      setSwipeProgress(0);
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!selected || !touchStartRef.current.fromEdge) {
+      setSwipeProgress(0);
+      return;
+    }
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    const elapsed = Date.now() - touchStartRef.current.time;
+
+    if (
+      (deltaX > 55 || (deltaX > 30 && elapsed < 250)) &&
+      Math.abs(deltaY) < 55
+    ) {
+      handleBack();
+    }
+    touchStartRef.current.fromEdge = false;
+    setSwipeProgress(0);
+  };
 
   useEffect(() => {
     setSubFilter("all");
@@ -246,7 +322,59 @@ export default function DigitalMenu({ table }) {
   const totalCartAmount = cart.reduce((n, i) => n + i.unitPrice * i.quantity, 0);
 
   return (
-    <main className="digital-menu">
+    <main
+      className="digital-menu"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {selected && (
+        <button
+          type="button"
+          className="floating-ios-back-btn"
+          onClick={handleBack}
+          aria-label="Volver a la carta"
+          title="Volver a la carta"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          <span className="floating-back-text">Carta</span>
+        </button>
+      )}
+
+      {selected && swipeProgress > 0 && (
+        <div
+          className="ios-swipe-back-indicator"
+          style={{
+            opacity: Math.min(1, swipeProgress * 1.5),
+            transform: `translateY(-50%) translateX(${Math.min(24, swipeProgress * 24)}px)`,
+          }}
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </div>
+      )}
+
       <div className="menu-top-bar">
         <span className="menu-table">
           <span className="table-pulse-dot" /> Estás en la mesa {table}
@@ -311,7 +439,7 @@ export default function DigitalMenu({ table }) {
               <button
                 className="digital-category"
                 key={c.id}
-                onClick={() => setSelected(c.id)}
+                onClick={() => openCategory(c.id)}
               >
                 <div className="category-photo">
                   <Photo
@@ -343,7 +471,7 @@ export default function DigitalMenu({ table }) {
           <div className="editorial-nav">
             <button
               className="secondary editorial-back-btn"
-              onClick={() => setSelected(null)}
+              onClick={handleBack}
             >
               ← Volver a la carta
             </button>
@@ -578,8 +706,25 @@ export default function DigitalMenu({ table }) {
         <Product
           product={product}
           onClose={() => setProduct(null)}
-          onAdd={(i) => {
-            setCart([...cart, i]);
+          onAdd={(res) => {
+            const list = Array.isArray(res) ? res : [res];
+            let updated = [...cart];
+            for (const i of list) {
+              const existingIndex = updated.findIndex(
+                (item) =>
+                  (item.productId === i.productId || item.product === i.productId) &&
+                  item.size === i.size &&
+                  JSON.stringify(item.flavors || []) === JSON.stringify(i.flavors || []) &&
+                  JSON.stringify(item.extras || []) === JSON.stringify(i.extras || []) &&
+                  (item.notes || "") === (i.notes || "")
+              );
+              if (existingIndex >= 0) {
+                updated[existingIndex].quantity += i.quantity;
+              } else {
+                updated.push(i);
+              }
+            }
+            setCart(updated);
             setProduct(null);
           }}
         />
