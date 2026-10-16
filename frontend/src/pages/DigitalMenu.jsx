@@ -79,7 +79,7 @@ function getProductImage(p, catName = "") {
   if (n.includes("meriend") || n.includes("medialuna") || n.includes("croissant") || n.includes("desayun")) return "/menu/meriendas.webp";
   if (n.includes("bebid") || n.includes("gaseosa") || n.includes("cerveza") || n.includes("agua") || n.includes("jugo") || n.includes("lata") || n.includes("litro")) return "/menu/bebidas.webp";
   if (n.includes("golosin") || n.includes("kiosco") || n.includes("caramel") || n.includes("alfajor")) return "/menu/golosinas.webp";
-  return "/menu/nanifer.webp";
+  return getCategoryCardImage({ name: catName || p.category });
 }
 
 const BEVERAGE_SECTIONS = [
@@ -394,7 +394,12 @@ export default function DigitalMenu({ table }) {
                         loading="lazy"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
-                          e.currentTarget.src = "/menu/nanifer.webp";
+                          if (prodImg && prodImg.startsWith("/menu/") && !prodImg.startsWith("/menu/headers/")) {
+                            const filename = prodImg.replace("/menu/", "");
+                            e.currentTarget.src = "/api/uploads/menu/" + filename;
+                            return;
+                          }
+                          e.currentTarget.src = getCategoryCardImage({ name: cat?.name || p.category });
                         }}
                       />
                     </div>

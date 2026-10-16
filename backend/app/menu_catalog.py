@@ -59,10 +59,30 @@ def menu(number: int, db=Depends(get_db)):
 
 @router.get('/menu-management')
 def management(db=Depends(get_db), auth=Depends(admin)):
-    root = Path(__file__).resolve().parents[2] / 'frontend/public/menu'
+    backend_dir = Path(__file__).resolve().parent.parent
+    root = backend_dir.parent / 'frontend/public/menu'
+    upload_dir = backend_dir / 'uploads/menu'
+
+    EXCLUDED_IMAGES = {
+        'nanifer.webp', 'bebidas.jpg', 'meriendas2.webp', 'sintacc.webp',
+        'cenas.webp', 'coffebreak.jpg'
+    }
+
     images = []
+    # 1. Uploaded images (most recent first)
+    if upload_dir.is_dir():
+        for p in sorted(upload_dir.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+            if p.is_file() and p.suffix.lower() in ('.webp', '.jpg', '.jpeg', '.png'):
+                images.append(f'/api/uploads/menu/{p.name}')
+
+    # 2. Bundled menu catalog images (excluding salon background and hero covers)
     if root.is_dir():
-        images = ['/menu/' + p.name for p in sorted(p for p in root.iterdir() if p.suffix.lower() in ('.webp', '.jpg', '.jpeg', '.png'))]
+        for p in sorted(root.iterdir()):
+            if p.is_file() and p.suffix.lower() in ('.webp', '.jpg', '.jpeg', '.png'):
+                if p.name not in EXCLUDED_IMAGES:
+                    img_path = f'/menu/{p.name}'
+                    if img_path not in images:
+                        images.append(img_path)
     return dict(
         categories=categories(db),
         products=[
@@ -115,11 +135,11 @@ def image_path(value):
     if not value:
         return None
     import re
-    if not re.fullmatch(r'/menu/[a-zA-Z0-9_-]+\.(webp|jpg|jpeg|png)', value):
-        fail('Usá una foto local de /menu/, sin enlaces externos.', 422)
-    root = Path(__file__).resolve().parents[2] / 'frontend/public'
-    if not (root / value.lstrip('/')).is_file():
-        fail('La foto no existe en frontend/public/menu.', 422)
+    if not (
+        re.fullmatch(r'/api/uploads/menu/[a-zA-Z0-9_-]+\.(webp|jpg|jpeg|png)', value)
+        or re.fullmatch(r'/menu/[a-zA-Z0-9_-]+\.(webp|jpg|jpeg|png)', value)
+    ):
+        fail('Usá una foto válida de la carta o subí una desde el panel.', 422)
     return value
 
 @router.post('/menu-management/categories')
@@ -237,21 +257,69 @@ def upload_photo(body: PhotoUploadIn, auth=Depends(admin)):
     if not clean_name:
         clean_name = 'producto'
 
-    timestamp = int(time.time()) % 1000000
+    timestamp = int(time.time() * 1000) % 100000000
     filename = f"{clean_name[:40]}-{timestamp}.webp"
 
-    root = Path(__file__).resolve().parents[2] / 'frontend/public/menu'
-    root.mkdir(parents=True, exist_ok=True)
-    out_path = root / filename
-
+    backend_dir = Path(__file__).resolve().parent.parent
+    upload_dir = backend_dir / 'uploads' / 'menu'
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    out_path = upload_dir / filename
     canvas.save(out_path, 'WEBP', quality=88, method=6)
+
+    # También guardar en frontend/public/menu y dist/menu si están disponibles
+    try:
+        f_pub = backend_dir.parent / 'frontend' / 'public' / 'menu'
+        if f_pub.parent.is_dir():
+            f_pub.mkdir(parents=True, exist_ok=True)
+            canvas.save(f_pub / filename, 'WEBP', quality=88, method=6)
+    except Exception:
+        pass
+
+    try:
+        f_dist = backend_dir.parent / 'frontend' / 'dist' / 'menu'
+        if f_dist.parent.is_dir():
+            f_dist.mkdir(parents=True, exist_ok=True)
+            canvas.save(f_dist / filename, 'WEBP', quality=88, method=6)
+    except Exception:
+        pass
+
     size_kb = round(out_path.stat().st_size / 1024, 1)
 
     return {
-        'image': f'/menu/{filename}',
+        'image': f'/api/uploads/menu/{filename}',
         'filename': filename,
         'sizeKb': size_kb,
     }
+
+@router.get('/uploads/menu/{filename}')
+@router.get('/menu-images/{filename}')
+def serve_uploaded_menu_image(filename: str):
+    import re
+    from fastapi.responses import FileResponse
+    from fastapi import HTTPException
+
+    if not re.fullmatch(r"[a-zA-Z0-9_-]+\.(webp|jpg|jpeg|png)", filename):
+        raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
+
+    backend_dir = Path(__file__).resolve().parent.parent
+    repo_root = backend_dir.parent
+
+    candidates = [
+        backend_dir / 'uploads' / 'menu' / filename,
+        repo_root / 'frontend' / 'public' / 'menu' / filename,
+        repo_root / 'frontend' / 'dist' / 'menu' / filename,
+    ]
+
+    for candidate in candidates:
+        if candidate.is_file():
+            media = "image/webp" if filename.endswith(".webp") else "image/jpeg" if filename.endswith((".jpg", ".jpeg")) else "image/png"
+            return FileResponse(
+                path=candidate,
+                media_type=media,
+                headers={"Cache-Control": "public, max-age=31536000"}
+            )
+
+    raise HTTPException(status_code=404, detail="Imagen no encontrada.")
 
 class ProductIn(StrictModel):
     name: str = Field(min_length=1, max_length=150)

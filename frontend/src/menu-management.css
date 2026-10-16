@@ -647,3 +647,30 @@ dialog.product-modal-wide .modal-head h2 {
 .editor-footer-actions .save-btn:hover {
   background: #1d4ed8;
 }
+
+.catalog-row-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.catalog-row-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.catalog-row-thumb-empty {
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+

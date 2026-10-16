@@ -102,3 +102,58 @@ def test_category_create_edit_note_and_duplicate(fixture):
         with SessionLocal() as db:
             db.execute(delete(Category).where(Category.id == cid))
             db.commit()
+
+
+def test_upload_photo_and_assign_product(fixture):
+    import base64
+    import io
+    from PIL import Image
+
+    f = fixture
+    c = f['client']
+    with SessionLocal() as db:
+        db.get(User, f['user_id']).role = 'admin'
+        db.commit()
+
+    # Generate a dummy test image
+    img = Image.new('RGB', (80, 80), (255, 128, 0))
+    buf = io.BytesIO()
+    img.save(buf, format='JPEG')
+    b64 = 'data:image/jpeg;base64,' + base64.b64encode(buf.getvalue()).decode()
+
+    # Upload photo
+    r = c.post('/api/menu-management/upload-photo', json={'data': b64, 'name': 'test-photo'})
+    assert r.status_code == 200
+    res_data = r.json()
+    assert 'image' in res_data
+    assert res_data['image'].startswith('/api/uploads/menu/')
+    img_url = res_data['image']
+
+    # Fetch uploaded photo via GET endpoint
+    img_fetch = c.get(img_url)
+    assert img_fetch.status_code == 200
+    assert img_fetch.headers.get('content-type') == 'image/webp'
+
+    # Create product with this image
+    with SessionLocal() as db:
+        cat = db.get(Product, f['product']).category_id
+    pbody = {
+        'name': 'Test Producto Foto ' + key(),
+        'description': 'Con foto subida',
+        'categoryId': cat,
+        'price': '2500',
+        'image': img_url,
+        'available': True,
+        'inMenu': True
+    }
+    pr = c.post('/api/menu-management/products', json=pbody, headers={'Idempotency-Key': key()})
+    assert pr.status_code == 200
+    pid = pr.json()['id']
+    f['product_ids'].append(pid)
+
+    # Verify public menu returns the exact uploaded image URL
+    menu_res = c.get('/api/public/menu/1')
+    assert menu_res.status_code == 200
+    prod = next(p for p in menu_res.json()['products'] if p['id'] == pid)
+    assert prod['image'] == img_url
+

@@ -477,3 +477,30 @@ app.include_router(public_orders_router)
 
 from .menu_catalog import router as menu_router
 app.include_router(menu_router)
+
+@app.get("/menu/{filename}")
+def serve_root_menu_image(filename: str):
+    import re
+    from fastapi.responses import FileResponse
+    from pathlib import Path
+    
+    if not re.fullmatch(r"[a-zA-Z0-9_-]+\.(webp|jpg|jpeg|png)", filename):
+        raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
+    
+    backend_dir = Path(__file__).resolve().parent.parent
+    repo_root = backend_dir.parent
+    
+    for candidate in [
+        backend_dir / "uploads" / "menu" / filename,
+        repo_root / "frontend" / "public" / "menu" / filename,
+        repo_root / "frontend" / "dist" / "menu" / filename,
+    ]:
+        if candidate.is_file():
+            media = "image/webp" if filename.endswith(".webp") else "image/jpeg" if filename.endswith((".jpg", ".jpeg")) else "image/png"
+            return FileResponse(
+                path=candidate,
+                media_type=media,
+                headers={"Cache-Control": "public, max-age=31536000"}
+            )
+    raise HTTPException(status_code=404, detail="Imagen no encontrada.")
+

@@ -950,8 +950,18 @@ export default function MenuManagement() {
           <div className="catalog-list">
             {itemsList.map(item => (
               <article className="panel catalog-row" key={item.id}>
-                <div>
-                  <h2>{item.name}</h2>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', flex: 1 }}>
+                  {tab === 'products' && (
+                    <div className="catalog-row-thumb">
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                      ) : (
+                        <span className="catalog-row-thumb-empty"><Camera size={18} /></span>
+                      )}
+                    </div>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <h2>{item.name}</h2>
                   {tab === 'products' && (
                     <>
                       <strong>
@@ -1005,6 +1015,7 @@ export default function MenuManagement() {
                       </Badge>
                     </p>
                   )}
+                  </div>
                 </div>
 
                 <div className="catalog-actions">

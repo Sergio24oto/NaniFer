@@ -61,6 +61,7 @@ npm-cache/
 tmp/
 temp/
 /work/
+backend/uploads/
 
 # Operating-system and editor-local files
 .DS_Store
