@@ -1,0 +1,12 @@
+.git
+.gitignore
+.pytest_cache
+backend/.venv
+backend/__pycache__
+backend/**/__pycache__
+backend/uploads
+frontend/node_modules
+frontend/dist
+work
+assets
+*.md
