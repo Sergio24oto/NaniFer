@@ -230,6 +230,12 @@ BEBIDAS_IMAGES = [
     ('beb-litro-quilmes', 'Quilmes Litro', '/menu/quilmes-1lt.webp'),
     ('beb-litro-warsteiner', 'Warsteiner Litro', '/menu/warsteiner-1lt.webp'),
     ('beb-paso-toros-15l', 'Paso de los Toros 1.5L', '/menu/paso-toros-15l.webp'),
+    ('beb-jugo-naranja-vaso', 'Jugo Naranja vaso', '/menu/jugo-naranja-vaso.webp'),
+    ('beb-licuado', 'Licuado', '/menu/licuado.webp'),
+    ('beb-smoothie', 'Smoothie', '/menu/smoothie.webp'),
+    ('beb-baggio-200ml', 'Baggio mediano 200ml', '/menu/baggio-200ml.webp'),
+    ('beb-baggio-125ml', 'Baggio chico 125ml', '/menu/baggio-200ml.webp'),
+    ('beb-batido', 'Batido', '/menu/batido.webp'),
 ]
 
 def upgrade():

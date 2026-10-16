@@ -39,6 +39,10 @@ function getProductImage(p, catName = "") {
   const n = ((p.name || "") + " " + (p.category || catName || "")).toLowerCase();
 
   // Fotos de bebidas individuales
+  if (n.includes("jugo") && n.includes("naranja")) return "/menu/jugo-naranja-vaso.webp";
+  if (n.includes("licuado")) return "/menu/licuado.webp";
+  if (n.includes("smoothie")) return "/menu/smoothie.webp";
+  if (n.includes("batido")) return "/menu/batido.webp";
   if (n.includes("aquarius") && (n.includes("1.5") || n.includes("1,5"))) return "/menu/aquarius-15l.webp";
   if (n.includes("aquarius")) return "/menu/aquarius-500ml.webp";
   if (n.includes("levit") && (n.includes("1.5") || n.includes("1,5"))) return "/menu/levite-15l.webp";
@@ -46,6 +50,7 @@ function getProductImage(p, catName = "") {
   if (n.includes("paso") && (n.includes("1.5") || n.includes("1,5"))) return "/menu/paso-toros-15l.webp";
   if (n.includes("paso") && n.includes("lata")) return "/menu/gaseosa-lata.webp";
   if (n.includes("baggio") && (n.includes("1l") || n.includes("grande") || n.includes("1 l"))) return "/menu/baggio-1l.webp";
+  if (n.includes("baggio")) return "/menu/baggio-200ml.webp";
   if (n.includes("citric") && (n.includes("1l") || n.includes("1 l") || n.includes("1000"))) return "/menu/citric-1l.webp";
   if (n.includes("citric")) return "/menu/citric-500ml.webp";
   if (n.includes("cepita") && (n.includes("1.5") || n.includes("1,5"))) return "/menu/cepita-15l.webp";
