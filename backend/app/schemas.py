@@ -13,6 +13,7 @@ class ItemIn(StrictModel):
     flavors: list[str] = Field(default_factory=list, max_length=10)
     extras: list[str] = Field(default_factory=list, max_length=20)
     notes: str = Field(default="", max_length=300)
+    comboSelections: dict = Field(default_factory=dict)
     quantity: int = Field(ge=1, le=99, strict=True)
 
 

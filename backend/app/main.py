@@ -157,6 +157,7 @@ def catalog(db=Depends(get_db), auth=Depends(current_session)):
                 "sizes": catalog_availability(p, stock)[1],
                 "extras": p.extras,
                 "flavorOptions": p.flavor_options or [],
+                "comboConfig": p.combo_config or {},
                 "inMenu": p.in_menu,
             }
             for p in db.scalars(select(Product).where(Product.archived == False).order_by(Product.id))

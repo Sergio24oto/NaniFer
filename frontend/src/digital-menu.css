@@ -1295,4 +1295,137 @@ body.public-menu-page > div > header {
   color: #1d4ed8;
 }
 
+/* ==========================================================================
+   COMBO BUILDER STYLES
+   ========================================================================== */
+
+.combo-builder-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 14px 0 10px;
+}
+
+.combo-step-card {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.combo-step-card.active {
+  border-color: #ea580c;
+  background: #fffcf9;
+}
+
+.combo-step-card.completed {
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+.combo-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.combo-step-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.combo-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ea580c;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.combo-step-card.completed .combo-step-number {
+  background: #16a34a;
+}
+
+.combo-step-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.combo-step-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.combo-step-badge.ready {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.combo-options-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.combo-option-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.combo-option-chip:hover {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.combo-option-chip.selected {
+  border-color: #ea580c;
+  background: #fff7ed;
+  color: #ea580c;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(234, 88, 12, 0.15);
+}
+
+.combo-option-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: #ea580c;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+
 

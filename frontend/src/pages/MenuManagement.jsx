@@ -31,7 +31,8 @@ function Editor({ item, kind, data, onClose, onSaved }) {
       inMenu: pending?.body?.inMenu ?? item?.inMenu ?? true,
       publicCategories: pending?.body?.publicCategories ?? item?.publicCategories ?? [],
       sizes: initialSizes,
-      flavorOptions: Array.isArray(initialFlavors) ? initialFlavors : []
+      flavorOptions: Array.isArray(initialFlavors) ? initialFlavors : [],
+      comboConfig: pending?.body?.comboConfig ?? item?.comboConfig ?? null
     } : {
       name: '',
       description: '',
@@ -195,7 +196,8 @@ function Editor({ item, kind, data, onClose, onSaved }) {
         inMenu: Boolean(value.inMenu),
         ...(!item?.id || Boolean(value.manageStock) !== Boolean(item.manageStock) ? { manageStock: Boolean(value.manageStock) } : {}),
         sizes: finalSizes,
-        flavorOptions: parsedFlavors
+        flavorOptions: parsedFlavors,
+        comboConfig: value.comboConfig || null
       };
     }
 
@@ -1043,6 +1045,11 @@ export default function MenuManagement() {
                       {item.flavorOptions?.length > 0 && (
                         <p style={{ color: '#0369a1', fontSize: '0.85rem', marginTop: '0.25rem' }}>
                           <strong>Sabores:</strong> {item.flavorOptions.join(' · ')}
+                        </p>
+                      )}
+                      {item.comboConfig?.is_combo && (
+                        <p style={{ color: '#ea580c', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                          <strong>Combo:</strong> {item.comboConfig.steps?.map(s => s.title).join(' · ')}
                         </p>
                       )}
                     </>

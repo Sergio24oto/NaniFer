@@ -72,6 +72,7 @@ function getProductImage(p, catName = "") {
   if (n.includes("gaseosa") && n.includes("lata")) return "/menu/gaseosa-lata.webp";
 
   // Fallbacks generales
+  if (p.comboConfig?.is_combo || n.includes("combo")) return "/menu/meriendas.webp";
   if (n.includes("helad") || n.includes("bocha") || n.includes("copa")) return "/menu/helados.webp";
   if (n.includes("torta") || n.includes("dulce") || n.includes("postre") || n.includes("brownie") || n.includes("cheesecake") || n.includes("chocolat")) return "/menu/tortas.webp";
   if (n.includes("pizza") || n.includes("tostad") || n.includes("sandwich") || n.includes("comid") || n.includes("hamburguesa") || n.includes("empanada") || n.includes("picada")) return "/menu/pizza.webp";
@@ -135,6 +136,14 @@ function getBeverageSectionId(p) {
 
 const DESAYUNO_SECTIONS = [
   {
+    id: "combos",
+    icon: "🥐",
+    shortLabel: "Combos & Promos",
+    eyebrow: "DESAYUNOS Y MERIENDAS COMPLETAS",
+    title: "COMBOS DE LA CASA",
+    subtitle: "Armá tu combo favorito a tu gusto: elegí tu infusión, panadería, untables y bebida.",
+  },
+  {
     id: "infusiones",
     icon: "☕",
     shortLabel: "Infusiones",
@@ -144,7 +153,7 @@ const DESAYUNO_SECTIONS = [
   },
   {
     id: "acompanar",
-    icon: "🥐",
+    icon: "🥖",
     shortLabel: "Para acompañar",
     eyebrow: "PANADERÍA Y SALADOS",
     title: "PARA ACOMPAÑAR",
@@ -163,6 +172,11 @@ const DESAYUNO_SECTIONS = [
 function getDesayunoSectionId(p) {
   const cat = (p.category || "").toLowerCase();
   const text = `${p.name || ""} ${p.description || ""} ${p.id || ""}`.toLowerCase();
+
+  // 0. Combos
+  if (p.comboConfig?.is_combo || /combo/i.test(text)) {
+    return "combos";
+  }
 
   // 1. Infusiones: cafés y bebidas
   if (
@@ -320,7 +334,7 @@ export default function DigitalMenu({ table }) {
   };
 
   const handleQuickAdd = (p) => {
-    if ((p.flavorOptions || []).length > 0 || (p.sizes || []).length > 0 || (p.extras || []).length > 0) {
+    if ((p.flavorOptions || []).length > 0 || (p.sizes || []).length > 0 || (p.extras || []).length > 0 || p.comboConfig?.is_combo) {
       setProduct(p);
       return;
     }
@@ -557,7 +571,7 @@ export default function DigitalMenu({ table }) {
             {(() => {
               const isBebidas = (cat.name || "").toLowerCase().includes("bebid");
               const renderProductRow = (p) => {
-                const hasOptions = (p.sizes?.length > 0) || (p.extras?.length > 0) || (p.flavorOptions?.length > 0);
+                const hasOptions = (p.sizes?.length > 0) || (p.extras?.length > 0) || (p.flavorOptions?.length > 0) || (p.comboConfig?.is_combo);
                 const prodImg = getProductImage(p, cat.name);
                 return (
                   <div
@@ -597,6 +611,14 @@ export default function DigitalMenu({ table }) {
 
                       {p.description && (
                         <p className="editorial-product-desc">{p.description}</p>
+                      )}
+
+                      {p.comboConfig?.is_combo && (
+                        <div className="editorial-sizes-pills">
+                          <span className="editorial-size-tag" style={{ background: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', fontWeight: 700 }}>
+                            Armá tu combo ✨
+                          </span>
+                        </div>
                       )}
 
                       {p.sizes?.length > 0 && (
