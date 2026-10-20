@@ -104,6 +104,7 @@ class Visit(Base):
     public_token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     opened_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    joined_tables: Mapped[list] = mapped_column(JSON, default=list)
 
 
 class Order(Base):

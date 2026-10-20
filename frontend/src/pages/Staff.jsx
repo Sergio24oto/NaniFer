@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { ArrowLeft, ClipboardList, Coffee } from "lucide-react";
 import { Badge, Items, Modal } from "../components";
-import { useStore, mutate, submitOnce, pendingOperation } from "../store";
+import { useStore, mutate, submitOnce, pendingOperation, refresh } from "../store";
 import { money, activeAccount, statuses, time, itemInput, estimate } from "../domain";
 import {useDraft} from "../useDraft";
 import {readDraft} from "../drafts";
@@ -58,8 +58,14 @@ export function Salon({
         length: 15
       }, (_, i) => {
         const n = i + 1,
-          a = activeAccount(s, n),
-          r = ready.some(o => o.table === n),
+          directAcc = activeAccount(s, n),
+          parentAcc = s.accounts.find(acc => !acc.closedAt && acc.joinedTables?.includes(n)),
+          a = directAcc || parentAcc,
+          targetTable = parentAcc ? parentAcc.table : n,
+          isJoinedChild = !!parentAcc,
+          joinedChildren = directAcc?.joinedTables || [],
+          isJoinedParent = joinedChildren.length > 0,
+          r = ready.some(o => o.table === targetTable),
           call = pendingCalls.find(c => c.table === n);
         const all = (s.reservations || []).filter(x => x.table === n);
         const reservation = all.find(x => x.date === date) || (!reservationDate ? all.find(x => x.date > s.calendarToday) || all[0] : null);
@@ -84,9 +90,13 @@ export function Salon({
               </button>
             </div>
           )}
-          <button className="table-open" onClick={() => nav("/atencion/mesas/" + n)}>
+          <button className="table-open" onClick={() => nav("/atencion/mesas/" + targetTable)}>
           <div className="row">
-            <h2>Mesa {n}</h2>
+            <div>
+              <h2>Mesa {n}</h2>
+              {isJoinedChild && <span className="joined-tag">🔗 Junta con Mesa {parentAcc.table}</span>}
+              {isJoinedParent && <span className="joined-tag">🔗 Junta con Mesa {joinedChildren.join(", ")}</span>}
+            </div>
             {hasOrders ? (
               <Badge tone="red">Pedido ya realizado</Badge>
             ) : (
@@ -128,10 +138,12 @@ export function Account({
   nav
 }) {
   const s = useStore(),
-    a = activeAccount(s, table);
-  const scope = "consumptions-" + table,
+    parentAcc = s.accounts.find(acc => !acc.closedAt && acc.joinedTables?.includes(table)),
+    effectiveTable = parentAcc ? parentAcc.table : table,
+    a = parentAcc || activeAccount(s, table);
+  const scope = "consumptions-" + effectiveTable,
     pendingSave = pendingOperation(scope);
-  const draft=useDraft(s.user.id,"table-"+table,()=>restoreCart(pendingSave,s.catalog),pendingSave?.body.expectedAccount ?? a?.id ?? null);
+  const draft=useDraft(s.user.id,"table-"+effectiveTable,()=>restoreCart(pendingSave,s.catalog),pendingSave?.body.expectedAccount ?? a?.id ?? null);
   const {cart,setCart}=draft;
   const [discard,setDiscard]=useState(false);
   const [preparation, setPreparation] = useState(pendingSave?.body.needsPreparation || false);
@@ -140,16 +152,17 @@ export function Account({
   const pendingPay=a&&pendingOperation("pay-"+a.id);
   const [ack, setAck] = useState(null);
   const [pay, setPay] = useState(false),
-    [reserving, setReserving] = useState(false);
+    [reserving, setReserving] = useState(false),
+    [joining, setJoining] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
   const lock = useRef(false);
   const orders = s.orders.filter(o => o.accountId === a?.id),
     undelivered = orders.some(o => o.status !== "entregado");
-  const reservation = (s.reservations || []).find(r => r.table === table && r.date === s.calendarToday);
+  const reservation = (s.reservations || []).find(r => r.table === effectiveTable && r.date === s.calendarToday);
   const changed = expectedAccount !== (a?.id || null);
-  const tableCalls = (s.calls || []).filter(c => c.table === table && (c.status === "pending" || c.pending_table != null));
+  const tableCalls = (s.calls || []).filter(c => c.table === effectiveTable && (c.status === "pending" || c.pending_table != null));
   async function run(fn) {
     if (lock.current) return;
     lock.current = true;
@@ -165,17 +178,39 @@ export function Account({
     }
   }
   async function save() {
-    await submitOnce(scope, "/tables/" + table + "/consumptions", {
+    await submitOnce(scope, "/tables/" + effectiveTable + "/consumptions", {
       expectedAccount,
       items: cart.map(itemInput),
       needsPreparation: preparation,
       reservationAcknowledgment: ack
     });
     draft.clear();
-    nav("/atencion", "Guardado correctamente. Consumos registrados en la mesa " + table + ". Quedan pendientes de cobro.");
+    nav("/atencion", "Guardado correctamente. Consumos registrados en la mesa " + effectiveTable + ". Quedan pendientes de cobro.");
   }
   return <main className="staff-entry"><button className="back" onClick={() => nav("/atencion")}><ArrowLeft size={17} />Volver al salón</button>
-    <div className="page-heading"><div className="intro"><h1>Mesa {table}</h1><p>{a ? "Visita abierta · " + a.waitress : "Elegí productos para iniciar la visita al guardar."}</p></div><div className="row"><Badge tone={a ? "amber" : "green"}>{a ? "Ocupada" : "Libre"}</Badge>{s.user?.permissions?.includes("reservations.manage") && <button className="secondary" onClick={() => setReserving(true)}>Reservas</button>}</div></div>
+    <div className="page-heading">
+      <div className="intro">
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <h1>Mesa {table}</h1>
+          {a?.joinedTables?.length > 0 && (
+            <span className="joined-tag" style={{ fontSize: 13, padding: "4px 8px" }}>
+              🔗 Junta con Mesa {a.joinedTables.join(", ")}
+            </span>
+          )}
+          {parentAcc && (
+            <span className="joined-tag" style={{ fontSize: 13, padding: "4px 8px" }}>
+              🔗 Junta con Mesa {parentAcc.table}
+            </span>
+          )}
+        </div>
+        <p>{a ? "Visita abierta · " + a.waitress : "Elegí productos para iniciar la visita al guardar."}</p>
+      </div>
+      <div className="row">
+        <Badge tone={a ? "amber" : "green"}>{a ? "Ocupada" : "Libre"}</Badge>
+        {s.user?.permissions?.includes("reservations.manage") && <button className="secondary" onClick={() => setReserving(true)}>Reservas</button>}
+        <button className="secondary" onClick={() => setJoining(true)}>🔗 Juntar mesas</button>
+      </div>
+    </div>
     {error && <p className="alert" role="alert">{error}</p>}{message && <p className="success" role="status">{message}</p>}
     {pendingSave && !busy && <p className="note">Hay consumos sin confirmación. Reintentá para recuperar la misma operación; no se duplicará.</p>}
     {draft.storageError&&<p className="alert">{draft.storageError}</p>}
@@ -391,6 +426,82 @@ export function Account({
       setPay(false);
       setMessage("Cobro de " + money(result.total) + " registrado. La visita sigue abierta.");
     }} />}
+    {joining && (
+      <Modal title="Juntar mesas" onClose={() => setJoining(false)}>
+        <p style={{ margin: "0 0 14px 0", color: "#624335" }}>
+          Elegí con qué mesa querés juntar la <strong>Mesa {effectiveTable}</strong>:
+        </p>
+
+        {a?.joinedTables?.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <strong style={{ fontSize: 13, color: "#8c6e58", textTransform: "uppercase" }}>Mesas actualmente juntas:</strong>
+            <div className="join-modal-list">
+              {a.joinedTables.map(jt => (
+                <div key={jt} className="join-modal-item joined">
+                  <div>
+                    <strong>Mesa {jt}</strong>
+                    <small>Junta con esta mesa</small>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => run(async () => {
+                      await mutate(`/tables/${effectiveTable}/separate`, {
+                        targetTable: jt
+                      });
+                      await refresh();
+                      setMessage(`Mesa ${jt} separada de la Mesa ${effectiveTable}.`);
+                    })}
+                  >
+                    Separar mesa
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <strong style={{ fontSize: 13, color: "#8c6e58", textTransform: "uppercase" }}>Juntar con otra mesa:</strong>
+        <div className="join-modal-list">
+          {Array.from({ length: 15 }, (_, i) => i + 1)
+            .filter(num => num !== effectiveTable && !a?.joinedTables?.includes(num))
+            .map(num => {
+              const targetAcc = activeAccount(s, num);
+              const targetIsJoinedChild = s.accounts.find(acc => !acc.closedAt && acc.joinedTables?.includes(num));
+              if (targetIsJoinedChild) return null;
+              const isOccupied = !!targetAcc;
+              return (
+                <div key={num} className="join-modal-item">
+                  <div>
+                    <strong>Mesa {num}</strong>
+                    <small>
+                      {isOccupied
+                        ? `Ocupada (${money(targetAcc.balance)}) · Se sumarán consumos a esta cuenta`
+                        : "Libre"}
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={busy}
+                    onClick={() => run(async () => {
+                      await mutate(`/tables/${effectiveTable}/join`, {
+                        targetTable: num
+                      });
+                      await refresh();
+                      setJoining(false);
+                      setMessage(`Mesa ${effectiveTable} junta con Mesa ${num}.`);
+                    })}
+                  >
+                    Juntar con Mesa {num}
+                  </button>
+                </div>
+              );
+            })}
+        </div>
+      </Modal>
+    )}
 
   </main>;
 }

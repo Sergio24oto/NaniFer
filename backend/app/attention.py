@@ -4,7 +4,7 @@ from decimal import Decimal
 import secrets
 from fastapi import APIRouter, Depends, Header
 from pydantic import Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import select, update
 from .db import get_db
 from .auth import current_session, digest
 from .models import Reservation, Visit, User, now
@@ -54,8 +54,10 @@ def consumptions(number: int, data: ConsumptionIn, key: str = Header(alias="Idem
                  auth=Depends(current_session), db=Depends(get_db)):
     lock_table(db, number)
     def save():
-        from .main import open_table
-        visit = db.scalar(select(Visit).where(Visit.active_table == number).with_for_update())
+        from .main import open_table, find_active_visit_for_table
+        visit = find_active_visit_for_table(db, number)
+        if visit:
+            db.scalar(select(Visit).where(Visit.id == visit.id).with_for_update())
         if (visit.id if visit else None) != data.expectedAccount:
             fail("La visita cambió. Revisá la mesa antes de guardar los consumos.")
         if not visit:
@@ -66,6 +68,77 @@ def consumptions(number: int, data: ConsumptionIn, key: str = Header(alias="Idem
     result = once(db, key, f"consumptions:{number}", data.model_dump(mode="json"), save)
     db.commit()
     return result
+
+
+class JoinTablesIn(StrictModel):
+    targetTable: int = Field(ge=1)
+
+
+class SeparateTableIn(StrictModel):
+    targetTable: int = Field(ge=1)
+
+
+@router.post("/tables/{number}/join")
+def join_tables(number: int, data: JoinTablesIn, auth=Depends(current_session), db=Depends(get_db)):
+    target = data.targetTable
+    if number == target:
+        fail("No podés juntar una mesa consigo misma.", 422)
+
+    lock_table(db, number)
+    lock_table(db, target)
+    from .main import open_table, find_active_visit_for_table
+    from .models import Order, Payment
+
+    v_source = find_active_visit_for_table(db, number)
+    v_target = find_active_visit_for_table(db, target)
+
+    if not v_source and not v_target:
+        v_source = open_table(db, number, auth[0])
+        v_source.joined_tables = [target]
+    elif v_source and not v_target:
+        current_joined = list(v_source.joined_tables or [])
+        if target not in current_joined:
+            current_joined.append(target)
+            v_source.joined_tables = current_joined
+    elif not v_source and v_target:
+        current_joined = list(v_target.joined_tables or [])
+        if number not in current_joined:
+            current_joined.append(number)
+            v_target.joined_tables = current_joined
+    else:
+        # Both exist!
+        if v_source.id != v_target.id:
+            # Transfer all orders and payments from v_target to v_source
+            db.execute(update(Order).where(Order.visit_id == v_target.id).values(visit_id=v_source.id))
+            db.execute(update(Payment).where(Payment.visit_id == v_target.id).values(visit_id=v_source.id))
+            v_target.closed_at = now()
+            v_target.active_table = None
+            current_joined = list(v_source.joined_tables or [])
+            if target not in current_joined:
+                current_joined.append(target)
+            for t in (v_target.joined_tables or []):
+                if t not in current_joined and t != number:
+                    current_joined.append(t)
+            v_source.joined_tables = current_joined
+
+    db.commit()
+    return {"ok": True, "source": number, "target": target}
+
+
+@router.post("/tables/{number}/separate")
+def separate_tables(number: int, data: SeparateTableIn, auth=Depends(current_session), db=Depends(get_db)):
+    target = data.targetTable
+    lock_table(db, number)
+    lock_table(db, target)
+    from .main import find_active_visit_for_table
+
+    v = find_active_visit_for_table(db, number)
+    if v and v.joined_tables and target in v.joined_tables:
+        current = list(v.joined_tables)
+        current.remove(target)
+        v.joined_tables = current
+        db.commit()
+    return {"ok": True, "separated": target}
 
 
 @router.post("/counter/quote")

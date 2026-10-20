@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from app.main import app
 from app.db import SessionLocal
-from app.models import Visit, Order, Payment, Product, Reservation, User, Sale
+from app.models import Visit, Order, Payment, Product, Reservation, User, Sale, Table
 from app.attention import calendar_today
 from test_mysql import fixture, key, account, pay, deliver, HEADERS
 
@@ -255,4 +255,52 @@ def test_split_and_qr_payment(fixture):
         assert len(p.splits) == 2
         assert p.splits[0]['method'] == 'efectivo'
         assert p.splits[1]['method'] == 'qr'
+
+
+def test_join_and_separate_tables(fixture):
+    f = fixture
+    c = f['client']
+    t1 = f['table']
+    t2 = t1 + 100
+    f['tables'].append(t2)
+    with SessionLocal() as db:
+        db.add(Table(number=t2))
+        db.commit()
+
+    v1 = c.post(f"/api/tables/{t1}/open").json()['id']
+    post(f, f'/tables/{t1}/consumptions', {
+        'expectedAccount': v1,
+        'items': [{'productId': f['product'], 'quantity': 1}]
+    })
+    assert account(f, v1)['balance'] == 1000
+
+    v2 = c.post(f"/api/tables/{t2}/open").json()['id']
+    post(f, f'/tables/{t2}/consumptions', {
+        'expectedAccount': v2,
+        'items': [{'productId': f['product'], 'quantity': 2}]
+    })
+    assert account(f, v2)['balance'] == 2000
+
+    join_res = c.post(f'/api/tables/{t1}/join', json={'targetTable': t2})
+    assert join_res.status_code == 200
+
+    acc1 = account(f, v1)
+    assert acc1['balance'] == 3000
+    assert t2 in acc1['joinedTables']
+
+    v2_routed = c.post(f"/api/tables/{t2}/open").json()['id']
+    assert v2_routed == v1
+
+    post(f, f'/tables/{t2}/consumptions', {
+        'expectedAccount': v1,
+        'items': [{'productId': f['product'], 'quantity': 1}]
+    })
+    assert account(f, v1)['balance'] == 4000
+
+    sep_res = c.post(f'/api/tables/{t1}/separate', json={'targetTable': t2})
+    assert sep_res.status_code == 200
+
+    acc1_after = account(f, v1)
+    assert t2 not in acc1_after['joinedTables']
+
 

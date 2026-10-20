@@ -301,6 +301,7 @@ def state_for(db, visits, internal=False):
             {
                 "id": v.id,
                 "table": v.table_number,
+                "joinedTables": v.joined_tables or [],
                 "waitressId": v.waitress_id if internal else None,
                 "waitress": names.get(v.waitress_id, "Sin asignar") if internal else "",
                 "openedAt": iso(v.opened_at),

@@ -267,9 +267,19 @@ def state(auth=Depends(current_session), db=Depends(get_db)):
     return result
 
 
+def find_active_visit_for_table(db, number: int):
+    visit = db.scalar(select(Visit).where(Visit.active_table == number))
+    if visit:
+        return visit
+    for active in db.scalars(select(Visit).where(Visit.active_table != None, Visit.closed_at == None)):
+        if active.joined_tables and number in active.joined_tables:
+            return active
+    return None
+
+
 def open_table(db, number, user=None):
     lock_table(db, number)
-    visit = db.scalar(select(Visit).where(Visit.active_table == number))
+    visit = find_active_visit_for_table(db, number)
     if not visit:
         visit = Visit(
             id=uid(),
@@ -277,6 +287,7 @@ def open_table(db, number, user=None):
             active_table=number,
             waitress_id=user.id if user else None,
             public_token_hash=digest(secrets.token_urlsafe(32)),
+            joined_tables=[],
         )
         db.add(visit)
         db.flush()
@@ -286,7 +297,7 @@ def open_table(db, number, user=None):
 @app.post("/api/tables/{number}/open")
 def open_internal(number: int, data: OpenIn = OpenIn(), auth=Depends(current_session), db=Depends(get_db)):
     lock_table(db, number)
-    if not db.scalar(select(Visit.id).where(Visit.active_table == number)):
+    if not find_active_visit_for_table(db, number):
         check_reservation(db, number, data.reservationAcknowledgment)
     visit = open_table(db, number, auth[0])
     db.commit()

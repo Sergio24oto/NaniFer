@@ -658,3 +658,48 @@ button:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
   border-radius: 9px;
 }
 
+
+/* Juntar mesas */
+.joined-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fdf5ea;
+  color: #925c27;
+  border: 1px solid #e8cb9b;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  margin-top: 3px;
+}
+.join-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 55vh;
+  overflow-y: auto;
+  margin: 14px 0;
+}
+.join-modal-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #faf6f0;
+  border: 1px solid #e2d6c9;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.join-modal-item.joined {
+  background: #fef7ed;
+  border-color: #fbd38d;
+}
+.join-modal-item strong {
+  font-size: 14px;
+  color: #553c2f;
+}
+.join-modal-item small {
+  display: block;
+  font-size: 12px;
+  color: #7d624f;
+}
