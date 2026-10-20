@@ -23,6 +23,21 @@ def day(value):
     return datetime.fromisoformat(value).strftime('%d/%m/%Y')
 
 
+def format_method(sale):
+    m = sale.get('method', '')
+    splits = sale.get('splits') or []
+    if m == 'mixto' and splits:
+        parts = []
+        for sp in splits:
+            sm = sp.get('method', '')
+            sa = float(sp.get('amount', 0))
+            lbl = {'efectivo': 'Ef.', 'tarjeta': 'Tarj.', 'transferencia': 'Transf.', 'qr': 'QR'}.get(sm, sm)
+            parts.append(f"{lbl}: ${sa:,.0f}".replace(",", "."))
+        return "Mixto:\n" + "\n".join(parts)
+    labels = {'efectivo': 'Efectivo', 'tarjeta': 'Tarjeta', 'transferencia': 'Transferencia', 'qr': 'QR / MP', 'mixto': 'Mixto'}
+    return labels.get(m, m.capitalize())
+
+
 def build_pdf(data):
     out=BytesIO()
     doc=SimpleDocTemplate(out,pagesize=A4,rightMargin=40,leftMargin=40,topMargin=48,bottomMargin=44,
@@ -61,7 +76,7 @@ def build_pdf(data):
     if not data['sales']:story.append(p('No hay ventas cobradas en el período seleccionado.','Normal'))
     else:
         story.append(table([['Venta','Fecha y hora','Responsable del cobro','Medio de pago','Total']]+[
-            ['Venta #'+str(s['number'])+'\n'+('Mostrador' if s['table'] is None else 'Mesa '+str(s['table']))+('\nCorregida' if s['version'] else ''),stamp(s['createdAt']),s['cashier'],s['method'],money(s['total'])] for s in data['sales']], [100,88,127,80,120]))
+            ['Venta #'+str(s['number'])+'\n'+('Mostrador' if s['table'] is None else 'Mesa '+str(s['table']))+('\nCorregida' if s['version'] else ''),stamp(s['createdAt']),s['cashier'],format_method(s),money(s['total'])] for s in data['sales']], [100,88,127,80,120]))
     if corrected:
         story += [Spacer(1,12),p('Correcciones','Heading2'),p('Se imputan a la jornada original de cada venta. Se conserva el cobro original.','Muted')]
         for s in corrected:

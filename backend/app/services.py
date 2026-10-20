@@ -11,6 +11,7 @@ from .models import (
     Order,
     OrderItem,
     Payment,
+    CashShift,
     Operation,
     User,
     now,
@@ -162,17 +163,71 @@ def make_payment(db, visit, data, user):
         fail("La cuenta no tiene saldo pendiente.")
     if balance != data.expectedBalance:
         fail("El saldo cambió. Revisá el importe antes de confirmar.")
-    received = data.received if data.method == "efectivo" else None
-    if received is not None and received < balance:
-        fail("El dinero recibido no alcanza.", 422)
+
+    if data.splits:
+        split_total = sum((s.amount for s in data.splits), Decimal("0.00"))
+        if split_total != balance:
+            fail(f"La suma de los pagos parciales (${split_total}) no coincide con el saldo pendiente (${balance}).", 422)
+
+        splits_data = []
+        total_cash_received = Decimal("0.00")
+        total_cash_change = Decimal("0.00")
+        has_cash = False
+
+        for s in data.splits:
+            s_rec = s.received if s.method == "efectivo" else None
+            s_chg = None
+            if s.method == "efectivo":
+                has_cash = True
+                if s_rec is not None:
+                    if s_rec < s.amount:
+                        fail("El dinero en efectivo recibido no alcanza.", 422)
+                    s_chg = s_rec - s.amount
+                    total_cash_received += s_rec
+                    total_cash_change += s_chg
+                else:
+                    total_cash_received += s.amount
+            splits_data.append({
+                "method": s.method,
+                "amount": float(s.amount),
+                "received": float(s_rec) if s_rec is not None else None,
+                "change": float(s_chg) if s_chg is not None else None,
+            })
+
+        final_method = "mixto" if len(data.splits) > 1 else data.splits[0].method
+        final_received = total_cash_received if has_cash else None
+        final_change = total_cash_change if has_cash else None
+    else:
+        final_method = data.method
+        if final_method == "efectivo":
+            final_received = data.received
+            if final_received is not None and final_received < balance:
+                fail("El dinero recibido no alcanza.", 422)
+            final_change = None if final_received is None else final_received - balance
+        else:
+            final_received = None
+            final_change = None
+        splits_data = [{
+            "method": final_method,
+            "amount": float(balance),
+            "received": float(final_received) if final_received is not None else None,
+            "change": float(final_change) if final_change is not None else None,
+        }]
+
+    active_shift = db.scalar(
+        select(CashShift).where(CashShift.status == "open").order_by(CashShift.opened_at.desc()).limit(1)
+    )
+
     payment = Payment(
         id=uid(),
         visit_id=visit.id,
         user_id=user.id,
         amount=balance,
-        method=data.method,
-        received=received,
-        change=None if received is None else received - balance,
+        method=final_method,
+        received=final_received,
+        change=final_change,
+        splits=splits_data,
+        shift_id=active_shift.id if active_shift else None,
     )
     db.add(payment)
     db.flush()
@@ -181,7 +236,9 @@ def make_payment(db, visit, data, user):
     return {
         "id": payment.id,
         "total": float(balance),
-        "change": None if received is None else float(received - balance),
+        "method": payment.method,
+        "splits": splits_data,
+        "change": None if final_change is None else float(final_change),
     }
 
 

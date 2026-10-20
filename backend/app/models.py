@@ -129,6 +129,33 @@ class OrderItem(Base):
     snapshot: Mapped[dict] = mapped_column(JSON)
 
 
+class CashShift(Base):
+    __tablename__ = "cash_shifts"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    opened_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    closed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    opened_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    initial_cash: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
+    expected_cash: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    counted_cash: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    difference: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="open")  # "open" | "closed"
+    notes: Mapped[str] = mapped_column(String(500), default="")
+
+
+class CashMovement(Base):
+    __tablename__ = "cash_movements"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    shift_id: Mapped[str] = mapped_column(ForeignKey("cash_shifts.id"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    kind: Mapped[str] = mapped_column(String(20))  # "egreso" | "ingreso"
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    category: Mapped[str] = mapped_column(String(100))
+    notes: Mapped[str] = mapped_column(String(500), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
 class Payment(Base):
     __tablename__ = "payments"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -138,6 +165,8 @@ class Payment(Base):
     method: Mapped[str] = mapped_column(String(20))
     received: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     change: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    splits: Mapped[list] = mapped_column(JSON, default=list)
+    shift_id: Mapped[str | None] = mapped_column(ForeignKey("cash_shifts.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { LayoutGrid, ClipboardList, Coffee, ReceiptText } from "lucide-react";
+import { LayoutGrid, ClipboardList, Coffee, ReceiptText, Banknote } from "lucide-react";
 import { useStore, configure, refresh, login, logout } from "./store";
 import Menu from "./pages/DigitalMenu";
 import MenuManagement from "./pages/MenuManagement";
 import "./digital-menu.css";
 import Sales from "./pages/Sales";
+import CashDrawer from "./pages/CashDrawer";
 import Counter from "./pages/Counter";
 import Stock from "./pages/Stock";
 import "./stock.css";
@@ -140,6 +141,7 @@ function App() {
           <nav>
             {[
               ["/atencion", "Salón", LayoutGrid],
+              ["/atencion/caja", "Caja", Banknote],
               ["/atencion/ventas", "Ventas", ReceiptText],
               ["/atencion/stock", "Stock", LayoutGrid],
               ["/mesa/1", "Carta", Coffee],
@@ -197,6 +199,8 @@ function App() {
         )
       ) : !s.user ? (
         <Login />
+      ) : path === "/atencion/caja" ? (
+        <CashDrawer />
       ) : path === "/atencion/carta" && s.user.role === "admin" ? (<MenuManagement />) : path === "/atencion/ventas" ? (
         <Sales />
       ) : path === "/atencion/stock" ? (

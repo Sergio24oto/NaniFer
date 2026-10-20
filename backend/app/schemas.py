@@ -22,12 +22,19 @@ class OrderIn(StrictModel):
     items: list[ItemIn] = Field(min_length=1, max_length=50)
 
 
+class PaymentSplitIn(StrictModel):
+    method: Literal["efectivo", "tarjeta", "transferencia", "qr"]
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    received: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+
+
 class PayIn(StrictModel):
-    method: Literal["efectivo", "tarjeta", "transferencia"]
+    method: Literal["efectivo", "tarjeta", "transferencia", "qr", "mixto"] = "efectivo"
     received: Decimal | None = Field(
         default=None, ge=0, max_digits=12, decimal_places=2
     )
     expectedBalance: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    splits: list[PaymentSplitIn] = Field(default_factory=list)
 
 
 class StatusIn(StrictModel):

@@ -479,6 +479,9 @@ app.include_router(public_orders_router)
 from .menu_catalog import router as menu_router
 app.include_router(menu_router)
 
+from .cash_drawer import router as cash_drawer_router
+app.include_router(cash_drawer_router)
+
 @app.get("/menu/{filename}")
 def serve_root_menu_image(filename: str):
     import re

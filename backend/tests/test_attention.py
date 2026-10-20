@@ -199,3 +199,60 @@ def test_direct_delivery_and_deliver_all_to_liberate_table(fixture):
         assert db.get(Order, oid2).status == 'entregado'
     assert pay(f, v2, 1000).status_code == 200
     assert f['client'].post('/api/visits/' + v2 + '/close').status_code == 200
+
+
+def test_split_and_qr_payment(fixture):
+    f = fixture
+    v = f['client'].post(f"/api/tables/{f['table']}/open").json()['id']
+    post(f, f'/tables/{f["table"]}/consumptions', {
+        'expectedAccount': v,
+        'items': [{'productId': f['product'], 'quantity': 3}]
+    })
+    bal = account(f, v)['balance']
+    assert bal == 3000
+
+    bad_split = post(f, f'/visits/{v}/payments', {
+        'method': 'mixto',
+        'expectedBalance': 3000,
+        'splits': [
+            {'method': 'efectivo', 'amount': 1000},
+            {'method': 'qr', 'amount': 1500}
+        ]
+    })
+    assert bad_split.status_code == 422
+
+    bad_cash = post(f, f'/visits/{v}/payments', {
+        'method': 'mixto',
+        'expectedBalance': 3000,
+        'splits': [
+            {'method': 'efectivo', 'amount': 2000, 'received': 1500},
+            {'method': 'qr', 'amount': 1000}
+        ]
+    })
+    assert bad_cash.status_code == 422
+
+    ok_split = post(f, f'/visits/{v}/payments', {
+        'method': 'mixto',
+        'expectedBalance': 3000,
+        'splits': [
+            {'method': 'efectivo', 'amount': 2000, 'received': 2500},
+            {'method': 'qr', 'amount': 1000}
+        ]
+    })
+    assert ok_split.status_code == 200
+    res = ok_split.json()
+    assert res['total'] == 3000
+    assert res['method'] == 'mixto'
+    assert res['change'] == 500
+    assert len(res['splits']) == 2
+
+    with SessionLocal() as db:
+        p = db.get(Payment, res['id'])
+        assert p.method == 'mixto'
+        assert p.amount == Decimal('3000.00')
+        assert p.received == Decimal('2500.00')
+        assert p.change == Decimal('500.00')
+        assert len(p.splits) == 2
+        assert p.splits[0]['method'] == 'efectivo'
+        assert p.splits[1]['method'] == 'qr'
+

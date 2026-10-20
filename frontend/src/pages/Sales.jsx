@@ -277,7 +277,11 @@ function SaleDetail({ sale, onClose, onSaved }) {
           <span>{dateTime(sale.createdAt)}</span>
           <span>Jornada {day(sale.day)}</span>
           <span>
-            {sale.method} · {sale.cashier}
+            {sale.method === "mixto" && sale.splits?.length
+              ? `Mixto (${sale.splits.map((sp) => `${sp.method === "qr" ? "QR" : sp.method}: ${money(sp.amount)}`).join(", ")})`
+              : sale.method === "qr"
+              ? "QR / MP"
+              : sale.method} · {sale.cashier}
           </span>
         </div>
         <div className="sales-detail-total">
@@ -696,7 +700,17 @@ export default function Sales() {
                                   <small>Jornada {day(s.day)}</small>
                                 </td>
                                 <td>{s.cashier}</td>
-                                <td>{s.method}</td>
+                                <td>
+                                  {s.method === "mixto" && s.splits?.length ? (
+                                    <span title={s.splits.map((sp) => `${sp.method === "qr" ? "QR" : sp.method}: ${money(sp.amount)}`).join(", ")}>
+                                      Mixto ({s.splits.map((sp) => sp.method === "qr" ? "QR" : sp.method).join("+")})
+                                    </span>
+                                  ) : s.method === "qr" ? (
+                                    "QR / MP"
+                                  ) : (
+                                    s.method
+                                  )}
+                                </td>
                                 <td>
                                   <strong>{money(s.total)}</strong>
                                 </td>

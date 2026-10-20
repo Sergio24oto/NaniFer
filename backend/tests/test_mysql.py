@@ -9,6 +9,7 @@ from app.main import app
 from app.db import SessionLocal, engine
 from app.models import (
     Sale, SaleAllocation, SaleCorrection, Reservation, StockItem, StockMovement, Supplier,
+    CashShift, CashMovement,
     User,
     Category,
     Product,
@@ -129,6 +130,8 @@ def fixture():
                 (OrderItem, OrderItem.order_id.in_(orders)),
                 (Order, Order.visit_id.in_(visits)),
                 (Payment, Payment.visit_id.in_(visits)),
+                (CashMovement, (CashMovement.user_id == user_id) | (CashMovement.shift_id.in_(select(CashShift.id).where((CashShift.opened_by == user_id) | (CashShift.closed_by == user_id))))),
+                (CashShift, (CashShift.opened_by == user_id) | (CashShift.closed_by == user_id)),
                 (PublicSession, PublicSession.visit_id.in_(visits)),
                 (Reservation, Reservation.table_number.in_(numbers)),
                 (Visit, Visit.id.in_(visits)),

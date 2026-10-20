@@ -59,7 +59,7 @@ def report(db, user, start=None, end=None, sale_id=None, last=None):
             fail('El personal solo puede consultar la jornada actual.',403)
         if s.id not in sales:
             sales[s.id]=dict(id=s.id,number=s.number,visitId=p.visit_id,table=table,day=str(day),createdAt=local_iso(p.created_at),
-                cashier=s.cashier_name,method=p.method,paid=str(p.amount),originalTotal=str(p.amount),
+                cashier=s.cashier_name,method=p.method,splits=p.splits or [],paid=str(p.amount),originalTotal=str(p.amount),
                 total=str(s.current_total),difference=str(s.current_total-p.amount),version=s.version,
                 items=s.current_items,originalItems=s.original_items,corrections=[])
         if c:
