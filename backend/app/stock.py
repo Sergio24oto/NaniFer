@@ -65,9 +65,11 @@ class StockProductCreateIn(StrictModel):
     name: str = Field(min_length=1, max_length=150)
     categoryId: str | None = None
     categoryName: str | None = None
-    area: Literal['beverages', 'kiosk', 'candies', 'other'] | None = None
+    area: Literal['beverages', 'kiosk', 'candies', 'other', 'manual'] | None = None
     price: Decimal | None = None
     available: bool = True
+    inMenu: bool = True
+    manageStock: bool = True
     packageType: Literal['pack', 'cajón', 'caja', 'bolsa', 'unidades'] = 'pack'
     packages: int = Field(default=1, ge=1, le=1000000)
     unitsPerPackage: int = Field(default=1, ge=1, le=10000)
@@ -102,7 +104,7 @@ def create_stock_product(data: StockProductCreateIn, key: str = Header(alias='Id
                 cat = db.scalar(select(Category).where(Category.name == data.categoryName.strip()))
             if not cat:
                 default_name = data.categoryName.strip() if data.categoryName and data.categoryName.strip() else (
-                    'Bebidas' if data.area == 'beverages' else 'Kiosco' if data.area == 'kiosk' else 'Golosinas' if data.area == 'candies' else 'Otros'
+                    'Bebidas' if data.area == 'beverages' else 'Kiosco' if data.area == 'kiosk' else 'Golosinas' if data.area == 'candies' else 'Venta libre' if data.area == 'manual' else 'Otros'
                 )
                 cat = Category(
                     id=uid(),
@@ -119,6 +121,7 @@ def create_stock_product(data: StockProductCreateIn, key: str = Header(alias='Id
         if existing:
             fail(f'Ya existe el producto "{data.name}" en la categoría "{cat.name}". Podés agregarle stock desde la lista.', 409)
 
+        stock_mode = 'unit' if data.manageStock and data.area != 'manual' else 'manual'
         p = Product(
             id=uid(),
             name=data.name,
@@ -128,66 +131,70 @@ def create_stock_product(data: StockProductCreateIn, key: str = Header(alias='Id
             price=data.price if data.price is not None else Decimal(0),
             image=None,
             available=data.available,
-            stock_mode='unit',
+            in_menu=data.inMenu,
+            stock_mode=stock_mode,
             public_categories=[],
             sizes=[],
             extras=[],
-            cone_links={}
+            cone_links={},
+            combo_config={}
         )
         db.add(p)
         db.flush()
 
-        package_type = data.packageType or 'pack'
-        units_per_package = data.unitsPerPackage if package_type != 'unidades' else 1
-        quantity = (data.packages * units_per_package) if data.initialStock else None
+        row = None
+        if stock_mode == 'unit':
+            package_type = data.packageType or 'pack'
+            units_per_package = data.unitsPerPackage if package_type != 'unidades' else 1
+            quantity = (data.packages * units_per_package) if data.initialStock else None
 
-        row = StockItem(
-            id=uid(),
-            product_id=p.id,
-            kind='unit',
-            name=p.name,
-            unit='unidades',
-            quantity=quantity,
-            opened=0,
-            units_per_package=units_per_package,
-            version=1 if quantity is not None else 0
-        )
-        db.add(row)
-        db.flush()
-
-        if data.initialStock and quantity is not None and quantity > 0:
-            cost = data.totalCost
-            unit_cost = (cost / quantity).quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP) if cost is not None else None
-            m = StockMovement(
+            row = StockItem(
                 id=uid(),
-                stock_id=row.id,
-                version=1,
-                kind='receive',
-                before=None,
-                after=quantity,
-                opened_before=0,
-                opened_after=0,
-                user_id=auth[0].id,
-                supplier_id=data.supplierId if data.supplierId and db.get(Supplier, data.supplierId) else None,
-                unit_cost=unit_cost,
-                total_cost=cost,
-                note='Carga inicial al crear producto en stock',
-                purchase=dict(
-                    type=package_type,
-                    packages=data.packages,
-                    unitsPerPackage=units_per_package,
-                    units=quantity,
-                    date=(data.receivedDate or datetime.now(ZONE).date()).isoformat()
-                )
+                product_id=p.id,
+                kind='unit',
+                name=p.name,
+                unit='unidades',
+                quantity=quantity,
+                opened=0,
+                units_per_package=units_per_package,
+                version=1 if quantity is not None else 0
             )
-            db.add(m)
+            db.add(row)
             db.flush()
+
+            if data.initialStock and quantity is not None and quantity > 0:
+                cost = data.totalCost
+                unit_cost = (cost / quantity).quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP) if cost is not None else None
+                m = StockMovement(
+                    id=uid(),
+                    stock_id=row.id,
+                    version=1,
+                    kind='receive',
+                    before=None,
+                    after=quantity,
+                    opened_before=0,
+                    opened_after=0,
+                    user_id=auth[0].id,
+                    supplier_id=data.supplierId if data.supplierId and db.get(Supplier, data.supplierId) else None,
+                    unit_cost=unit_cost,
+                    total_cost=cost,
+                    note='Carga inicial al crear producto en stock',
+                    purchase=dict(
+                        type=package_type,
+                        packages=data.packages,
+                        unitsPerPackage=units_per_package,
+                        units=quantity,
+                        date=(data.receivedDate or datetime.now(ZONE).date()).isoformat()
+                    )
+                )
+                db.add(m)
+                db.flush()
 
         return {
             'id': p.id,
-            'stockId': row.id,
+            'stockId': row.id if row else None,
             'name': p.name,
-            'quantity': row.quantity,
+            'quantity': row.quantity if row else None,
             'category': cat.name,
             'stockArea': cat.stock_area
         }

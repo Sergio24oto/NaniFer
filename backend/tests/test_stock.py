@@ -323,3 +323,43 @@ def test_stock_product_creation_with_packaging_and_area(fixture):
     promote(f, 'staff')
     assert post(f, '/stock/products', {'name': 'Otra gaseosa', 'area': 'beverages'}).status_code == 403
 
+
+
+def test_create_manual_product_without_stock(fixture):
+    f = fixture
+    promote(f, 'admin')
+    prod_name = 'Palito Helado Test ' + key()[:6]
+    body = {
+        'name': prod_name,
+        'area': 'manual',
+        'manageStock': False,
+        'price': '3500.00',
+        'available': True,
+        'inMenu': True,
+        'initialStock': False
+    }
+    r = post(f, '/stock/products', body)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data['stockId'] is None
+    assert data['quantity'] is None
+    pid = data['id']
+    f['product_ids'].append(pid)
+
+    with SessionLocal() as db:
+        p = db.get(Product, pid)
+        assert p.stock_mode == 'manual'
+        assert p.price == Decimal('3500.00')
+        assert p.available is True
+        assert p.in_menu is True
+        stock_item = db.scalar(select(StockItem).where(StockItem.product_id == pid))
+        assert stock_item is None
+
+    # Appears in GET /stock?area=manual
+    r_stock = f['client'].get('/api/stock?area=manual')
+    assert r_stock.status_code == 200
+    items = r_stock.json()['items']
+    found = next((i for i in items if i['productId'] == pid), None)
+    assert found is not None
+    assert found['mode'] == 'manual'
+    assert found['stockId'] is None

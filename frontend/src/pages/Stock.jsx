@@ -430,6 +430,153 @@ function NewStockProduct({ area, categories, onClose, onSaved }) {
     </Modal>
   );
 }
+function NewManualProduct({ categories, onClose, onSaved }) {
+  const s = useStore(),
+    scope = "manual-product-create-" + s.user.id,
+    pending = pendingOperation(scope);
+
+  const allCats = categories || [];
+  const defaultCatId = allCats.find(c => c.name?.toLowerCase().includes("helado"))?.id || allCats[0]?.id || "__new__";
+
+  const [name, setName] = useState(pending?.body.name || "");
+  const [categoryId, setCategoryId] = useState(pending?.body.categoryId || defaultCatId);
+  const [categoryName, setCategoryName] = useState(pending?.body.categoryName || "");
+  const [price, setPrice] = useState(pending?.body.price ?? "");
+  const [available, setAvailable] = useState(pending?.body.available ?? true);
+  const [inMenu, setInMenu] = useState(pending?.body.inMenu ?? true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const lock = useRef(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const body = {
+        name: name.trim(),
+        categoryId: categoryId === "__new__" ? null : categoryId,
+        categoryName: categoryId === "__new__" ? categoryName.trim() : null,
+        area: "manual",
+        manageStock: false,
+        price: price === "" || price == null ? null : Number(price),
+        available,
+        inMenu,
+        initialStock: false
+      };
+      const result = await submitOnce(scope, "/stock/products", body);
+      onSaved(`Producto "${result.name}" agregado exitosamente sin control de stock (venta libre).`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title="Agregar producto sin stock (Venta libre)" onClose={() => !busy && onClose()}>
+      <form onSubmit={handleSubmit}>
+        <p>
+          Cargá productos de mostrador o salón que no descuentan existencias por unidad física (ej: helados por kilo, palitos, elaboraciones o promociones). Se venderán a precio fijo.
+        </p>
+
+        <fieldset disabled={busy || !!pending} className="catalog-fields">
+          <label>
+            Nombre del producto
+            <input
+              required
+              maxLength={150}
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Ej: Palito Bombón x 12, Pote 1 KG, Torta Helada"
+              autoFocus
+            />
+          </label>
+
+          <label>
+            Categoría
+            <select
+              value={categoryId}
+              onChange={e => {
+                const val = e.target.value;
+                setCategoryId(val);
+                if (val === "__new__" && !categoryName) {
+                  setCategoryName("");
+                }
+              }}
+              required
+            >
+              {allCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <option value="__new__">+ Crear nueva categoría</option>
+            </select>
+          </label>
+
+          {categoryId === "__new__" && (
+            <label>
+              Nombre de la nueva categoría
+              <input
+                required
+                maxLength={100}
+                value={categoryName}
+                onChange={e => setCategoryName(e.target.value)}
+                placeholder="Ej: Helados, Promociones, Postres"
+              />
+            </label>
+          )}
+
+          <label>
+            Precio de venta ($)
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={price}
+              onChange={e => setPrice(e.target.value)}
+              placeholder="Ej: 9000"
+            />
+          </label>
+
+          <label className="option">
+            <input
+              type="checkbox"
+              checked={available}
+              onChange={e => setAvailable(e.target.checked)}
+            />
+            Habilitar venta inmediata (disponible)
+          </label>
+
+          <label className="option">
+            <input
+              type="checkbox"
+              checked={inMenu}
+              onChange={e => setInMenu(e.target.checked)}
+            />
+            Visible en la carta digital pública (/mesa/:id)
+          </label>
+          <small style={{ color: "var(--text-muted, #666)", marginTop: "-6px", marginBottom: "10px", display: "block" }}>
+            Si está desmarcado, el producto solo aparecerá en el mostrador para el personal.
+          </small>
+        </fieldset>
+
+        {error && <p className="alert" role="alert">{error}</p>}
+        {pending && !busy && (
+          <p className="note">El resultado aún no se confirmó. Reintentá con la misma operación.</p>
+        )}
+
+        <button
+          className="primary full"
+          disabled={busy || !s.connected || !name.trim() || (categoryId === "__new__" && !categoryName.trim())}
+        >
+          {busy ? "Guardando…" : pending ? "Reintentar de forma segura" : "Crear producto sin stock"}
+        </button>
+      </form>
+    </Modal>
+  );
+}
+
 function Configure({
   row,
   cones,
@@ -856,7 +1003,7 @@ export default function Stock() {
       )}
     </div>;
   }
-  return <main className="stock-page"><div className="page-heading"><div className="intro"><span className="eyebrow">EXISTENCIAS</span><h1>Stock</h1>{isAdmin && <button className="primary" disabled={!loaded || !s.connected} onClick={()=>{setPickSearch("");setModal({action:"pick"});}}>+ Agregar stock</button>}<p>{isAdmin ? 'Entradas, conteos y disponibilidad del local.' : 'Consulta de cantidades y disponibilidad.'}</p></div>{isAdmin && <DownloadReport filters={{
+  return <main className="stock-page"><div className="page-heading"><div className="intro"><span className="eyebrow">EXISTENCIAS</span><h1>Stock</h1>{isAdmin && <div style={{display:"inline-flex",gap:8,flexWrap:"wrap",marginTop:4}}><button className="primary" disabled={!loaded || !s.connected} onClick={()=>{setPickSearch("");setModal({action:"pick"});}}>+ Agregar stock</button><button className="secondary" disabled={!loaded || !s.connected} onClick={()=>setModal({action:"new-manual"})}>+ Nuevo producto sin stock</button></div>}<p>{isAdmin ? 'Entradas, conteos y disponibilidad del local.' : 'Consulta de cantidades y disponibilidad.'}</p></div>{isAdmin && <DownloadReport filters={{
         search,
         category,
         mode,area
@@ -864,11 +1011,11 @@ export default function Stock() {
     {error && <p className="alert" role="alert">{error}<button onClick={() => void load()}>Reintentar</button></p>}{message && <p className="success" role="status">{message}</p>}
     <section className="panel">
       <h2>Control principal de stock</h2>
-      <div className="catalog-actions">{[['beverages','Bebidas'],['kiosk','Kiosco'],['candies','Golosinas'],['flavors','Helados · Sabores']].map(([v,label])=><button key={v} className={area===v?'primary':'secondary'} onClick={()=>{setArea(v);setCategory('');setMode('');}}>{label}</button>)}</div>
+      <div className="catalog-actions">{[['beverages','Bebidas'],['kiosk','Kiosco'],['candies','Golosinas'],['flavors','Helados · Sabores'],['manual','Sin stock / Venta libre']].map(([v,label])=><button key={v} className={area===v?'primary':'secondary'} onClick={()=>{setArea(v);setCategory('');setMode('');}}>{label}</button>)}</div>
       {area==='beverages'&&<div className="intro"><h3>Administrar bebidas</h3><p>Consultá bebidas y disponibilidad. Registrá compras por pack o cajón y controlá las existencias por unidad.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'beverages'})}>+ Agregar bebida</button>}</div>}
       {area==='kiosk'&&<div className="intro"><h3>Administrar kiosco</h3><p>Consultá artículos de kiosco y disponibilidad. Registrá compras por caja o pack y controlá las existencias por unidad.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'kiosk'})}>+ Agregar producto de kiosco</button>}</div>}
       {area==='candies'&&<div className="intro"><h3>Administrar golosinas</h3><p>Consultá golosinas y disponibilidad. Registrá compras por bolsa, caja o pack y controlá las existencias por unidad o fracción.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-product',area:'candies'})}>+ Agregar golosina</button>}</div>}
-      {area==='flavors'&&<div className="intro"><h3>Administrar sabores de helado</h3><p>Consultá sabores y disponibilidad. El conteo de recipientes es independiente.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-flavor'})}>+ Agregar sabor</button>}</div>}
+      {area==='flavors'&&<div className="intro"><h3>Administrar sabores de helado</h3><p>Consultá sabores y disponibilidad. El conteo de recipientes es independiente.</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-flavor'})}>+ Agregar sabor</button>}</div>}{area==='manual'&&<div className="intro"><h3>Productos de venta libre (sin control de stock)</h3><p>Artículos que se venden a precio fijo en mostrador o mesas sin descontar unidades físicas (helados por peso, palitos, elaboraciones).</p>{isAdmin&&<button className="primary" disabled={!s.connected} onClick={()=>setModal({action:'new-manual'})}>+ Agregar producto sin stock</button>}</div>}
       <label>Ver<select value={area} onChange={e=>setArea(e.target.value)}>{[['','Todos'],['beverages','Bebidas'],['kiosk','Kiosco'],['candies','Golosinas'],['flavors','Helados · Sabores'],['other','Otros productos con stock'],['empty','Agotados'],['manual','Sin gestión de stock'],['off_menu','Solo mostrador (fuera de carta)'],['in_menu','En la carta digital']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
     </section>
     <div className="stock-filters"><label>Buscar<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Producto, insumo o sabor" /></label><label>Categoría<select value={category} onChange={e => setCategory(e.target.value)}><option value="">Todas</option>{[...new Set(items.map(r => r.category))].map(c => <option key={c}>{c}</option>)}</select></label><label>Modalidad<select value={mode} onChange={e => setMode(e.target.value)}><option value="">Todas</option><option value="unit">Por unidad</option><option value="containers">Recipientes de helado</option><option value="manual">Disponibilidad manual</option></select></label></div>
@@ -884,15 +1031,18 @@ export default function Stock() {
     {isAdmin && <p className="note">Primero configurá qué productos se controlan por unidad. Después cargá la entrada o el conteo inicial. Una entrada suma; un conteo establece la cantidad física y conserva la diferencia.</p>}
     {modal?.action === 'new-flavor' && <NewFlavor onClose={()=>setModal(null)} onSaved={async (msg)=>{ await refresh(); saved(msg); }}/>}
     {modal?.action === 'new-product' && <NewStockProduct area={modal.area} categories={categories.length ? categories : (s.catalog?.categories || [])} onClose={()=>setModal(null)} onSaved={async (msg)=>{ await refresh(); saved(msg); }} />}
+    {modal?.action === 'new-manual' && <NewManualProduct categories={categories.length ? categories : (s.catalog?.categories || [])} onClose={()=>setModal(null)} onSaved={async (msg)=>{ await refresh(); saved(msg); }} />}
     {pendingOperation('flavor-create-'+s.user.id)&&<p className="note">Hay un sabor pendiente de confirmación. <button onClick={()=>setModal({action:'new-flavor'})}>Comprobar guardado</button></p>}
     {pendingOperation('stock-product-create-'+s.user.id)&&<p className="note">Hay un producto pendiente de confirmación. <button onClick={()=>setModal({action:'new-product',area})}>Comprobar guardado</button></p>}
+    {pendingOperation('manual-product-create-'+s.user.id)&&<p className="note">Hay un producto sin stock pendiente de confirmación. <button onClick={()=>setModal({action:'new-manual'})}>Comprobar guardado</button></p>}
     {modal?.action === 'pick' && <Modal title="Agregar stock" onClose={()=>setModal(null)}>
       <p>Buscá el producto o insumo existente para sumarle stock, o creá uno nuevo directamente.</p>
-      <div className="catalog-actions" style={{marginBottom:14}}>
+      <div className="catalog-actions" style={{marginBottom:14,display:'flex',flexWrap:'wrap',gap:8}}>
         <button className="secondary" onClick={()=>setModal({action:'new-product',area:'beverages'})}>+ Nueva bebida</button>
         <button className="secondary" onClick={()=>setModal({action:'new-product',area:'kiosk'})}>+ Nuevo producto de kiosco</button>
         <button className="secondary" onClick={()=>setModal({action:'new-product',area:'candies'})}>+ Nueva golosina</button>
         <button className="secondary" onClick={()=>setModal({action:'new-flavor'})}>+ Nuevo sabor</button>
+        <button className="secondary" onClick={()=>setModal({action:'new-manual'})}>+ Nuevo producto sin stock</button>
       </div>
       <label>Buscar producto o insumo<input type="search" value={pickSearch} onChange={e=>setPickSearch(e.target.value)} autoFocus /></label>
       <div className="stock-management">{items.filter(r=>r.name.toLocaleLowerCase().includes(pickSearch.toLocaleLowerCase())).map(row=><button key={row.id} className="secondary" disabled={!s.connected} onClick={()=>openAction(row,row.stockId&&row.mode!=='manual'?'receive':'configure')}>{row.name} · {row.stockId&&row.mode!=='manual'?'Agregar mercadería':'Configurar stock'}</button>)}</div>
