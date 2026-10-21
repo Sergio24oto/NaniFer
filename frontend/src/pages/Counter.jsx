@@ -204,7 +204,7 @@ export default function Counter({ nav }) {
         setCart={setCart}
         preparation={preparation}
         setPreparation={setPreparation}
-        disabled={busy || !pending || !s.connected || quote !== null}
+        disabled={busy || !!pending || !s.connected || quote !== null}
       />
       <button
         className="primary full"
@@ -258,7 +258,7 @@ export default function Counter({ nav }) {
             <button
               type="button"
               className={!isSplit ? "active" : ""}
-              disabled={busy || !pending}
+              disabled={busy || !!pending}
               onClick={() => setIsSplit(false)}
             >
               Pago único
@@ -266,7 +266,7 @@ export default function Counter({ nav }) {
             <button
               type="button"
               className={isSplit ? "active" : ""}
-              disabled={busy || !pending}
+              disabled={busy || !!pending}
               onClick={() => setIsSplit(true)}
             >
               Pago dividido / mixto
@@ -275,7 +275,7 @@ export default function Counter({ nav }) {
 
           {!isSplit ? (
             <>
-              <fieldset disabled={busy || !pending}>
+              <fieldset disabled={busy || !!pending}>
                 <legend>Medio de pago</legend>
                 {METHODS.map((m) => (
                   <label key={m.value} className="option">
@@ -297,7 +297,7 @@ export default function Counter({ nav }) {
                     min="0"
                     step="0.01"
                     value={received}
-                    disabled={busy || !pending}
+                    disabled={busy || !!pending}
                     onChange={(e) => setReceived(e.target.value)}
                     placeholder="Importe en pesos"
                   />
@@ -330,7 +330,7 @@ export default function Counter({ nav }) {
                             type="button"
                             className="split-remove"
                             title="Eliminar este medio"
-                            disabled={busy || !pending}
+                            disabled={busy || !!pending}
                             onClick={() => handleRemoveSplit(index)}
                           >
                             ✕ Quitar
@@ -341,7 +341,7 @@ export default function Counter({ nav }) {
                         <label>
                           Forma de pago
                           <select
-                            disabled={busy || !pending}
+                            disabled={busy || !!pending}
                             value={row.method}
                             onChange={(e) =>
                               handleSplitChange(index, "method", e.target.value)
@@ -358,7 +358,7 @@ export default function Counter({ nav }) {
                           Importe
                           <div className="split-amount-wrap">
                             <input
-                              disabled={busy || !pending}
+                              disabled={busy || !!pending}
                               type="number"
                               min="0"
                               step="0.01"
@@ -372,7 +372,7 @@ export default function Counter({ nav }) {
                               <button
                                 type="button"
                                 className="split-remainder-btn"
-                                disabled={busy || !pending}
+                                disabled={busy || !!pending}
                                 onClick={() => handleAssignRemaining(index)}
                                 title="Asignar el saldo restante a este medio"
                               >
@@ -387,7 +387,7 @@ export default function Counter({ nav }) {
                           <label>
                             Recibido en efectivo (opcional)
                             <input
-                              disabled={busy || !pending}
+                              disabled={busy || !!pending}
                               type="number"
                               min="0"
                               step="0.01"
@@ -416,7 +416,7 @@ export default function Counter({ nav }) {
               <button
                 type="button"
                 className="add-split-btn"
-                disabled={busy || !pending}
+                disabled={busy || !!pending}
                 onClick={handleAddSplit}
               >
                 ＋ Agregar otro medio de pago
