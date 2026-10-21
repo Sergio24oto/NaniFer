@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useStore, request } from "../store";
-import { money, estimate, operationId } from "../domain";
+import { money, estimate, operationId, tableLabel } from "../domain";
 import Product from "./Product";
 import PublicCart, { publicDevice } from "./PublicCart";
 
@@ -445,7 +445,7 @@ export default function DigitalMenu({ table }) {
 
       <div className="menu-top-bar">
         <span className="menu-table">
-          <span className="table-pulse-dot" /> Estás en la mesa {table}
+          <span className="table-pulse-dot" /> Estás en la {tableLabel(s, table)}
         </span>
         <button
           type="button"
@@ -460,7 +460,7 @@ export default function DigitalMenu({ table }) {
 
       {waiterNotified && (
         <div className="waiter-notified-banner" role="status">
-          🛎️ <strong>¡La moza fue avisada!</strong> En breve se acercará a la mesa {table}.
+          🛎️ <strong>¡La moza fue avisada!</strong> En breve se acercará a la {tableLabel(s, table)}.
         </div>
       )}
       {callError && (
@@ -543,7 +543,7 @@ export default function DigitalMenu({ table }) {
             >
               ← Volver a la carta
             </button>
-            <span className="editorial-table-chip">Mesa {table}</span>
+            <span className="editorial-table-chip">{tableLabel(s, table)}</span>
           </div>
 
           <article className="editorial-card">

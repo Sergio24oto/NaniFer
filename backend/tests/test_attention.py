@@ -304,3 +304,37 @@ def test_join_and_separate_tables(fixture):
     assert t2 not in acc1_after['joinedTables']
 
 
+
+
+def test_table_sectors_and_management(fixture):
+    f = fixture
+    c = f['client']
+    # Check tables in state
+    state = c.get('/api/state').json()
+    assert 'tables' in state
+    tables = state['tables']
+    assert any(t['sector'] == 'afuera' for t in tables)
+    assert any(t['sector'] == 'salon' for t in tables)
+    afuera_tables = [t for t in tables if t['sector'] == 'afuera']
+    assert len(afuera_tables) >= 8
+
+    # Non admin cannot create table
+    with SessionLocal() as db:
+        db.get(User, f['user_id']).role = 'staff'
+        db.commit()
+    assert c.post('/api/tables', json={'sector': 'afuera'}).status_code == 403
+
+    # Admin can create table
+    with SessionLocal() as db:
+        db.get(User, f['user_id']).role = 'admin'
+        db.commit()
+    r = c.post('/api/tables', json={'sector': 'afuera'})
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data['sector'] == 'afuera'
+    assert data['displayNumber'] >= 9
+    new_num = data['number']
+
+    # Admin can delete the newly created table
+    del_r = c.delete(f'/api/tables/{new_num}')
+    assert del_r.status_code == 200

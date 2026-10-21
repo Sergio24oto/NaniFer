@@ -46,3 +46,22 @@ export function operationId() {
     b.toString(16).padStart(2, "0"),
   ).join("");
 }
+
+export function tableLabel(s, number) {
+  if (number == null) return "Mostrador";
+  const found = s?.tables?.find((t) => t.number === number);
+  if (found) {
+    return found.name || `Mesa ${found.displayNumber}${found.sector === "afuera" ? " (Afuera)" : ""}`;
+  }
+  if (number >= 100) {
+    return `Mesa ${number - 100} (Afuera)`;
+  }
+  return `Mesa ${number}`;
+}
+
+export function tableSector(s, number) {
+  if (number == null) return null;
+  const found = s?.tables?.find((t) => t.number === number);
+  if (found) return found.sector;
+  return number >= 100 ? "afuera" : "salon";
+}

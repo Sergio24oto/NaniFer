@@ -264,6 +264,23 @@ def state(auth=Depends(current_session), db=Depends(get_db)):
             payments_query.order_by(Payment.created_at.desc()).limit(20)
         )
     ][::-1]
+
+    from sqlalchemy import case
+    result["tables"] = [
+        {
+            "number": t.number,
+            "sector": t.sector,
+            "displayNumber": t.display_number,
+            "name": t.name or (f"Mesa {t.display_number}" + (" (Afuera)" if t.sector == "afuera" else "")),
+            "active": t.active,
+        }
+        for t in db.scalars(
+            select(Table).where(Table.active == True).order_by(
+                case((Table.sector == "salon", 0), else_=1),
+                Table.display_number
+            )
+        )
+    ]
     return result
 
 
@@ -423,7 +440,8 @@ def public_visit(db, request, number):
 
 @app.get("/api/public/mesa/{number}")
 def public_state(number: int, request: Request, db=Depends(get_db)):
-    if not db.get(Table, number):
+    t = db.get(Table, number)
+    if not t or not t.active:
         fail("Mesa inexistente.", 404)
     return {"table": number}
 

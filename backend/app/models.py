@@ -86,6 +86,10 @@ class Flavor(Base):
 class Table(Base):
     __tablename__ = "dining_tables"
     number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sector: Mapped[str] = mapped_column(String(20), default="salon", server_default="salon")
+    display_number: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    name: Mapped[str] = mapped_column(String(50), default="", server_default="")
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
 
 
 class Visit(Base):

@@ -98,7 +98,7 @@ function App() {
   const publicView = path.startsWith("/mesa");
   const m = path.match(/^\/mesa\/(\d+)\/?$/);
   const table = m ? Number(m[1]) : null;
-  const valid = table >= 1 && table <= 15;
+  const valid = Boolean(table && table >= 1);
   const accountMatch = path.match(/^\/(?:atencion\/mesas|salon)\/(\d+)\/?$/);
   const accountTable = accountMatch ? Number(accountMatch[1]) : null;
   const kitchen = path === "/atencion/comandera" || path === "/comandera";
@@ -209,7 +209,7 @@ function App() {
         <Counter nav={nav} />
       ) : kitchen ? (
         <Kitchen />
-      ) : accountTable >= 1 && accountTable <= 15 ? (
+      ) : accountTable != null && accountTable >= 1 ? (
         <Account key={accountTable} table={accountTable} nav={nav} />
       ) : (
         <Salon nav={nav} message={message} />

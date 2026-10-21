@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { Modal } from "../components";
 import { useStore, submitOnce, pendingOperation } from "../store";
+import { tableLabel } from "../domain";
 export default function Reservations({
   table,
   account,
@@ -50,7 +51,7 @@ export default function Reservations({
     setConfirm(null);
     setMessage("");
   }
-  return <Modal title={"Reservas · Mesa " + table} onClose={onClose}>
+  return <Modal title={"Reservas · " + tableLabel(s, table)} onClose={onClose}>
     <p>Una reserva pendiente por mesa y fecha. La reserva no cambia la ocupación ni abre una cuenta.</p>
     {error && <p className="alert" role="alert">{error}</p>}
     {message && <p className="success" role="status">{message}</p>}

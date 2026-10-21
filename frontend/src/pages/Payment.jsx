@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Modal } from "../components";
-import { money } from "../domain";
+import { money, tableLabel } from "../domain";
 import { useStore, submitOnce, pendingOperation, refresh } from "../store";
 
 const METHODS = [
@@ -179,7 +179,7 @@ export default function Payment({ id, onClose, onSuccess }) {
 
   return (
     <Modal
-      title={"Cobrar · Mesa " + (a?.table || "cerrada")}
+      title={"Cobrar · " + (a?.table != null ? tableLabel(s, a.table) : "cerrada")}
       onClose={() => {
         if (!busy) onClose();
       }}

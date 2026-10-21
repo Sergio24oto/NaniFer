@@ -33,7 +33,8 @@ def categories(db):
 
 @router.get('/public/menu/{number}')
 def menu(number: int, db=Depends(get_db)):
-    if not 1 <= number <= 15 or not db.get(Table, number):
+    t = db.get(Table, number)
+    if not t or not t.active:
         fail('Este enlace de mesa no es válido. Consultá a la moza.', 404)
     from .main import catalog
     data = catalog(db, None)

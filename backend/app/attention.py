@@ -1,13 +1,14 @@
 """Staff workflows; reuse the existing transaction and sale ledger."""
 from datetime import datetime, date, time, UTC
 from decimal import Decimal
+from typing import Literal
 import secrets
 from fastapi import APIRouter, Depends, Header
 from pydantic import Field, field_validator
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func, case
 from .db import get_db
 from .auth import current_session, digest
-from .models import Reservation, Visit, User, now
+from .models import Reservation, Visit, User, Table, now
 from .schemas import StrictModel, ConsumptionIn, ManualOrderIn, CounterIn, CounterQuoteIn
 from .services import lock_table, lock_visit, once, uid, fail, make_order, make_payment, close_visit, priced_item
 from .business_day import ZONE, local_iso
@@ -293,3 +294,98 @@ def reservation_action(id: str, action: str, data: ReservationAction,
     result = once(db, key, "reservation:" + id, {"action": action, **data.model_dump()}, save)
     db.commit()
     return result
+
+
+class TableCreateIn(StrictModel):
+    sector: Literal['salon', 'afuera'] = 'afuera'
+    name: str | None = None
+
+
+@router.get("/tables")
+def get_tables(auth=Depends(current_session), db=Depends(get_db)):
+    tables = list(db.scalars(
+        select(Table).where(Table.active == True).order_by(
+            case((Table.sector == "salon", 0), else_=1),
+            Table.display_number
+        )
+    ))
+    return [
+        {
+            "number": t.number,
+            "sector": t.sector,
+            "displayNumber": t.display_number,
+            "name": t.name or (f"Mesa {t.display_number}" + (" (Afuera)" if t.sector == "afuera" else "")),
+            "active": t.active,
+        }
+        for t in tables
+    ]
+
+
+@router.post("/tables")
+def create_table(data: TableCreateIn, auth=Depends(current_session), db=Depends(get_db)):
+    if auth[0].role != "admin":
+        fail("Solo el administrador puede agregar mesas.", 403)
+
+    existing_in_sector = list(db.scalars(
+        select(Table).where(Table.sector == data.sector, Table.active == True)
+    ))
+    max_disp = max([t.display_number for t in existing_in_sector], default=0)
+    disp = max_disp + 1
+
+    taken_numbers = set(db.scalars(select(Table.number)))
+    if data.sector == "salon":
+        candidate = disp
+        while candidate in taken_numbers:
+            candidate += 1
+        num = candidate
+    else:
+        candidate = 100 + disp
+        while candidate in taken_numbers:
+            candidate += 1
+        num = candidate
+
+    table_name = data.name.strip() if data.name and data.name.strip() else (
+        f"Mesa {disp}" + (" (Afuera)" if data.sector == "afuera" else "")
+    )
+
+    new_t = Table(
+        number=num,
+        sector=data.sector,
+        display_number=disp,
+        name=table_name,
+        active=True
+    )
+    db.add(new_t)
+    db.commit()
+    return {
+        "number": new_t.number,
+        "sector": new_t.sector,
+        "displayNumber": new_t.display_number,
+        "name": new_t.name,
+        "active": new_t.active,
+    }
+
+
+@router.delete("/tables/{number}")
+def remove_table(number: int, auth=Depends(current_session), db=Depends(get_db)):
+    if auth[0].role != "admin":
+        fail("Solo el administrador puede eliminar mesas.", 403)
+
+    t = db.get(Table, number)
+    if not t or not t.active:
+        fail("Mesa no encontrada.", 404)
+
+    from .main import find_active_visit_for_table
+    if find_active_visit_for_table(db, number):
+        fail("No podés eliminar una mesa con atención abierta o pedidos en curso.", 409)
+
+    past_visits_count = db.scalar(select(func.count(Visit.id)).where(Visit.table_number == number))
+    if past_visits_count and past_visits_count > 0:
+        t.active = False
+        db.commit()
+        return {"ok": True, "number": number, "archived": True}
+    else:
+        db.delete(t)
+        db.commit()
+        return {"ok": True, "number": number, "deleted": True}
+

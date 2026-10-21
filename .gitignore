@@ -61,6 +61,7 @@ npm-cache/
 tmp/
 temp/
 /work/
+frontend/public/menu/test-photo-*.webp
 backend/uploads/
 
 # Operating-system and editor-local files

@@ -1,26 +1,162 @@
 import React, { useState, useRef } from "react";
 import { ArrowLeft, ClipboardList, Coffee } from "lucide-react";
 import { Badge, Items, Modal } from "../components";
-import { useStore, mutate, submitOnce, pendingOperation, refresh } from "../store";
-import { money, activeAccount, statuses, time, itemInput, estimate } from "../domain";
+import { useStore, mutate, submitOnce, pendingOperation, refresh, request } from "../store";
+import { money, activeAccount, statuses, time, itemInput, estimate, tableLabel, tableSector } from "../domain";
 import {useDraft} from "../useDraft";
 import {readDraft} from "../drafts";
 import Payment from "./Payment";
 import QuickEntry from "./QuickEntry";
 import Reservations from "./Reservations";
+export function getTables(s) {
+  return (s.tables && s.tables.length > 0)
+    ? s.tables
+    : Array.from({ length: 15 }, (_, i) => ({
+        number: i + 1,
+        sector: "salon",
+        displayNumber: i + 1,
+        name: `Mesa ${i + 1}`
+      }));
+}
+
+function ManageTablesModal({ tables, onClose, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const salonTables = tables.filter(t => t.sector === "salon");
+  const afueraTables = tables.filter(t => t.sector === "afuera");
+
+  async function addTable(sector) {
+    setBusy(true);
+    setError("");
+    setMsg("");
+    try {
+      const res = await request("/tables", {
+        method: "POST",
+        body: { sector }
+      });
+      await onChanged();
+      setMsg(`Mesa agregada: ${res.name}`);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteTable(num, name) {
+    if (!window.confirm(`¿Eliminar ${name}?`)) return;
+    setBusy(true);
+    setError("");
+    setMsg("");
+    try {
+      await request("/tables/" + num, { method: "DELETE" });
+      await onChanged();
+      setMsg(`${name} eliminada.`);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title="Gestionar mesas del local" onClose={() => !busy && onClose()}>
+      <p style={{ color: "#624335", marginBottom: 14 }}>
+        Administrá las mesas de los sectores Salón y Afuera. Podés sumar nuevas mesas en cualquier momento.
+      </p>
+
+      {error && <p className="alert" role="alert">{error}</p>}
+      {msg && <p className="success" role="status">{msg}</p>}
+
+      <div className="manage-tables-sector-block">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <strong>🏠 Sector Salón (Adentro) · {salonTables.length} mesas</strong>
+          <button
+            type="button"
+            className="primary"
+            disabled={busy}
+            style={{ fontSize: 12, padding: "4px 10px" }}
+            onClick={() => addTable("salon")}
+          >
+            + Agregar mesa en Salón
+          </button>
+        </div>
+        <div className="manage-tables-list">
+          {salonTables.map(t => (
+            <div key={t.number} className="manage-table-pill">
+              <span><strong>Mesa {t.displayNumber}</strong></span>
+              <button
+                type="button"
+                className="text-button"
+                disabled={busy}
+                style={{ padding: 0, color: "#a64b3a", marginLeft: 4 }}
+                title="Eliminar mesa"
+                onClick={() => deleteTable(t.number, t.name)}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="manage-tables-sector-block" style={{ marginTop: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <strong>☀️ Sector Afuera (Exterior) · {afueraTables.length} mesas</strong>
+          <button
+            type="button"
+            className="primary"
+            disabled={busy}
+            style={{ fontSize: 12, padding: "4px 10px" }}
+            onClick={() => addTable("afuera")}
+          >
+            + Agregar mesa en Afuera
+          </button>
+        </div>
+        <div className="manage-tables-list">
+          {afueraTables.map(t => (
+            <div key={t.number} className="manage-table-pill afuera">
+              <span><strong>Mesa {t.displayNumber}</strong></span>
+              <small style={{ color: "#92400e" }}>Afuera</small>
+              <button
+                type="button"
+                className="text-button"
+                disabled={busy}
+                style={{ padding: 0, color: "#a64b3a", marginLeft: 4 }}
+                title="Eliminar mesa"
+                onClick={() => deleteTable(t.number, t.name)}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 export function Salon({
   nav,
   message
 }) {
   const s = useStore();
-  const [reservingTable,setReservingTable] = useState(null);
+  const [reservingTable, setReservingTable] = useState(null);
   const [reservationDate, setReservationDate] = useState("");
+  const [sectorFilter, setSectorFilter] = useState("all");
+  const [managingTables, setManagingTables] = useState(false);
   const date = reservationDate || s.calendarToday;
   const opened = s.accounts.filter(a => !a.closedAt && a.table != null);
   const ready = s.orders.filter(o => o.status === "listo para entregar");
   const pendingCalls = (s.calls || []).filter(c => c.status === "pending" || c.pending_table != null);
+  const allTables = getTables(s);
+  const visibleTables = sectorFilter === "all"
+    ? allTables
+    : allTables.filter(t => t.sector === sectorFilter);
   return <main className="salon-compact">
-    <div className="page-heading"><div className="intro"><span className="eyebrow">ATENCIÓN</span><h1>Mesas y Mostrador</h1><p>{opened.length} de 15 mesas ocupadas · {money(opened.reduce((n, a) => n + a.balance, 0))} pendiente</p></div><button className="secondary" onClick={() => nav("/atencion/comandera")}><ClipboardList size={17} /> Mozas · {ready.length} listos</button></div>
+    <div className="page-heading"><div className="intro"><span className="eyebrow">ATENCIÓN</span><h1>Mesas y Mostrador</h1><p>{opened.length} de {allTables.length} mesas ocupadas · {money(opened.reduce((n, a) => n + a.balance, 0))} pendiente</p></div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><button className="secondary" onClick={() => nav("/atencion/comandera")}><ClipboardList size={17} /> Mozas · {ready.length} listos</button>{s.user?.role === "admin" && <button className="secondary" onClick={() => setManagingTables(true)}>⚙️ Gestionar mesas</button>}</div></div>
     {message && <p className="success" role="status">{message}</p>}
     {pendingCalls.length > 0 && (
       <div className="calls-alert-banner" role="alert">
@@ -30,8 +166,8 @@ export function Salon({
             <strong>¡Llamado de atención en salón!</strong>
             <p>
               {pendingCalls.length === 1
-                ? `La Mesa ${pendingCalls[0].table} está llamando a la moza.`
-                : `Mesas llamando a la moza: ${pendingCalls.map(c => `Mesa ${c.table}`).join(", ")}.`}
+                ? `La ${tableLabel(s, pendingCalls[0].table)} está llamando a la moza.`
+                : `Mesas llamando a la moza: ${pendingCalls.map(c => tableLabel(s, c.table)).join(", ")}.`}
             </p>
           </div>
         </div>
@@ -46,18 +182,39 @@ export function Salon({
                 mutate('/calls/' + c.id + '/attend', {});
               }}
             >
-              ✓ Atender Mesa {c.table}
+              ✓ Atender {tableLabel(s, c.table)}
             </button>
           ))}
         </div>
       </div>
     )}
     <details className="reservation-date"><summary>Ver reservas de otra fecha</summary><label>Fecha de reservas<input type="date" value={date || ""} onInput={e => setReservationDate(e.currentTarget.value)} /></label><button className="text-button" onClick={() => setReservationDate("")}>Volver a hoy</button><small>La ocupación y los saldos siempre son los actuales.</small></details>
-    <div className="table-grid"><button className="table-card counter-card" onClick={() => nav("/atencion/mostrador")}><div className="row"><h2>Mostrador</h2><Coffee size={24} /></div><strong>Nueva compra</strong><small>Sin mesa · seleccionar y cobrar</small>{readDraft(s.user.id,"counter")?.cart.length>0&&<small className="draft-hint">Consumos sin confirmar</small>}</button>
-      {Array.from({
-        length: 15
-      }, (_, i) => {
-        const n = i + 1,
+    <div className="catalog-actions" style={{ marginBottom: 14, display: "flex", flexWrap: "wrap", gap: 8 }}>
+      {[
+        ["all", `Todas (${allTables.length})`],
+        ["salon", `🏠 Salón (${allTables.filter(t => t.sector === "salon").length})`],
+        ["afuera", `☀️ Afuera (${allTables.filter(t => t.sector === "afuera").length})`]
+      ].map(([sec, label]) => (
+        <button
+          key={sec}
+          className={sectorFilter === sec ? "primary" : "secondary"}
+          onClick={() => setSectorFilter(sec)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+    <div className="table-grid">
+      {sectorFilter !== "afuera" && (
+        <button className="table-card counter-card" onClick={() => nav("/atencion/mostrador")}>
+          <div className="row"><h2>Mostrador</h2><Coffee size={24} /></div>
+          <strong>Nueva compra</strong>
+          <small>Sin mesa · seleccionar y cobrar</small>
+          {readDraft(s.user.id,"counter")?.cart.length>0&&<small className="draft-hint">Consumos sin confirmar</small>}
+        </button>
+      )}
+      {visibleTables.map((t) => {
+        const n = t.number,
           directAcc = activeAccount(s, n),
           parentAcc = s.accounts.find(acc => !acc.closedAt && acc.joinedTables?.includes(n)),
           a = directAcc || parentAcc,
@@ -71,7 +228,7 @@ export function Salon({
         const reservation = all.find(x => x.date === date) || (!reservationDate ? all.find(x => x.date > s.calendarToday) || all[0] : null);
         const tableOrders = s.orders.filter(o => o.accountId === a?.id);
         const hasOrders = a && tableOrders.length > 0;
-        return <article key={n} className={"table-card table-card-actions " + (a ? "occupied " : "") + (hasOrders ? "has-orders " : "") + (r ? "ready" : "") + (reservation ? " has-reservation" : "") + (call ? " calling" : "")}>
+        return <article key={n} className={"table-card table-card-actions " + (t.sector === "afuera" ? "card-sector-afuera " : "") + (a ? "occupied " : "") + (hasOrders ? "has-orders " : "") + (r ? "ready" : "") + (reservation ? " has-reservation" : "") + (call ? " calling" : "")}>
           {call && (
             <div className="call-badge">
               <div className="call-badge-title">
@@ -93,9 +250,12 @@ export function Salon({
           <button className="table-open" onClick={() => nav("/atencion/mesas/" + targetTable)}>
           <div className="row">
             <div>
-              <h2>Mesa {n}</h2>
-              {isJoinedChild && <span className="joined-tag">🔗 Junta con Mesa {parentAcc.table}</span>}
-              {isJoinedParent && <span className="joined-tag">🔗 Junta con Mesa {joinedChildren.join(", ")}</span>}
+              <span className={`sector-tag ${t.sector === "afuera" ? "sector-afuera" : "sector-salon"}`}>
+                {t.sector === "afuera" ? "☀️ Afuera" : "🏠 Salón"}
+              </span>
+              <h2>Mesa {t.displayNumber}</h2>
+              {isJoinedChild && <span className="joined-tag">🔗 Junta con {tableLabel(s, parentAcc.table)}</span>}
+              {isJoinedParent && <span className="joined-tag">🔗 Junta con {joinedChildren.map(jt => tableLabel(s, jt)).join(", ")}</span>}
             </div>
             {hasOrders ? (
               <Badge tone="red">Pedido ya realizado</Badge>
@@ -121,6 +281,7 @@ export function Salon({
 
     </div>
     {reservingTable&&<Reservations table={reservingTable} account={activeAccount(s,reservingTable)} onClose={()=>setReservingTable(null)}/>}
+    {managingTables && <ManageTablesModal tables={allTables} onClose={() => setManagingTables(false)} onChanged={async () => { await refresh(); }} />}
   </main>;
 }
 export function restoreCart(pending, catalog) {
@@ -138,6 +299,7 @@ export function Account({
   nav
 }) {
   const s = useStore(),
+    allTables = getTables(s),
     parentAcc = s.accounts.find(acc => !acc.closedAt && acc.joinedTables?.includes(table)),
     effectiveTable = parentAcc ? parentAcc.table : table,
     a = parentAcc || activeAccount(s, table);
@@ -191,15 +353,18 @@ export function Account({
     <div className="page-heading">
       <div className="intro">
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <h1>Mesa {table}</h1>
+          <h1>{tableLabel(s, table)}</h1>
+          <span className={`sector-tag ${tableSector(s, table) === "afuera" ? "sector-afuera" : "sector-salon"}`} style={{ fontSize: 13, padding: "3px 8px", marginBottom: 0 }}>
+            {tableSector(s, table) === "afuera" ? "☀️ Sector Afuera" : "🏠 Sector Salón"}
+          </span>
           {a?.joinedTables?.length > 0 && (
             <span className="joined-tag" style={{ fontSize: 13, padding: "4px 8px" }}>
-              🔗 Junta con Mesa {a.joinedTables.join(", ")}
+              🔗 Junta con {a.joinedTables.map(jt => tableLabel(s, jt)).join(", ")}
             </span>
           )}
           {parentAcc && (
             <span className="joined-tag" style={{ fontSize: 13, padding: "4px 8px" }}>
-              🔗 Junta con Mesa {parentAcc.table}
+              🔗 Junta con {tableLabel(s, parentAcc.table)}
             </span>
           )}
         </div>
@@ -400,7 +565,7 @@ export function Account({
       <section className="panel add-products-panel">
         <div className="add-products-header">
           <span className="section-eyebrow">AGREGAR MÁS PRODUCTOS</span>
-          <h2>+ Sumar consumos a la mesa {table}</h2>
+          <h2>+ Sumar consumos a {tableLabel(s, table)}</h2>
           <p>Elegí productos de la carta para agregar a esta visita.</p>
         </div>
 
@@ -429,7 +594,7 @@ export function Account({
     {joining && (
       <Modal title="Juntar mesas" onClose={() => setJoining(false)}>
         <p style={{ margin: "0 0 14px 0", color: "#624335" }}>
-          Elegí con qué mesa querés juntar la <strong>Mesa {effectiveTable}</strong>:
+          Elegí con qué mesa querés juntar <strong>{tableLabel(s, effectiveTable)}</strong>:
         </p>
 
         {a?.joinedTables?.length > 0 && (
@@ -439,7 +604,12 @@ export function Account({
               {a.joinedTables.map(jt => (
                 <div key={jt} className="join-modal-item joined">
                   <div>
-                    <strong>Mesa {jt}</strong>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span className={`sector-tag ${tableSector(s, jt) === "afuera" ? "sector-afuera" : "sector-salon"}`} style={{ fontSize: 10, padding: "1px 5px", marginBottom: 0 }}>
+                        {tableSector(s, jt) === "afuera" ? "☀️ Afuera" : "🏠 Salón"}
+                      </span>
+                      <strong>{tableLabel(s, jt)}</strong>
+                    </div>
                     <small>Junta con esta mesa</small>
                   </div>
                   <button
@@ -451,7 +621,7 @@ export function Account({
                         targetTable: jt
                       });
                       await refresh();
-                      setMessage(`Mesa ${jt} separada de la Mesa ${effectiveTable}.`);
+                      setMessage(`${tableLabel(s, jt)} separada de ${tableLabel(s, effectiveTable)}.`);
                     })}
                   >
                     Separar mesa
@@ -464,9 +634,10 @@ export function Account({
 
         <strong style={{ fontSize: 13, color: "#8c6e58", textTransform: "uppercase" }}>Juntar con otra mesa:</strong>
         <div className="join-modal-list">
-          {Array.from({ length: 15 }, (_, i) => i + 1)
-            .filter(num => num !== effectiveTable && !a?.joinedTables?.includes(num))
-            .map(num => {
+          {allTables
+            .filter(t => t.number !== effectiveTable && !a?.joinedTables?.includes(t.number))
+            .map(t => {
+              const num = t.number;
               const targetAcc = activeAccount(s, num);
               const targetIsJoinedChild = s.accounts.find(acc => !acc.closedAt && acc.joinedTables?.includes(num));
               if (targetIsJoinedChild) return null;
@@ -474,7 +645,12 @@ export function Account({
               return (
                 <div key={num} className="join-modal-item">
                   <div>
-                    <strong>Mesa {num}</strong>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span className={`sector-tag ${t.sector === "afuera" ? "sector-afuera" : "sector-salon"}`} style={{ fontSize: 10, padding: "1px 5px", marginBottom: 0 }}>
+                        {t.sector === "afuera" ? "☀️ Afuera" : "🏠 Salón"}
+                      </span>
+                      <strong>{tableLabel(s, num)}</strong>
+                    </div>
                     <small>
                       {isOccupied
                         ? `Ocupada (${money(targetAcc.balance)}) · Se sumarán consumos a esta cuenta`
@@ -491,10 +667,10 @@ export function Account({
                       });
                       await refresh();
                       setJoining(false);
-                      setMessage(`Mesa ${effectiveTable} junta con Mesa ${num}.`);
+                      setMessage(`${tableLabel(s, effectiveTable)} junta con ${tableLabel(s, num)}.`);
                     })}
                   >
-                    Juntar con Mesa {num}
+                    Juntar con {tableLabel(s, num)}
                   </button>
                 </div>
               );
@@ -550,7 +726,14 @@ export function Kitchen() {
             const a = s.accounts.find(a => a.id === o.accountId);
             return <article className="order-card" key={o.id}>
                     <div className="row">
-                      <h2>{o.table == null ? "Mostrador" : "Mesa " + o.table}</h2>
+                      <div>
+                        <h2>{o.table == null ? "Mostrador" : tableLabel(s, o.table)}</h2>
+                        {o.table != null && (
+                          <span className={`sector-tag ${tableSector(s, o.table) === "afuera" ? "sector-afuera" : "sector-salon"}`} style={{ fontSize: 11, padding: "2px 6px", marginBottom: 0 }}>
+                            {tableSector(s, o.table) === "afuera" ? "☀️ Afuera" : "🏠 Salón"}
+                          </span>
+                        )}
+                      </div>
                       <small>{time(o.createdAt)}</small>
                     </div>
                     <small>
