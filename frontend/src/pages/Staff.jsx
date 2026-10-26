@@ -1,8 +1,8 @@
-import React, { useState, useRef } from "react";
-import { ArrowLeft, ClipboardList, Coffee } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { ArrowLeft, ClipboardList, Coffee, ChefHat, Volume2, VolumeX, Maximize2, Minimize2, Clock, CheckCircle2 } from "lucide-react";
 import { Badge, Items, Modal } from "../components";
 import { useStore, mutate, submitOnce, pendingOperation, refresh, request } from "../store";
-import { money, activeAccount, statuses, time, itemInput, estimate, tableLabel, tableSector } from "../domain";
+import { money, activeAccount, statuses, time, itemInput, estimate, tableLabel, tableSector, orderHasStation, getProductStation } from "../domain";
 import {useDraft} from "../useDraft";
 import {readDraft} from "../drafts";
 import Payment from "./Payment";
@@ -681,11 +681,87 @@ export function Account({
 
   </main>;
 }
+function playKitchenChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(587.33, now); // D5
+    gain1.gain.setValueAtTime(0.25, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.45);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(880, now + 0.15); // A5
+    gain2.gain.setValueAtTime(0.3, now + 0.15);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.15);
+    osc2.stop(now + 0.75);
+  } catch (e) {}
+}
+
 export function Kitchen() {
   const s = useStore();
+  const [stationFilter, setStationFilter] = useState("cocina");
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("nf.kds.sound") !== "false");
+  const [isFullScreen, setIsFullScreen] = useState(Boolean(document.fullscreenElement));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(null);
   const lock = useRef(false);
+  const prevOrderIdsRef = useRef(new Set());
+
+  useEffect(() => {
+    const handleFs = () => setIsFullScreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", handleFs);
+    return () => document.removeEventListener("fullscreenchange", handleFs);
+  }, []);
+
+  useEffect(() => {
+    const currentPending = s.orders.filter(o => o.status === "pendiente" && orderHasStation(o, stationFilter, s.catalog));
+    const currentIds = new Set(currentPending.map(o => o.id));
+    const isInitial = prevOrderIdsRef.current.size === 0;
+
+    let hasNew = false;
+    for (const id of currentIds) {
+      if (!prevOrderIdsRef.current.has(id)) {
+        hasNew = true;
+        break;
+      }
+    }
+
+    if (!isInitial && hasNew && soundEnabled) {
+      playKitchenChime();
+    }
+    prevOrderIdsRef.current = currentIds;
+  }, [s.orders, stationFilter, soundEnabled, s.catalog]);
+
+  function toggleSound() {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    localStorage.setItem("nf.kds.sound", String(next));
+    if (next) playKitchenChime();
+  }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
   async function advance(o) {
     if (lock.current) return;
     lock.current = true;
@@ -702,31 +778,134 @@ export function Kitchen() {
       lock.current = false;
     }
   }
-  return <main>
-      <div className="intro">
-        <span className="eyebrow">DE LA COCINA A LA MESA</span>
-        <h1>Preparación</h1>
-        <p>Los pedidos cobrados siguen acá hasta su entrega.</p>
+
+  function elapsedMinutes(createdAt) {
+    if (!createdAt) return 0;
+    const diff = Math.max(0, Date.now() - new Date(createdAt).getTime());
+    return Math.floor(diff / 60000);
+  }
+
+  const stationOrders = s.orders.filter(o => orderHasStation(o, stationFilter, s.catalog));
+  const activeStationOrders = stationOrders.filter(o => o.status !== "entregado");
+
+  return (
+    <main className={`kitchen-kds-container ${isFullScreen ? "kds-fullscreen" : ""}`}>
+      <div className="kitchen-kds-header">
+        <div className="intro">
+          <span className="eyebrow">SISTEMA DE PANTALLA · KDS</span>
+          <h1>Pantalla de Cocina y Despacho</h1>
+          <p>
+            {stationFilter === "cocina"
+              ? "Mostrando únicamente platos y alimentos que requieren cocina / elaboración."
+              : stationFilter === "cafeteria"
+              ? "Mostrando pedidos de cafetería, infusiones y barra."
+              : "Mostrando todos los pedidos del local."}
+          </p>
+        </div>
+
+        <div className="kds-header-controls">
+          <div className="kds-station-tabs">
+            <button
+              type="button"
+              className={stationFilter === "cocina" ? "primary kds-tab-btn" : "secondary kds-tab-btn"}
+              onClick={() => setStationFilter("cocina")}
+            >
+              🍳 Cocina ({s.orders.filter(o => o.status !== "entregado" && orderHasStation(o, "cocina", s.catalog)).length})
+            </button>
+            <button
+              type="button"
+              className={stationFilter === "cafeteria" ? "primary kds-tab-btn" : "secondary kds-tab-btn"}
+              onClick={() => setStationFilter("cafeteria")}
+            >
+              ☕ Barra ({s.orders.filter(o => o.status !== "entregado" && orderHasStation(o, "cafeteria", s.catalog)).length})
+            </button>
+            <button
+              type="button"
+              className={stationFilter === "all" ? "primary kds-tab-btn" : "secondary kds-tab-btn"}
+              onClick={() => setStationFilter("all")}
+            >
+              📋 Todo ({s.orders.filter(o => o.status !== "entregado").length})
+            </button>
+          </div>
+
+          <div className="kds-action-tools">
+            <button
+              type="button"
+              className={`kds-tool-btn ${soundEnabled ? "sound-active" : ""}`}
+              onClick={toggleSound}
+              title={soundEnabled ? "Silenciar avisos de cocina" : "Activar sonido de comanda"}
+            >
+              {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              <span>{soundEnabled ? "Sonido ON" : "Sonido OFF"}</span>
+            </button>
+
+            <button
+              type="button"
+              className="kds-tool-btn"
+              onClick={toggleFullscreen}
+              title={isFullScreen ? "Salir de pantalla completa" : "Modo Tablet / Pantalla Completa"}
+            >
+              {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              <span>{isFullScreen ? "Ventana" : "Pantalla Completa"}</span>
+            </button>
+          </div>
+        </div>
       </div>
-      {error && <p role="alert" className="alert">
-          {error}
-        </p>}
-      {!s.orders.some(o=>o.status!=="entregado")&&<p className="panel">No hay pedidos pendientes de preparación.</p>}
-      <div className="kanban">
+
+      {error && <p role="alert" className="alert">{error}</p>}
+
+      {!activeStationOrders.length && (
+        <div className="panel empty-kds-banner">
+          <span style={{ fontSize: 36 }}>✨</span>
+          <div>
+            <h3>No hay comandas pendientes en {stationFilter === "cocina" ? "Cocina" : stationFilter === "cafeteria" ? "Barra" : "el local"}</h3>
+            <p>Apenas una moza o cliente cargue un pedido elaborado, sonará la campana y aparecerá aquí al instante.</p>
+          </div>
+        </div>
+      )}
+
+      <div className="kanban kds-kanban">
         {statuses.slice(0, 3).map((status, index) => {
-        const orders = s.orders.filter(o => o.status === status);
-        return <section key={status}>
-              <h3>
-                <span className={"dot dot-" + index} />
-                {status}
-                <Badge>{orders.length}</Badge>
-              </h3>
-              {!orders.length && <div className="empty-column">Sin pedidos por acá</div>}
+          const orders = stationOrders.filter(o => o.status === status);
+          return (
+            <section key={status} className={`kds-column kds-column-${index}`}>
+              <div className="kds-column-header">
+                <h3>
+                  <span className={"dot dot-" + index} />
+                  {status === "pendiente" ? "1. Pendientes" : status === "en preparación" ? "2. En Preparación" : "3. Listos para entregar"}
+                  <Badge>{orders.length}</Badge>
+                </h3>
+              </div>
+
+              {!orders.length && (
+                <div className="empty-column">
+                  {index === 0 ? "Sin pedidos en cola" : index === 1 ? "Nada preparándose ahora" : "Sin pedidos esperando retiro"}
+                </div>
+              )}
+
               {orders.map(o => {
-            const a = s.accounts.find(a => a.id === o.accountId);
-            return <article className="order-card" key={o.id}>
-                    <div className="row">
-                      <div>
+                const a = s.accounts.find(a => a.id === o.accountId);
+                const elapsed = elapsedMinutes(o.createdAt);
+                const delayTone = elapsed >= 20 ? "delay-urgent" : elapsed >= 10 ? "delay-warning" : "delay-normal";
+
+                const targetStationItems = stationFilter === "all"
+                  ? o.items
+                  : o.items.filter(i => {
+                      const p = (s.catalog?.products || []).find(prod => prod.id === i.productId);
+                      return getProductStation(p || { name: i.name, category: "" }) === stationFilter;
+                    });
+                const otherItems = stationFilter === "all"
+                  ? []
+                  : o.items.filter(i => {
+                      const p = (s.catalog?.products || []).find(prod => prod.id === i.productId);
+                      return getProductStation(p || { name: i.name, category: "" }) !== stationFilter;
+                    });
+
+                return (
+                  <article className={`order-card kds-order-card ${delayTone}`} key={o.id}>
+                    <div className="kds-card-top-row">
+                      <div className="kds-card-table-block">
+                        <span className="kds-card-order-num">#{o.number || o.id.slice(0, 5)}</span>
                         <h2>{o.table == null ? "Mostrador" : tableLabel(s, o.table)}</h2>
                         {o.table != null && (
                           <span className={`sector-tag ${tableSector(s, o.table) === "afuera" ? "sector-afuera" : "sector-salon"}`} style={{ fontSize: 11, padding: "2px 6px", marginBottom: 0 }}>
@@ -734,22 +913,85 @@ export function Kitchen() {
                           </span>
                         )}
                       </div>
+
+                      <div className={`kds-card-timer-badge ${delayTone}`}>
+                        <Clock size={13} />
+                        <span>{elapsed === 0 ? "Recién" : `${elapsed} min`}</span>
+                      </div>
+                    </div>
+
+                    <div className="kds-card-meta">
+                      <span>Responsable: <strong>{a?.waitress || "Sin asignar"}</strong></span>
                       <small>{time(o.createdAt)}</small>
                     </div>
-                    <small>
-                      {a?.waitress} · #{o.id.slice(0, 5)}
-                    </small>
-                    <Items items={o.items} />
-                    <Badge tone={a?.balance === 0 ? "green" : "amber"}>
-                      {a?.balance === 0 ? "Visita sin saldo pendiente" : "Visita con saldo pendiente"}
-                    </Badge>
-                    {index < 3 && <button className="primary full" disabled={!!busy || !s.connected} onClick={() => advance(o)}>
-                        {busy === o.id ? "Guardando…" : ["Comenzar preparación", "Marcar listo", "Marcar entregado"][index]}
-                      </button>}
-                  </article>;
-          })}
-            </section>;
-      })}
+
+                    <div className="kds-card-items-block">
+                      {targetStationItems.map((item, idx) => (
+                        <div key={idx} className="kds-item-row">
+                          <span className="kds-item-qty">{item.quantity}x</span>
+                          <div className="kds-item-detail">
+                            <strong className="kds-item-name">{item.name}</strong>
+                            {(item.size || item.flavors?.length > 0 || item.extras?.length > 0) && (
+                              <small className="kds-item-options">
+                                {[item.size, ...(item.flavors || []), ...(item.extras || [])].filter(Boolean).join(" · ")}
+                              </small>
+                            )}
+                            {item.notes && (
+                              <div className="kds-item-note">
+                                ⚠️ <em>{item.notes}</em>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {otherItems.length > 0 && (
+                      <div className="kds-other-items-box">
+                        <small>🥤 Acompaña de mostrador/barra:</small>
+                        <span>{otherItems.map(oi => `${oi.quantity}x ${oi.name}`).join(", ")}</span>
+                      </div>
+                    )}
+
+                    <div className="kds-card-footer">
+                      {index === 0 && (
+                        <button
+                          type="button"
+                          className="primary full kds-btn-action kds-btn-start"
+                          disabled={!!busy || !s.connected}
+                          onClick={() => advance(o)}
+                        >
+                          {busy === o.id ? "Guardando…" : "▶ Comenzar preparación"}
+                        </button>
+                      )}
+                      {index === 1 && (
+                        <button
+                          type="button"
+                          className="primary full kds-btn-action kds-btn-ready"
+                          disabled={!!busy || !s.connected}
+                          onClick={() => advance(o)}
+                        >
+                          {busy === o.id ? "Guardando…" : "✓ ¡MARCAR LISTO!"}
+                        </button>
+                      )}
+                      {index === 2 && (
+                        <button
+                          type="button"
+                          className="secondary full kds-btn-action kds-btn-delivered"
+                          disabled={!!busy || !s.connected}
+                          onClick={() => advance(o)}
+                        >
+                          {busy === o.id ? "Guardando…" : "✓ Marcar entregado"}
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          );
+        })}
       </div>
-    </main>;
+    </main>
+  );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { LayoutGrid, ClipboardList, Coffee, ReceiptText, Banknote } from "lucide-react";
+import { LayoutGrid, ClipboardList, Coffee, ReceiptText, Banknote, ChefHat } from "lucide-react";
 import { useStore, configure, refresh, login, logout } from "./store";
 import Menu from "./pages/DigitalMenu";
 import MenuManagement from "./pages/MenuManagement";
@@ -101,7 +101,7 @@ function App() {
   const valid = Boolean(table && table >= 1);
   const accountMatch = path.match(/^\/(?:atencion\/mesas|salon)\/(\d+)\/?$/);
   const accountTable = accountMatch ? Number(accountMatch[1]) : null;
-  const kitchen = path === "/atencion/comandera" || path === "/comandera";
+  const kitchen = path === "/atencion/comandera" || path === "/comandera" || path === "/cocina";
   useEffect(() => {
     const handler = () => setPath(location.pathname);
     window.addEventListener("popstate", handler);
@@ -141,6 +141,7 @@ function App() {
           <nav>
             {[
               ["/atencion", "Salón", LayoutGrid],
+              ["/atencion/comandera", "Cocina", ChefHat],
               ["/atencion/caja", "Caja", Banknote],
               ["/atencion/ventas", "Ventas", ReceiptText],
               ["/atencion/stock", "Stock", LayoutGrid],
@@ -149,7 +150,7 @@ function App() {
             ].map(([p, label, Icon]) => (
               <button
                 key={p}
-                className={path === p ? "active" : ""}
+                className={path === p || (p === "/atencion/comandera" && kitchen) ? "active" : ""}
                 onClick={() => nav(p)}
               >
                 <Icon size={17} />

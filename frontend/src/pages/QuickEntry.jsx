@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Search, Plus, Minus } from "lucide-react";
 import Product from "./Product";
 import { useStore } from "../store";
-import { money, estimate } from "../domain";
+import { money, estimate, getProductStation } from "../domain";
 export function addLine(cart, item) {
   const signature = x => JSON.stringify([x.productId, x.size, x.flavors, x.extras, x.notes]);
   const index = cart.findIndex(x => signature(x) === signature(item) && x.quantity + item.quantity <= 99);
@@ -42,6 +42,9 @@ export default function QuickEntry({
     if (p.sizes?.length > 1 || p.extras?.length) {
       setProduct(p);
       return;
+    }
+    if (getProductStation(p) === "cocina") {
+      setPreparation(true);
     }
     const size = p.sizes?.[0]?.name || "";
     setCart(old => addLine(old, {
@@ -92,11 +95,31 @@ export default function QuickEntry({
       </div>)}
       <div className="total"><span>{counter ? "Total de la compra" : "Total de esta carga"}</span><strong>{money(total)}</strong></div>
       <small>Se confirma con los precios del catálogo al guardar.</small>
-      <p className="delivery-hint">{preparation ? "Se envía a mozas" : "Se registra como entregado"}</p>
+      <div className="preparation-toggle-container">
+        <label className="preparation-toggle-card">
+          <input
+            type="checkbox"
+            checked={Boolean(preparation)}
+            onChange={e => setPreparation(e.target.checked)}
+            disabled={disabled}
+          />
+          <span className="preparation-toggle-badge">
+            {preparation ? "🍳 Enviar a Cocina (Comanda)" : "✓ Ya entregado en mesa"}
+          </span>
+          <small>
+            {preparation
+              ? "Aparecerá en la pantalla de cocina para su preparación."
+              : "Consumo directo ya servido, no necesita salir en cocina."}
+          </small>
+        </label>
+      </div>
 
     </div>
     {product && <Product manual product={product} onClose={() => setProduct(null)} onAdd={res => {
       const list = Array.isArray(res) ? res : [res];
+      if (getProductStation(product) === "cocina") {
+        setPreparation(true);
+      }
       setCart(old => {
         let acc = old;
         for (const item of list) {

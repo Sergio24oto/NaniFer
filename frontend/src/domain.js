@@ -65,3 +65,69 @@ export function tableSector(s, number) {
   if (found) return found.sector;
   return number >= 100 ? "afuera" : "salon";
 }
+
+export function getProductStation(product) {
+  if (!product) return "mostrador";
+  const cat = (product.category || "").toLowerCase();
+  const name = (product.name || "").toLowerCase();
+  const desc = (product.description || "").toLowerCase();
+  const text = `${cat} ${name} ${desc}`;
+
+  // 1. Cocina (comidas elaboradas, pizzas, tostados, lomitos, minutas, sandwiches, desayunos cocinados)
+  if (
+    text.includes("comida") ||
+    text.includes("pizza") ||
+    text.includes("tostado") ||
+    text.includes("lomito") ||
+    text.includes("hamburguesa") ||
+    text.includes("sandwich") ||
+    text.includes("sándwich") ||
+    text.includes("empanada") ||
+    text.includes("tarta") ||
+    text.includes("picada") ||
+    text.includes("minuta") ||
+    text.includes("huevo") ||
+    text.includes("palta") ||
+    text.includes("rol de canela") ||
+    (text.includes("combo") && (text.includes("tostado") || text.includes("americano") || text.includes("supremo") || text.includes("nanifer")))
+  ) {
+    return "cocina";
+  }
+
+  // 2. Cafetería / Barra
+  if (
+    text.includes("caf") ||
+    text.includes("infus") ||
+    text.includes("té") ||
+    text.includes("te ") ||
+    text.includes("submarino") ||
+    text.includes("cortado") ||
+    text.includes("latte") ||
+    text.includes("espresso") ||
+    text.includes("cappuccino") ||
+    text.includes("capuchino") ||
+    text.includes("lagrima") ||
+    text.includes("jugo de naranja") ||
+    text.includes("licuado")
+  ) {
+    return "cafeteria";
+  }
+
+  // 3. Heladería
+  if (text.includes("helad") || text.includes("cucurucho") || text.includes("pote") || text.includes("kilo de helado") || text.includes("1/4") || text.includes("1/2")) {
+    return "heladeria";
+  }
+
+  return "mostrador";
+}
+
+export function orderHasStation(order, station, catalog) {
+  if (!order || !order.items || order.items.length === 0) return false;
+  if (!station || station === "all") return true;
+  return order.items.some(i => {
+    const p = (catalog?.products || []).find(prod => prod.id === i.productId);
+    const itemStation = getProductStation(p || { name: i.name, category: "" });
+    return itemStation === station;
+  });
+}
+
