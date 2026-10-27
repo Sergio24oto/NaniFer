@@ -631,9 +631,9 @@ export default function DigitalMenu({ table }) {
                                   ? ""
                                   : p.price != null && Number(z.salePrice) > Number(p.price)
                                   ? "(+" + money(Number(z.salePrice) - Number(p.price)) + ")"
-                                  : money(z.salePrice)
+                                  : "(-" + money(Number(p.price) - Number(z.salePrice)) + ")"
                                 : z.price
-                                ? "(+" + money(z.price) + ")"
+                                ? (z.price > 0 ? "(+" + money(z.price) + ")" : "(-" + money(Math.abs(z.price)) + ")")
                                 : ""}
                             </span>
                           ))}

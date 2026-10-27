@@ -16,13 +16,14 @@ function Editor({ item, kind, data, onClose, onSaved }) {
     Array.isArray(initialFlavors) ? initialFlavors.join(', ') : (initialFlavors || '')
   );
 
-  const initialSizes = (pending?.body?.sizes || item?.sizes || []).map(z => ({
+  const initialSizes = (pending?.body?.sizes || item?.sizes || []).map((z, idx) => ({
     ...z,
     salePrice: z.salePrice != null ? z.salePrice : (item?.price != null && z.price ? Number(item.price) + Number(z.price) : (z.price || '')),
     price: z.price || 0,
     stockUnits: z.stockUnits || 1,
     max: z.max || 0,
     enabled: z.enabled !== false,
+    isDefault: z.isDefault != null ? Boolean(z.isDefault) : (idx === 0)
   }));
 
   const [value, setValue] = useState(
@@ -173,15 +174,24 @@ function Editor({ item, kind, data, onClose, onSaved }) {
             max: Number(z.max || 0),
             enabled: z.enabled !== false,
             order: idx,
-            equivalent: Number(z.equivalent || 1)
+            equivalent: Number(z.equivalent || 1),
+            isDefault: Boolean(z.isDefault)
           }));
 
-        // Si tiene variantes, el precio base para la carta es el mínimo de sus opciones
-        const prices = finalSizes
-          .map(z => z.salePrice != null ? z.salePrice : z.price)
-          .filter(p => p > 0);
-        if (prices.length > 0) {
-          finalPrice = Math.min(...prices);
+        // Si ninguna variante está marcada como principal, la primera es la principal por defecto
+        if (finalSizes.length > 0 && !finalSizes.some(z => z.isDefault)) {
+          finalSizes[0].isDefault = true;
+        }
+
+        // El precio base para la carta es el de la variante principal (o primera)
+        const defaultVariant = finalSizes.find(z => z.isDefault) || finalSizes[0];
+        if (defaultVariant) {
+          const defPrice = defaultVariant.salePrice != null && defaultVariant.salePrice > 0
+            ? defaultVariant.salePrice
+            : (defaultVariant.price ? defaultVariant.price : null);
+          if (defPrice != null) {
+            finalPrice = defPrice;
+          }
         }
       }
 
@@ -561,7 +571,71 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                                   }}
                                 />
                               </div>
-                              <div className="variant-actions">
+                              <div className="variant-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setValue(old => ({
+                                      ...old,
+                                      sizes: (old.sizes || []).map((s, idx) => ({
+                                        ...s,
+                                        isDefault: idx === i
+                                      }))
+                                    }));
+                                  }}
+                                  title="Esta variante determina el precio que se muestra en la carta y viene seleccionada por defecto"
+                                  style={{
+                                    background: (z.isDefault || (!value.sizes?.some(s => s.isDefault) && i === 0)) ? '#fef3c7' : '#f8fafc',
+                                    color: (z.isDefault || (!value.sizes?.some(s => s.isDefault) && i === 0)) ? '#92400e' : '#64748b',
+                                    border: (z.isDefault || (!value.sizes?.some(s => s.isDefault) && i === 0)) ? '1.5px solid #f59e0b' : '1px solid #cbd5e1',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  {(z.isDefault || (!value.sizes?.some(s => s.isDefault) && i === 0)) ? '⭐ Principal (precio en carta)' : 'Hacer principal'}
+                                </button>
+
+                                <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px' }}>
+                                  <button
+                                    type="button"
+                                    disabled={i === 0}
+                                    onClick={() => {
+                                      setValue(old => {
+                                        const arr = [...(old.sizes || [])];
+                                        const temp = arr[i];
+                                        arr[i] = arr[i - 1];
+                                        arr[i - 1] = temp;
+                                        return { ...old, sizes: arr };
+                                      });
+                                    }}
+                                    style={{ padding: '1px 5px', fontSize: '10px', lineHeight: 1, border: '1px solid #cbd5e1', borderRadius: '3px', background: '#ffffff', cursor: i === 0 ? 'default' : 'pointer' }}
+                                    title="Subir posición"
+                                  >
+                                    ▲
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={i === (value.sizes || []).length - 1}
+                                    onClick={() => {
+                                      setValue(old => {
+                                        const arr = [...(old.sizes || [])];
+                                        const temp = arr[i];
+                                        arr[i] = arr[i + 1];
+                                        arr[i + 1] = temp;
+                                        return { ...old, sizes: arr };
+                                      });
+                                    }}
+                                    style={{ padding: '1px 5px', fontSize: '10px', lineHeight: 1, border: '1px solid #cbd5e1', borderRadius: '3px', background: '#ffffff', cursor: i === (value.sizes || []).length - 1 ? 'default' : 'pointer' }}
+                                    title="Bajar posición"
+                                  >
+                                    ▼
+                                  </button>
+                                </div>
+
                                 <button
                                   type="button"
                                   className="variant-expand-btn"

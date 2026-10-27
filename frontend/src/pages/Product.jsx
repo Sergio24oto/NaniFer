@@ -6,7 +6,12 @@ import { useStore } from "../store";
 export default function Product({ product: initialProduct, onClose, onAdd, manual = false }) {
   const { catalog } = useStore();
   const p = catalog.products.find(x => x.id === initialProduct.id) || initialProduct;
-  const [size, setSize] = useState(p.sizes?.find(s => s.available !== false)?.name || "");
+  const defaultSize =
+    p.sizes?.find(s => s.available !== false && s.isDefault)?.name ||
+    p.sizes?.find(s => s.available !== false && (s.name.toLowerCase().includes("entera") || (p.price != null && Number(s.salePrice) === Number(p.price))))?.name ||
+    p.sizes?.find(s => s.available !== false)?.name ||
+    "";
+  const [size, setSize] = useState(defaultSize);
   const [chosen, setChosen] = useState([]);
   const [extras, setExtras] = useState([]);
   const [notes, setNotes] = useState("");
@@ -309,15 +314,23 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
                   />
                   {z.name}{z.available === false ? " · Sin stock" : ""}
                   <span>
-                    {z.salePrice != null
-                      ? p.price != null && Number(z.salePrice) === Number(p.price)
-                        ? "Incluido"
-                        : p.price != null && Number(z.salePrice) > Number(p.price)
-                        ? "+ " + money(Number(z.salePrice) - Number(p.price))
-                        : money(z.salePrice)
-                      : z.price
-                      ? "+ " + money(z.price)
-                      : "Incluido"}
+                    {z.salePrice != null ? (
+                      p.price != null && Number(z.salePrice) === Number(p.price) ? (
+                        <strong>{money(z.salePrice)}</strong>
+                      ) : p.price != null && Number(z.salePrice) < Number(p.price) ? (
+                        <span style={{ color: "#166534", fontWeight: 700 }}>
+                          {money(z.salePrice)} (-{money(Number(p.price) - Number(z.salePrice))})
+                        </span>
+                      ) : (
+                        <span>
+                          {money(z.salePrice)} (+{money(Number(z.salePrice) - Number(p.price))})
+                        </span>
+                      )
+                    ) : z.price ? (
+                      z.price > 0 ? `+ ${money(z.price)}` : `- ${money(Math.abs(z.price))}`
+                    ) : (
+                      "Incluido"
+                    )}
                   </span>
                 </label>
               ))}
