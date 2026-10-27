@@ -314,23 +314,15 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
                   />
                   {z.name}{z.available === false ? " · Sin stock" : ""}
                   <span>
-                    {z.salePrice != null ? (
-                      p.price != null && Number(z.salePrice) === Number(p.price) ? (
-                        <strong>{money(z.salePrice)}</strong>
-                      ) : p.price != null && Number(z.salePrice) < Number(p.price) ? (
-                        <span style={{ color: "#166534", fontWeight: 700 }}>
-                          {money(z.salePrice)} (-{money(Number(p.price) - Number(z.salePrice))})
-                        </span>
-                      ) : (
-                        <span>
-                          {money(z.salePrice)} (+{money(Number(z.salePrice) - Number(p.price))})
-                        </span>
-                      )
-                    ) : z.price ? (
-                      z.price > 0 ? `+ ${money(z.price)}` : `- ${money(Math.abs(z.price))}`
-                    ) : (
-                      "Incluido"
-                    )}
+                    <strong>
+                      {z.salePrice != null
+                        ? money(z.salePrice)
+                        : z.price
+                        ? money(p.price + z.price)
+                        : p.price != null
+                        ? money(p.price)
+                        : ""}
+                    </strong>
                   </span>
                 </label>
               ))}
