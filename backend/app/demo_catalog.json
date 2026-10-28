@@ -59,27 +59,26 @@
       "description": "Espresso suave y leche cremosa.",
       "category": "Cafetería",
       "emoji": "☕",
-      "price": 2800,
+      "price": 2500,
       "sizes": [
         {
+          "name": "Chico",
+          "salePrice": 2500,
+          "price": 0,
+          "isDefault": true
+        },
+        {
           "name": "Mediano",
+          "salePrice": 3000,
           "price": 0
         },
         {
           "name": "Grande",
-          "price": 600
+          "salePrice": 3400,
+          "price": 0
         }
       ],
-      "extras": [
-        {
-          "name": "Leche de almendras",
-          "price": 700
-        },
-        {
-          "name": "Shot extra",
-          "price": 600
-        }
-      ],
+      "extras": [],
       "available": true
     },
     {

@@ -315,13 +315,17 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
                   {z.name}{z.available === false ? " · Sin stock" : ""}
                   <span>
                     <strong>
-                      {z.salePrice != null
-                        ? money(z.salePrice)
-                        : z.price
-                        ? money(p.price + z.price)
-                        : p.price != null
-                        ? money(p.price)
-                        : ""}
+                      {(() => {
+                        const variantPrice =
+                          z.salePrice != null && z.salePrice !== ""
+                            ? z.salePrice
+                            : z.price != null && p.price != null
+                            ? Number(p.price) + Number(z.price)
+                            : z.price != null
+                            ? z.price
+                            : p.price;
+                        return variantPrice != null ? money(variantPrice) : "";
+                      })()}
                     </strong>
                   </span>
                 </label>

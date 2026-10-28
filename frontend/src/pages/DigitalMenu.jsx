@@ -623,16 +623,22 @@ export default function DigitalMenu({ table }) {
 
                       {p.sizes?.length > 0 && (
                         <div className="editorial-sizes-pills">
-                          {p.sizes.map((z) => (
-                            <span key={z.name} className="editorial-size-tag">
-                              {z.name}
-                              {z.salePrice != null
-                                ? ` · ${money(z.salePrice)}`
-                                : z.price
-                                ? ` · ${money(p.price + z.price)}`
-                                : ""}
-                            </span>
-                          ))}
+                          {p.sizes.map((z) => {
+                            const sizePrice =
+                              z.salePrice != null && z.salePrice !== ""
+                                ? z.salePrice
+                                : z.price != null && p.price != null
+                                ? Number(p.price) + Number(z.price)
+                                : z.price != null
+                                ? z.price
+                                : p.price;
+                            return (
+                              <span key={z.name} className="editorial-size-tag">
+                                {z.name}
+                                {sizePrice != null ? ` · ${money(sizePrice)}` : ""}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
 

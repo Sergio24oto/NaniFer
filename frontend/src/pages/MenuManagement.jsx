@@ -1113,7 +1113,17 @@ export default function MenuManagement() {
                       {item.description && <p>{item.description}</p>}
                       {item.sizes?.length > 0 && (
                         <p style={{ color: '#475569', fontSize: '0.85rem', marginTop: '0.2rem' }}>
-                          <strong>Variantes:</strong> {item.sizes.map(z => `${z.name} (${money(z.salePrice != null ? z.salePrice : z.price)})`).join(' · ')}
+                          <strong>Variantes:</strong> {item.sizes.map(z => {
+                            const vPrice =
+                              z.salePrice != null && z.salePrice !== ""
+                                ? z.salePrice
+                                : z.price != null && item.price != null
+                                ? Number(item.price) + Number(z.price)
+                                : z.price != null
+                                ? z.price
+                                : item.price;
+                            return `${z.name} (${money(vPrice)})`;
+                          }).join(' · ')}
                         </p>
                       )}
                       {item.flavorOptions?.length > 0 && (
