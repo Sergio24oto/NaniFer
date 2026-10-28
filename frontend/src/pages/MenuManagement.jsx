@@ -283,6 +283,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                   <option value="beverages">Bebidas</option>
                   <option value="kiosk">Kiosco</option>
                   <option value="candies">Golosinas</option>
+                  <option value="manual">Venta libre</option>
                 </select>
               </label>
               <label>

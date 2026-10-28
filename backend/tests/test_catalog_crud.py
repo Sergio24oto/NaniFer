@@ -80,6 +80,10 @@ def test_category_create_edit_note_and_duplicate(fixture):
         assert c.put('/api/menu-management/categories/' + cid, json=body).status_code == 200
         with SessionLocal() as db:
             assert db.get(Category, cid).stock_area == 'kiosk'
+        body.update(stockArea='candies')
+        assert c.put('/api/menu-management/categories/' + cid, json=body).status_code == 200
+        with SessionLocal() as db:
+            assert db.get(Category, cid).stock_area == 'candies'
         assert all(x['id'] != cid for x in c.get('/api/public/menu/1').json()['categories'])
 
         # Try deleting category with a product attached

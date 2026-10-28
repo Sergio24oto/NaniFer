@@ -133,7 +133,7 @@ class CategoryIn(StrictModel):
     order: int = Field(ge=0, le=9999)
     visible: bool
     note: str = Field(default="", max_length=500)
-    stockArea: Literal['other', 'beverages', 'kiosk'] = 'other'
+    stockArea: Literal['other', 'beverages', 'kiosk', 'candies', 'manual'] = 'other'
 
     @field_validator('name')
     @classmethod
