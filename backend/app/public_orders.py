@@ -41,7 +41,7 @@ def send(number:int,data:Basket,key:str=Header(alias='Idempotency-Key'),who=Depe
 def own_orders(number:int,who=Depends(device),db=Depends(get_db)):
  from .menu_catalog import menu
  menu(number,db)
- return [order_json(db,o) for o in db.scalars(select(Order).join(Visit).where(Visit.table_number==number,Order.device_hash==who).order_by(Order.created_at.desc()).limit(50))]
+ return [order_json(db,o) for o in db.scalars(select(Order).join(Visit).where(Visit.table_number==number,Order.device_hash==who,Visit.closed_at.is_(None)).order_by(Order.created_at.desc()).limit(50))]
 
 @router.get('/public/qr/{number}/operations/{key}')
 def operation(number:int,key:str,who=Depends(device),db=Depends(get_db)):
