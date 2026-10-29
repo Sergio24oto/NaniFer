@@ -3,6 +3,8 @@ import { useStore, request } from "../store";
 import { money, estimate, operationId, tableLabel } from "../domain";
 import Product from "./Product";
 import PublicCart, { publicDevice } from "./PublicCart";
+import SmartUpsellSheet from "./SmartUpsellSheet";
+import { getSmartPairingSuggestions } from "../smartUpsell";
 
 function Photo({ src, alt, ...props }) {
   const [failed, setFailed] = useState(false);
@@ -302,6 +304,7 @@ export default function DigitalMenu({ table }) {
   });
   const [product, setProduct] = useState(null);
   const [showCart, setShowCart] = useState(false);
+  const [smartUpsell, setSmartUpsell] = useState(null);
   const [callingWaiter, setCallingWaiter] = useState(false);
   const [waiterNotified, setWaiterNotified] = useState(false);
   const [callError, setCallError] = useState("");
@@ -333,6 +336,26 @@ export default function DigitalMenu({ table }) {
     setCartState(c);
   };
 
+  const handleSmartAddToCart = (itemToAdd) => {
+    let updated = [...cart];
+    const existingIndex = updated.findIndex(
+      (item) =>
+        (item.productId === itemToAdd.productId || item.product === itemToAdd.productId) &&
+        item.size === itemToAdd.size &&
+        JSON.stringify(item.flavors || []) === JSON.stringify(itemToAdd.flavors || []) &&
+        (item.notes || "") === (itemToAdd.notes || "")
+    );
+    if (existingIndex >= 0) {
+      updated[existingIndex] = {
+        ...updated[existingIndex],
+        quantity: updated[existingIndex].quantity + itemToAdd.quantity,
+      };
+    } else {
+      updated.push(itemToAdd);
+    }
+    setCart(updated);
+  };
+
   const handleQuickAdd = (p) => {
     if ((p.flavorOptions || []).length > 0 || (p.sizes || []).length > 0 || (p.extras || []).length > 0 || p.comboConfig?.is_combo) {
       setProduct(p);
@@ -346,25 +369,30 @@ export default function DigitalMenu({ table }) {
         !item.extras?.length &&
         !item.notes
     );
+    let nextCart = [...cart];
     if (existingIndex >= 0) {
-      const updated = [...cart];
-      updated[existingIndex].quantity += 1;
-      setCart(updated);
+      nextCart = nextCart.map((it, idx) =>
+        idx === existingIndex ? { ...it, quantity: it.quantity + 1 } : it
+      );
+      setCart(nextCart);
     } else {
-      setCart([
-        ...cart,
-        {
-          productId: p.id,
-          product: p.id,
-          name: p.name,
-          quantity: 1,
-          size: null,
-          flavors: [],
-          extras: [],
-          notes: "",
-          unitPrice: p.price || 0,
-        },
-      ]);
+      nextCart.push({
+        productId: p.id,
+        product: p.id,
+        name: p.name,
+        quantity: 1,
+        size: null,
+        flavors: [],
+        extras: [],
+        notes: "",
+        unitPrice: p.price || 0,
+      });
+      setCart(nextCart);
+    }
+
+    const pairing = getSmartPairingSuggestions(p, s.catalog?.products || [], nextCart);
+    if (pairing) {
+      setSmartUpsell({ suggestion: pairing, addedProduct: p });
     }
   };
 
@@ -817,8 +845,30 @@ export default function DigitalMenu({ table }) {
               }
             }
             setCart(updated);
+            const addedP = product;
             setProduct(null);
+
+            if (addedP) {
+              const pairing = getSmartPairingSuggestions(addedP, s.catalog?.products || [], updated);
+              if (pairing) {
+                setSmartUpsell({ suggestion: pairing, addedProduct: addedP });
+              }
+            }
           }}
+        />
+      )}
+
+      {smartUpsell && (
+        <SmartUpsellSheet
+          suggestion={smartUpsell.suggestion}
+          addedProduct={smartUpsell.addedProduct}
+          cart={cart}
+          onAddToCart={handleSmartAddToCart}
+          onViewCart={() => {
+            setSmartUpsell(null);
+            setShowCart(true);
+          }}
+          onClose={() => setSmartUpsell(null)}
         />
       )}
 
