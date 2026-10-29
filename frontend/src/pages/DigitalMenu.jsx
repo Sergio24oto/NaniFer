@@ -4,7 +4,7 @@ import { money, estimate, operationId, tableLabel } from "../domain";
 import Product from "./Product";
 import PublicCart, { publicDevice } from "./PublicCart";
 import SmartUpsellSheet from "./SmartUpsellSheet";
-import { getSmartPairingSuggestions } from "../smartUpsell";
+import { detectProductType, getSmartPairingSuggestions } from "../smartUpsell";
 
 function Photo({ src, alt, ...props }) {
   const [failed, setFailed] = useState(false);
@@ -305,9 +305,25 @@ export default function DigitalMenu({ table }) {
   const [product, setProduct] = useState(null);
   const [showCart, setShowCart] = useState(false);
   const [smartUpsell, setSmartUpsell] = useState(null);
+  const [upsellDismissed, setUpsellDismissed] = useState(false);
+  const [shownUpsellCategories, setShownUpsellCategories] = useState(() => new Set());
   const [callingWaiter, setCallingWaiter] = useState(false);
   const [waiterNotified, setWaiterNotified] = useState(false);
   const [callError, setCallError] = useState("");
+
+  const triggerUpsellIfApplicable = (addedP, updatedCart) => {
+    if (upsellDismissed) return;
+    if (!addedP) return;
+    const triggerType = detectProductType(addedP);
+    if (!triggerType || triggerType === "helados" || triggerType === "other") return;
+    if (shownUpsellCategories.has(triggerType)) return;
+
+    const pairing = getSmartPairingSuggestions(addedP, s.catalog?.products || [], updatedCart);
+    if (pairing && pairing.items && pairing.items.length > 0) {
+      setShownUpsellCategories((prev) => new Set([...prev, triggerType]));
+      setSmartUpsell({ suggestion: pairing, addedProduct: addedP });
+    }
+  };
 
   const handleCallWaiter = async () => {
     if (callingWaiter) return;
@@ -390,10 +406,7 @@ export default function DigitalMenu({ table }) {
       setCart(nextCart);
     }
 
-    const pairing = getSmartPairingSuggestions(p, s.catalog?.products || [], nextCart);
-    if (pairing) {
-      setSmartUpsell({ suggestion: pairing, addedProduct: p });
-    }
+    triggerUpsellIfApplicable(p, nextCart);
   };
 
   const cat = s.catalog.categories.find((c) => c.id === selected);
@@ -851,10 +864,7 @@ export default function DigitalMenu({ table }) {
             setProduct(null);
 
             if (addedP) {
-              const pairing = getSmartPairingSuggestions(addedP, s.catalog?.products || [], updated);
-              if (pairing) {
-                setSmartUpsell({ suggestion: pairing, addedProduct: addedP });
-              }
+              triggerUpsellIfApplicable(addedP, updated);
             }
           }}
         />
@@ -870,7 +880,10 @@ export default function DigitalMenu({ table }) {
             setSmartUpsell(null);
             setShowCart(true);
           }}
-          onClose={() => setSmartUpsell(null)}
+          onClose={() => {
+            setSmartUpsell(null);
+            setUpsellDismissed(true);
+          }}
         />
       )}
 

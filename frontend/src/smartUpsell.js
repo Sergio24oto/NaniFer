@@ -1,6 +1,7 @@
 /**
  * Smart Cross-Selling and Upselling Engine for NaniFer
- * Generates tailored, high-converting product suggestions based on customer choices.
+ * Generates tailored, high-converting product suggestions based on customer choices
+ * strictly on strategic trigger products without annoying the user.
  */
 
 function isIceCream(product) {
@@ -25,81 +26,159 @@ function isKioskPackaged(product) {
   return id.startsWith("kiosco-");
 }
 
+export function isProductBeer(p) {
+  if (!p || isIceCream(p)) return false;
+  const text = `${p.id || ""} ${p.name || ""} ${p.category || ""}`.toLowerCase();
+  return (
+    text.includes("cerveza") ||
+    text.includes("brahma") ||
+    text.includes("quilmes") ||
+    text.includes("heineken") ||
+    text.includes("stella") ||
+    text.includes("corona") ||
+    text.includes("miller") ||
+    text.includes("imperial") ||
+    text.includes("santa fe") ||
+    text.includes("warsteiner")
+  );
+}
+
+export function isProductSoda(p) {
+  if (!p || isIceCream(p)) return false;
+  const text = `${p.id || ""} ${p.name || ""}`.toLowerCase();
+  return (
+    text.includes("coca") ||
+    text.includes("sprite") ||
+    text.includes("fanta") ||
+    text.includes("paso de los toros") ||
+    text.includes("gaseosa")
+  );
+}
+
+export function isProductLevite(p) {
+  if (!p || isIceCream(p)) return false;
+  const text = `${p.id || ""} ${p.name || ""}`.toLowerCase();
+  return (
+    text.includes("levite") ||
+    text.includes("levité") ||
+    text.includes("aquarius") ||
+    text.includes("saborizada")
+  );
+}
+
+export function isProductPapas(p) {
+  if (!p || isIceCream(p) || isKioskPackaged(p)) return false;
+  const text = `${p.id || ""} ${p.name || ""}`.toLowerCase();
+  return text.includes("papa");
+}
+
+export function isProductCazuela(p) {
+  if (!p || isIceCream(p)) return false;
+  const text = `${p.id || ""} ${p.name || ""}`.toLowerCase();
+  return text.includes("cazuela");
+}
+
+export function isProductMedialuna(p) {
+  if (!p || isIceCream(p)) return false;
+  const text = `${p.id || ""} ${p.name || ""}`.toLowerCase();
+  return text.includes("medialuna") || text.includes("croissant");
+}
+
+export function isProductCriollo(p) {
+  if (!p || isIceCream(p) || isKioskPackaged(p)) return false;
+  const text = `${p.id || ""} ${p.name || ""}`.toLowerCase();
+  return text.includes("criollo") || text.includes("criollos");
+}
+
+export function isProductSweetBakery(p) {
+  if (!p || isIceCream(p) || isKioskPackaged(p)) return false;
+  const text = `${p.id || ""} ${p.name || ""}`.toLowerCase();
+  return (
+    (text.includes("rol") && text.includes("canela")) ||
+    text.includes("torta") ||
+    text.includes("cheesecake") ||
+    text.includes("brownie")
+  );
+}
+
+export function isProductTostado(p) {
+  if (!p || isIceCream(p)) return false;
+  const text = `${p.id || ""} ${p.name || ""}`.toLowerCase();
+  return text.includes("tostado");
+}
+
+/**
+ * Checks if the customer's current cart already contains a product matching the predicate.
+ */
+export function cartHasType(currentCart = [], catalogProducts = [], predicate) {
+  if (!Array.isArray(currentCart) || currentCart.length === 0) return false;
+  return currentCart.some((item) => {
+    const prodId = item.productId || item.product;
+    const catProd = (catalogProducts || []).find((p) => p.id === prodId);
+    if (catProd && predicate(catProd)) return true;
+    if (item.name && predicate({ id: prodId, name: item.name })) return true;
+    return false;
+  });
+}
+
+/**
+ * Detects if the product is one of the 5 STRATEGIC TRIGGER POINTS:
+ * 1. picada
+ * 2. pizza
+ * 3. cerveza
+ * 4. licuado
+ * 5. cafe
+ * Everything else returns "other" (which does not trigger popups).
+ */
 export function detectProductType(product) {
   if (!product || isIceCream(product)) return "helados";
 
   const cat = (product.category || product.categoryId || "").toLowerCase();
   const name = (product.name || "").toLowerCase();
   const desc = (product.description || "").toLowerCase();
-  const fullText = `${cat} ${name} ${desc}`;
 
-  // Cervezas
-  if (
-    fullText.includes("cerveza") ||
-    fullText.includes("brahma") ||
-    fullText.includes("quilmes") ||
-    fullText.includes("heineken") ||
-    fullText.includes("stella") ||
-    fullText.includes("corona") ||
-    fullText.includes("miller") ||
-    fullText.includes("imperial") ||
-    fullText.includes("santa fe") ||
-    fullText.includes("warsteiner")
-  ) {
+  // 1. Picada
+  if (name.includes("picada") || desc.includes("picada")) {
+    return "picada";
+  }
+
+  // 2. Pizza
+  if (name.includes("pizza") || cat.includes("pizza")) {
+    return "pizza";
+  }
+
+  // 3. Cerveza
+  if (isProductBeer(product)) {
     return "cerveza";
   }
 
-  // Tostados (check before generic drinks/comida)
-  if (name.includes("tostado") || fullText.includes("tostado")) {
-    return "tostado";
+  // 4. Licuado y jugos frutales/naturales
+  if (
+    name.includes("licuado") ||
+    name.includes("jugo natural") ||
+    name.includes("exprimido") ||
+    name.includes("smoothie") ||
+    name.includes("batido") ||
+    (name.includes("jugo") && (name.includes("naranja") || name.includes("vaso")))
+  ) {
+    return "licuado";
   }
 
-  // Gaseosas / Aguas saborizadas
+  // 5. Cafetería (solo distintos tipos de café / infusión de café)
   if (
-    name.includes("coca") ||
-    name.includes("sprite") ||
-    name.includes("fanta") ||
-    name.includes("paso de los toros") ||
-    name.includes("aquarius") ||
-    name.includes("levite") ||
-    name.includes("levité") ||
-    name.includes("gaseosa")
+    name.includes("caf") ||
+    name.includes("cortado") ||
+    name.includes("latte") ||
+    name.includes("lagrima") ||
+    name.includes("lágrima") ||
+    name.includes("submarino") ||
+    name.includes("capuchino") ||
+    name.includes("cappuccino") ||
+    name.includes("expreso") ||
+    name.includes("espresso") ||
+    name.includes("americano")
   ) {
-    return "gaseosa";
-  }
-
-  // Cafetería e Infusiones
-  if (
-    fullText.includes("caf") ||
-    fullText.includes("cortado") ||
-    fullText.includes("latte") ||
-    fullText.includes("lagrima") ||
-    fullText.includes("lágrima") ||
-    fullText.includes("submarino") ||
-    fullText.includes("infusi") ||
-    fullText.includes("té") ||
-    fullText.includes("te ") ||
-    fullText.includes("mate cocido") ||
-    fullText.includes("cappuccino") ||
-    fullText.includes("capuchino") ||
-    cat.includes("desayuno") ||
-    cat.includes("merienda")
-  ) {
-    return "cafeteria";
-  }
-
-  // Pizzas y Comidas
-  if (
-    fullText.includes("pizza") ||
-    fullText.includes("empanada") ||
-    fullText.includes("lomito") ||
-    fullText.includes("hamburguesa") ||
-    fullText.includes("sandwich") ||
-    fullText.includes("sándwich") ||
-    fullText.includes("picada") ||
-    cat.includes("comida")
-  ) {
-    return "comida";
+    return "cafe";
   }
 
   return "other";
@@ -109,7 +188,7 @@ export function getSmartPairingSuggestions(addedProduct, catalogProducts = [], c
   if (!addedProduct || isIceCream(addedProduct)) return null;
 
   const type = detectProductType(addedProduct);
-  if (type === "helados" || type === "other") return null;
+  if (!type || type === "helados" || type === "other") return null;
 
   // Filter available active non-ice products
   const pool = catalogProducts.filter((p) => {
@@ -127,7 +206,7 @@ export function getSmartPairingSuggestions(addedProduct, catalogProducts = [], c
   const addedIds = new Set();
 
   const addCandidate = (finder, tag, options = {}) => {
-    const candidate = pool.find((p) => !addedIds.has(p.id) && finder(p));
+    const candidate = pool.find((p) => !addedIds.has(p.id) && !cartProductIds.has(p.id) && finder(p));
     if (candidate) {
       addedIds.add(candidate.id);
       const varieties = Array.isArray(candidate.flavorOptions) && candidate.flavorOptions.length > 0
@@ -142,127 +221,79 @@ export function getSmartPairingSuggestions(addedProduct, catalogProducts = [], c
         hasVarieties: varieties.length > 0,
         varieties,
         featuredVariety: options.featuredVariety || (varieties.includes("Maní") ? "Maní" : varieties[0] || null),
-        inCart: cartProductIds.has(candidate.id),
+        inCart: false,
       });
+      return true;
     }
+    return false;
   };
 
-  if (type === "cerveza") {
-    // 1. Cazuelas (con selección de variedades como Maní, Jamón, Queso)
-    addCandidate(
-      (p) => p.name.toLowerCase().includes("cazuela"),
-      "Para picar 🥜",
-      { featuredVariety: "Maní" }
-    );
-    // 2. Porción de papas con cheddar
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return n.includes("papa") && n.includes("cheddar") && !isKioskPackaged(p);
-      },
-      "Imperdible 🧀"
-    );
-    // 3. Porción de papas clásicas
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return n.includes("papa") && !n.includes("cheddar") && !isKioskPackaged(p);
-      },
-      "Clásico 🍟"
-    );
-    // 4. Picada o Empanadas como fallback
-    addCandidate(
-      (p) => p.name.toLowerCase().includes("picada") || p.name.toLowerCase().includes("empanada"),
-      "Sale mucho ⭐"
-    );
+  // Pre-calcular qué categorías ya tiene el cliente en su carrito para NO ofrecerlas
+  const hasBeerInCart = cartHasType(currentCart, catalogProducts, isProductBeer);
+  const hasSodaInCart = cartHasType(currentCart, catalogProducts, isProductSoda);
+  const hasLeviteInCart = cartHasType(currentCart, catalogProducts, isProductLevite);
+  const hasPapasInCart = cartHasType(currentCart, catalogProducts, isProductPapas);
+  const hasCazuelaInCart = cartHasType(currentCart, catalogProducts, isProductCazuela);
+  const hasMedialunaInCart = cartHasType(currentCart, catalogProducts, isProductMedialuna);
+  const hasCriolloInCart = cartHasType(currentCart, catalogProducts, isProductCriollo);
+  const hasSweetBakeryInCart = cartHasType(currentCart, catalogProducts, isProductSweetBakery);
+  const hasTostadoInCart = cartHasType(currentCart, catalogProducts, isProductTostado);
 
-    if (matched.length === 0) return null;
-    return {
-      title: "¡Ideal para picar con tu cerveza! 🍺🥜",
-      subtitle: "Sumá un acompañamiento crujiente con 1 toque:",
-      items: matched.slice(0, 3),
-    };
-  }
+  if (type === "pizza") {
+    // 1. Cerveza (1 sola opción: preferir litro compartida o fría) - Solo si NO tiene cerveza en carrito
+    if (!hasBeerInCart) {
+      const addedLarge = addCandidate(
+        (p) => {
+          const n = p.name.toLowerCase();
+          const isBeer = isProductBeer(p);
+          const isLarge = n.includes("litro") || n.includes("1 lt") || n.includes("1lt") || n.includes("1l");
+          return isBeer && isLarge;
+        },
+        "Para compartir 🍺"
+      );
+      if (!addedLarge) {
+        addCandidate(
+          (p) => isProductBeer(p) && !isKioskPackaged(p),
+          "Bien fría 🍺"
+        );
+      }
+    }
 
-  if (type === "gaseosa") {
-    // 1. Porción de papas con cheddar o común
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return n.includes("papa") && n.includes("cheddar") && !isKioskPackaged(p);
-      },
-      "Imperdible 🧀"
-    );
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return n.includes("papa") && !n.includes("cheddar") && !isKioskPackaged(p);
-      },
-      "Clásico 🍟"
-    );
-    // 2. Cazuelas (ideal Maní)
-    addCandidate(
-      (p) => p.name.toLowerCase().includes("cazuela"),
-      "Para picar 🥜",
-      { featuredVariety: "Maní" }
-    );
-    // 3. Tostado
-    addCandidate(
-      (p) => p.name.toLowerCase().includes("tostado"),
-      "Maridaje ideal 🥪"
-    );
+    // 2. Gaseosa grande (1 sola opción) - Solo si NO tiene gaseosa en carrito
+    if (!hasSodaInCart) {
+      const addedBig = addCandidate(
+        (p) => {
+          const n = p.name.toLowerCase();
+          const isSoda = isProductSoda(p);
+          const isBig = n.includes("1.5") || n.includes("1,5") || n.includes("1.25") || n.includes("1,25") || n.includes("litro");
+          return isSoda && isBig;
+        },
+        "Bien fría 🥤"
+      );
+      if (!addedBig) {
+        addCandidate(
+          (p) => isProductSoda(p),
+          "Para refrescar 🥤"
+        );
+      }
+    }
 
-    if (matched.length === 0) return null;
-    return {
-      title: "¿Sale con algo para picar? 🥤🍟",
-      subtitle: "Suman un toque perfecto a tu bebida:",
-      items: matched.slice(0, 3),
-    };
-  }
-
-  if (type === "comida") {
-    // 1. Cervezas (preferir litro compartida)
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        const isBeer = n.includes("brahma") || n.includes("quilmes") || n.includes("heineken") || n.includes("cerveza");
-        const isLarge = n.includes("litro") || n.includes("1 lt") || n.includes("1lt") || n.includes("1l");
-        return isBeer && isLarge;
-      },
-      "Para compartir 🍺"
-    );
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return (n.includes("brahma") || n.includes("quilmes") || n.includes("heineken") || n.includes("cerveza")) && !isKioskPackaged(p);
-      },
-      "Bien fría 🍺"
-    );
-    // 2. Gaseosa grande
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        const isSoda = n.includes("coca") || n.includes("sprite") || n.includes("gaseosa") || n.includes("fanta");
-        const isBig = n.includes("1.5") || n.includes("1,5") || n.includes("1.25") || n.includes("1,25") || n.includes("litro");
-        return isSoda && isBig;
-      },
-      "Bien fría 🥤"
-    );
-    // 3. Porción de papas con cheddar o papas
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return n.includes("papa") && n.includes("cheddar") && !isKioskPackaged(p);
-      },
-      "Para la mesa 🧀"
-    );
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return n.includes("papa") && !isKioskPackaged(p);
-      },
-      "Papas fritas 🍟"
-    );
+    // 3. Porción de papas (1 sola opción: cheddar o clásica) - Solo si NO tiene papas en carrito
+    if (!hasPapasInCart) {
+      const addedCheddar = addCandidate(
+        (p) => {
+          const n = p.name.toLowerCase();
+          return isProductPapas(p) && n.includes("cheddar");
+        },
+        "Para la mesa 🧀"
+      );
+      if (!addedCheddar) {
+        addCandidate(
+          (p) => isProductPapas(p),
+          "Papas fritas 🍟"
+        );
+      }
+    }
 
     if (matched.length === 0) return null;
     return {
@@ -272,33 +303,67 @@ export function getSmartPairingSuggestions(addedProduct, catalogProducts = [], c
     };
   }
 
-  if (type === "cafeteria") {
+  if (type === "cerveza") {
+    // 1. Cazuelas (con selección de variedades como Maní, Jamón, Queso) - Solo si NO tiene cazuela
+    if (!hasCazuelaInCart) {
+      addCandidate(
+        (p) => isProductCazuela(p),
+        "Para picar 🥜",
+        { featuredVariety: "Maní" }
+      );
+    }
+
+    // 2. Porción de papas con cheddar o clásicas - Solo si NO tiene papas
+    if (!hasPapasInCart) {
+      addCandidate(
+        (p) => {
+          const n = p.name.toLowerCase();
+          return isProductPapas(p) && n.includes("cheddar");
+        },
+        "Imperdible 🧀"
+      );
+      addCandidate(
+        (p) => isProductPapas(p) && !p.name.toLowerCase().includes("cheddar"),
+        "Clásico 🍟"
+      );
+    }
+
+    if (matched.length === 0) return null;
+    return {
+      title: "¡Ideal para picar con tu cerveza! 🍺🥜",
+      subtitle: "Sumá un acompañamiento crujiente con 1 toque:",
+      items: matched.slice(0, 3),
+    };
+  }
+
+  if (type === "cafe") {
     // 1. Medialunas
-    addCandidate(
-      (p) => p.name.toLowerCase().includes("medialuna"),
-      "Recién horneada ⭐"
-    );
+    if (!hasMedialunaInCart) {
+      addCandidate(
+        (p) => isProductMedialuna(p),
+        "Recién horneada ⭐"
+      );
+    }
+
     // 2. Criollos
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return (n.includes("criollo") || n.includes("criollos")) && !isKioskPackaged(p);
-      },
-      "Crujientes 🥐"
-    );
-    // 3. Rol de canela
-    addCandidate(
-      (p) => p.name.toLowerCase().includes("canela") || p.name.toLowerCase().includes("rol"),
-      "Dulce tentación ✨"
-    );
-    // 4. Cheesecake o Brownie
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return (n.includes("cheesecake") || n.includes("brownie") || n.includes("torta")) && !isIceCream(p) && !isKioskPackaged(p);
-      },
-      "Porción dulce 🍰"
-    );
+    if (!hasCriolloInCart) {
+      addCandidate(
+        (p) => isProductCriollo(p),
+        "Crujientes 🥐"
+      );
+    }
+
+    // 3. Rol de canela o Torta dulce
+    if (!hasSweetBakeryInCart) {
+      addCandidate(
+        (p) => p.name.toLowerCase().includes("canela") || p.name.toLowerCase().includes("rol"),
+        "Dulce tentación ✨"
+      );
+      addCandidate(
+        (p) => isProductSweetBakery(p),
+        "Porción dulce 🍰"
+      );
+    }
 
     if (matched.length === 0) return null;
     return {
@@ -308,36 +373,68 @@ export function getSmartPairingSuggestions(addedProduct, catalogProducts = [], c
     };
   }
 
-  if (type === "tostado") {
-    // 1. Jugo o Licuado
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return n.includes("jugo") || n.includes("licuado") || n.includes("naranja");
-      },
-      "Fresco y natural 🍊"
-    );
-    // 2. Coca o Gaseosa
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return n.includes("coca") || n.includes("gaseosa") || n.includes("sprite");
-      },
-      "Bien fría 🥤"
-    );
-    // 3. Porción de papas
-    addCandidate(
-      (p) => {
-        const n = p.name.toLowerCase();
-        return n.includes("papa") && !isKioskPackaged(p);
-      },
-      "Para acompañar 🍟"
-    );
+  if (type === "licuado") {
+    // 1. Tostado
+    if (!hasTostadoInCart) {
+      addCandidate(
+        (p) => isProductTostado(p),
+        "Maridaje ideal 🥪"
+      );
+    }
+
+    // 2. Medialunas
+    if (!hasMedialunaInCart) {
+      addCandidate(
+        (p) => isProductMedialuna(p),
+        "Recién horneada ⭐"
+      );
+    }
+
+    // 3. Rol de canela o porción dulce
+    if (!hasSweetBakeryInCart) {
+      addCandidate(
+        (p) => isProductSweetBakery(p),
+        "Dulce tentación ✨"
+      );
+    }
 
     if (matched.length === 0) return null;
     return {
-      title: "¿Con qué vas a acompañar tu tostado? 🥪🥤",
-      subtitle: "La combinación clásica para tu mesa:",
+      title: "¿Con qué vas a acompañar tu licuado? 🥤🥪",
+      subtitle: "Combinaciones frescas y ricas para tu momento:",
+      items: matched.slice(0, 3),
+    };
+  }
+
+  if (type === "picada") {
+    // 1. Gaseosas - Solo si no tiene gaseosa en carrito
+    if (!hasSodaInCart) {
+      addCandidate(
+        (p) => isProductSoda(p),
+        "Bien fría 🥤"
+      );
+    }
+
+    // 2. Cervezas (bien fría o litro) - Solo si no tiene cerveza en carrito
+    if (!hasBeerInCart) {
+      addCandidate(
+        (p) => isProductBeer(p),
+        "Para compartir 🍺"
+      );
+    }
+
+    // 3. Levité / Aguas saborizadas - Solo si no tiene Levite en carrito
+    if (!hasLeviteInCart) {
+      addCandidate(
+        (p) => isProductLevite(p),
+        "Refrescante 🍊"
+      );
+    }
+
+    if (matched.length === 0) return null;
+    return {
+      title: "¡Acompañá tu picada con una buena bebida! 🧀🍻",
+      subtitle: "Elegí tu bebida favorita para compartir:",
       items: matched.slice(0, 3),
     };
   }
