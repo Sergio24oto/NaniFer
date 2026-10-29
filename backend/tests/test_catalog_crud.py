@@ -54,6 +54,10 @@ def test_admin_product_crud_retry_price_and_history(fixture):
     with SessionLocal() as db:
         p_saved = db.get(Product, pid)
         assert p_saved.stock_mode == 'unit' and len(p_saved.sizes) == 1
+    r_reorder = c.put('/api/menu-management/products-reorder', json={'productIds': [pid]})
+    assert r_reorder.status_code == 200
+    with SessionLocal() as db:
+        assert db.get(Product, pid).sort_order == 0
     with SessionLocal() as db:
         db.get(User, f['user_id']).role = 'staff'
         db.commit()

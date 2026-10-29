@@ -30,6 +30,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
     pending?.body || item ? {
       ...(pending?.body || item),
       inMenu: pending?.body?.inMenu ?? item?.inMenu ?? true,
+      order: pending?.body?.order ?? item?.order ?? 0,
       publicCategories: pending?.body?.publicCategories ?? item?.publicCategories ?? [],
       sizes: initialSizes,
       flavorOptions: Array.isArray(initialFlavors) ? initialFlavors : [],
@@ -204,6 +205,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
         image: value.image || null,
         available: Boolean(value.available),
         inMenu: Boolean(value.inMenu),
+        order: Number(value.order || 0),
         ...(!item?.id || Boolean(value.manageStock) !== Boolean(item.manageStock) ? { manageStock: Boolean(value.manageStock) } : {}),
         sizes: finalSizes,
         flavorOptions: parsedFlavors,
@@ -426,6 +428,20 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                       onChange={e => change('description', e.target.value)}
                       placeholder="Ingredientes, detalles o preparación que verá el cliente..."
                     />
+                  </div>
+
+                  <div className="editor-field">
+                    <label>Orden en la carta</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="9999"
+                      value={value.order ?? 0}
+                      onChange={e => change('order', e.target.value)}
+                    />
+                    <small style={{ color: '#64748b', fontSize: '12px' }}>
+                      Define la posición del producto en la carta digital (menor número = aparece primero).
+                    </small>
                   </div>
                 </div>
               </div>
@@ -957,23 +973,58 @@ export default function MenuManagement() {
     }
   }
 
-  const itemsList = !data ? [] : (data[tab] || []).filter(item => {
-    const matchesSearch = item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase());
-    if (!matchesSearch) return false;
-    if (tab === 'products') {
-      if (item.archived !== archived) return false;
-      if (filter && item.categoryId !== filter && !item.publicCategories?.includes(filter)) return false;
-      if (menuFilter === 'in_menu' && !item.inMenu) return false;
-      if (menuFilter === 'off_menu' && item.inMenu) return false;
-      return true;
+  async function handleMoveProduct(prodId, direction) {
+    if (busy || !s.connected) return;
+    const currentList = [...itemsList];
+    const idx = currentList.findIndex(p => p.id === prodId);
+    if (idx < 0) return;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= currentList.length) return;
+
+    const temp = currentList[idx];
+    currentList[idx] = currentList[targetIdx];
+    currentList[targetIdx] = temp;
+
+    const orderedIds = currentList.map(p => p.id);
+    try {
+      setBusy(true);
+      await request('/menu-management/products-reorder', {
+        method: 'PUT',
+        body: { productIds: orderedIds }
+      });
+      await load();
+      await refresh();
+    } catch (e) {
+      setError(e.message || 'No se pudo reordenar los productos.');
+    } finally {
+      setBusy(false);
     }
-    if (tab === 'flavors') {
-      if (flavorFilter === 'available') return item.available;
-      if (flavorFilter === 'unavailable') return !item.available;
+  }
+
+  const itemsList = !data ? [] : (data[tab] || [])
+    .filter(item => {
+      const matchesSearch = item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase());
+      if (!matchesSearch) return false;
+      if (tab === 'products') {
+        if (item.archived !== archived) return false;
+        if (filter && item.categoryId !== filter && !item.publicCategories?.includes(filter)) return false;
+        if (menuFilter === 'in_menu' && !item.inMenu) return false;
+        if (menuFilter === 'off_menu' && item.inMenu) return false;
+        return true;
+      }
+      if (tab === 'flavors') {
+        if (flavorFilter === 'available') return item.available;
+        if (flavorFilter === 'unavailable') return !item.available;
+        return true;
+      }
       return true;
-    }
-    return true;
-  });
+    })
+    .sort((a, b) => {
+      if (tab === 'categories' || tab === 'products') {
+        return (a.order ?? 0) - (b.order ?? 0);
+      }
+      return 0;
+    });
 
   return (
     <main className="catalog-admin">
@@ -1066,7 +1117,7 @@ export default function MenuManagement() {
           </div>
 
           <div className="catalog-list">
-            {itemsList.map(item => (
+            {itemsList.map((item, idx) => (
               <article className="panel catalog-row" key={item.id}>
                 <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', flex: 1 }}>
                   {tab === 'products' && (
@@ -1110,6 +1161,10 @@ export default function MenuManagement() {
                         <Badge tone={item.inMenu ? 'green' : 'slate'} style={{ fontSize: '10.5px' }}>
                           {item.inMenu ? 'En carta digital' : 'Solo mostrador'}
                         </Badge>
+                        {' · '}
+                        <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                          Orden: {item.order ?? 0}
+                        </span>
                       </p>
                       {item.description && <p>{item.description}</p>}
                       {item.sizes?.length > 0 && (
@@ -1165,6 +1220,31 @@ export default function MenuManagement() {
                   >
                     Editar
                   </button>
+
+                  {tab === 'products' && (
+                    <div style={{ display: 'inline-flex', gap: '3px' }}>
+                      <button
+                        type="button"
+                        className="secondary"
+                        style={{ padding: '3px 7px', fontSize: '11px' }}
+                        disabled={!s.connected || busy || idx === 0}
+                        onClick={() => handleMoveProduct(item.id, 'up')}
+                        title="Subir posición en la carta"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        style={{ padding: '3px 7px', fontSize: '11px' }}
+                        disabled={!s.connected || busy || idx === itemsList.length - 1}
+                        onClick={() => handleMoveProduct(item.id, 'down')}
+                        title="Bajar posición en la carta"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  )}
 
                   {tab === 'products' && !item.archived && (
                     <button

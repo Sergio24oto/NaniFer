@@ -409,9 +409,11 @@ export default function DigitalMenu({ table }) {
   }
 
   const products = cat
-    ? s.catalog.products.filter(
-        (p) => p.category === cat.name || p.publicCategories?.includes(cat.id)
-      )
+    ? s.catalog.products
+        .filter(
+          (p) => p.category === cat.name || p.publicCategories?.includes(cat.id)
+        )
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     : [];
 
   const totalItemsCount = cart.reduce((n, i) => n + i.quantity, 0);

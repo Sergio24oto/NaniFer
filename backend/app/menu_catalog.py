@@ -109,12 +109,13 @@ def management(db=Depends(get_db), auth=Depends(admin)):
                 available=p.available,
                 archived=p.archived,
                 inMenu=p.in_menu,
+                order=p.sort_order,
                 manageStock=p.stock_mode == 'unit',
                 sizes=p.sizes or [],
                 flavorOptions=p.flavor_options or [],
                 comboConfig=p.combo_config or {},
             )
-            for p in db.scalars(select(Product).order_by(Product.name))
+            for p in db.scalars(select(Product).order_by(Product.sort_order, Product.name, Product.id))
         ],
         flavors=[
             dict(
@@ -380,6 +381,7 @@ class ProductIn(StrictModel):
     image: str | None = None
     available: bool = True
     inMenu: bool = True
+    order: int = Field(default=0, ge=0, le=9999)
     manageStock: bool | None = None
     sizes: list = Field(default_factory=list)
     flavorOptions: list[str] = Field(default_factory=list)
@@ -404,6 +406,7 @@ def apply_product(db, p, data: ProductIn):
     p.image = image_path(data.image)
     p.available = data.available
     p.in_menu = data.inMenu
+    p.sort_order = data.order
     p.sizes = data.sizes
     p.flavor_options = [opt.strip() for opt in data.flavorOptions if opt.strip()]
     if data.comboConfig is not None:
@@ -442,6 +445,18 @@ def update_product(id: str, data: ProductIn, db=Depends(get_db), auth=Depends(ad
     apply_product(db, p, data)
     db.commit()
     return {'id': id}
+
+class ProductReorderIn(StrictModel):
+    productIds: list[str]
+
+@router.put('/menu-management/products-reorder')
+def reorder_products(data: ProductReorderIn, db=Depends(get_db), auth=Depends(admin)):
+    for idx, pid in enumerate(data.productIds):
+        p = db.get(Product, pid)
+        if p:
+            p.sort_order = idx
+    db.commit()
+    return {'saved': True, 'count': len(data.productIds)}
 
 @router.post('/menu-management/products/{id}/toggle-menu')
 def toggle_menu_product(id: str, db=Depends(get_db), auth=Depends(admin)):
