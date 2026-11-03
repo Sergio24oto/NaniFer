@@ -3,6 +3,7 @@ import { Camera, Tag, Layers, Plus, Trash2, Sliders, ChevronDown, ChevronUp, Gri
 import { request, useStore, refresh, submitOnce, pendingOperation } from '../store';
 import { Modal, Badge } from '../components';
 import { money } from '../domain';
+import ComboEditor from './ComboEditor';
 import '../menu-management.css';
 
 function Editor({ item, kind, data, onClose, onSaved }) {
@@ -897,6 +898,7 @@ export default function MenuManagement() {
   const [tab, setTab] = useState('products');
   const [archived, setArchived] = useState(false);
   const [editor, setEditor] = useState(null);
+  const [comboEditorItem, setComboEditorItem] = useState(null);
   const [confirmModal, setConfirmModal] = useState(null);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -1037,6 +1039,21 @@ export default function MenuManagement() {
           <button className="primary" disabled={!data || !s.connected} onClick={() => setEditor({ kind: 'products' })}>
             + Nuevo producto
           </button>
+          <button
+            type="button"
+            className="secondary"
+            style={{
+              background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
+              color: '#ffffff',
+              fontWeight: 700,
+              border: 'none',
+              boxShadow: '0 2px 6px rgba(234, 88, 12, 0.25)'
+            }}
+            disabled={!data || !s.connected}
+            onClick={() => setComboEditorItem({})}
+          >
+            ✨ + Nuevo combo
+          </button>
           <button className="secondary" disabled={!data || !s.connected} onClick={() => setEditor({ kind: 'categories' })}>
             + Nueva categoría
           </button>
@@ -1165,6 +1182,14 @@ export default function MenuManagement() {
                         <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
                           Orden: {item.order ?? 0}
                         </span>
+                        {item.comboConfig?.is_combo && (
+                          <>
+                            {' · '}
+                            <span style={{ fontSize: '11px', color: '#c2410c', background: '#ffedd5', border: '1px solid #fed7aa', padding: '1px 7px', borderRadius: '8px', fontWeight: 700 }}>
+                              ✨ COMBO ({item.comboConfig.steps?.length || 0} pasos)
+                            </span>
+                          </>
+                        )}
                       </p>
                       {item.description && <p>{item.description}</p>}
                       {item.sizes?.length > 0 && (
@@ -1215,10 +1240,17 @@ export default function MenuManagement() {
                 <div className="catalog-actions">
                   <button
                     className="secondary"
+                    style={item.comboConfig?.is_combo ? { background: '#fff7ed', borderColor: '#fdba74', color: '#c2410c', fontWeight: 700 } : {}}
                     disabled={!s.connected || busy}
-                    onClick={() => setEditor({ kind: tab, item })}
+                    onClick={() => {
+                      if (item.comboConfig?.is_combo) {
+                        setComboEditorItem(item);
+                      } else {
+                        setEditor({ kind: tab, item });
+                      }
+                    }}
                   >
-                    Editar
+                    {item.comboConfig?.is_combo ? '✨ Editar Combo' : 'Editar'}
                   </button>
 
                   {tab === 'products' && (
@@ -1419,6 +1451,21 @@ export default function MenuManagement() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {comboEditorItem && (
+        <ComboEditor
+          item={comboEditorItem.id ? comboEditorItem : null}
+          data={data}
+          onClose={() => setComboEditorItem(null)}
+          onSaved={async () => {
+            const wasEditing = Boolean(comboEditorItem.id);
+            setComboEditorItem(null);
+            setMessage(wasEditing ? '¡Combo actualizado con éxito!' : '¡Combo creado y publicado con éxito!');
+            await load();
+            await refresh();
+          }}
+        />
       )}
     </main>
   );
