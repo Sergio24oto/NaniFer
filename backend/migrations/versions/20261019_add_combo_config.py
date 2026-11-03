@@ -29,7 +29,7 @@ COMBOS_DATA = [
                     "title": "Elegí tu Infusión",
                     "required": True,
                     "type": "single",
-                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Submarino", "Té", "Mate cocido"]
+                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Té", "Mate cocido"]
                 },
                 {
                     "id": "drink",
@@ -55,7 +55,7 @@ COMBOS_DATA = [
                     "title": "Elegí tu Infusión",
                     "required": True,
                     "type": "single",
-                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Submarino", "Té", "Mate cocido"]
+                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Té", "Mate cocido"]
                 },
                 {
                     "id": "bakery",
@@ -123,7 +123,7 @@ COMBOS_DATA = [
                     "title": "Elegí tu Infusión",
                     "required": True,
                     "type": "single",
-                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Submarino", "Té", "Mate cocido"]
+                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Té", "Mate cocido"]
                 },
                 {
                     "id": "dessert",
@@ -168,7 +168,7 @@ COMBOS_DATA = [
                     "title": "Elegí tu Infusión",
                     "required": True,
                     "type": "single",
-                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Submarino", "Té", "Mate cocido"]
+                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Té", "Mate cocido"]
                 },
                 {
                     "id": "spread",
@@ -194,7 +194,7 @@ COMBOS_DATA = [
                     "title": "Elegí tu Infusión",
                     "required": True,
                     "type": "single",
-                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Submarino", "Té", "Mate cocido"]
+                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Té", "Mate cocido"]
                 },
                 {
                     "id": "spread",
@@ -220,7 +220,7 @@ COMBOS_DATA = [
                     "title": "Elegí tu Infusión",
                     "required": True,
                     "type": "single",
-                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Submarino", "Té", "Mate cocido"]
+                    "options": ["Café en jarrito", "Café cortado", "Café con leche", "Lágrima", "Té", "Mate cocido"]
                 },
                 {
                     "id": "spread",

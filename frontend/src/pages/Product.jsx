@@ -430,22 +430,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
             </fieldset>
           )}
 
-          {p.extras?.length > 0 && (
-            <fieldset>
-              <legend>Extras opcionales</legend>
-              {p.extras.map((e) => (
-                <label className="option" key={e.name}>
-                  <input
-                    type="checkbox"
-                    checked={extras.includes(e.name)}
-                    onChange={() => toggle(e.name, extras, setExtras)}
-                  />
-                  {e.name}
-                  <span>+ {money(e.price)}</span>
-                </label>
-              ))}
-            </fieldset>
-          )}
+
         </>
       )}
 
