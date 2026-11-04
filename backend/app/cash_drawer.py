@@ -46,6 +46,7 @@ def build_shift_summary(db, shift: CashShift):
         "tarjeta": Decimal("0.00"),
         "transferencia": Decimal("0.00"),
         "qr": Decimal("0.00"),
+        "voucher": Decimal("0.00"),
     }
     total_sales = Decimal("0.00")
     cash_sales = Decimal("0.00")

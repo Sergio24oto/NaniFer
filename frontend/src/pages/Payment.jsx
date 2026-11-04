@@ -8,6 +8,7 @@ const METHODS = [
   { value: "qr", label: "📱 QR / Mercado Pago" },
   { value: "tarjeta", label: "💳 Tarjeta" },
   { value: "transferencia", label: "🏦 Transferencia" },
+  { value: "voucher", label: "🎫 Voucher / Vale" },
 ];
 
 export default function Payment({ id, onClose, onSuccess }) {
@@ -49,8 +50,29 @@ export default function Payment({ id, onClose, onSuccess }) {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showVoucher, setShowVoucher] = useState(false);
+  const [voucherAmount, setVoucherAmount] = useState("");
   const lock = useRef(false);
   const changed = quote !== a?.balance;
+
+  function handleApplyVoucher() {
+    const val = Number(voucherAmount);
+    if (!Number.isFinite(val) || val <= 0) return;
+    if (val >= quote) {
+      setIsSplit(false);
+      setMethod("voucher");
+      setReceived("");
+    } else {
+      setIsSplit(true);
+      const remaining = Math.round((quote - val) * 100) / 100;
+      setSplits([
+        { id: 1, method: "voucher", amount: String(val), received: "" },
+        { id: 2, method: "efectivo", amount: String(remaining), received: "" },
+      ]);
+    }
+    setShowVoucher(false);
+    setVoucherAmount("");
+  }
 
   // Single payment validation
   const singleInvalid =
@@ -210,6 +232,49 @@ export default function Payment({ id, onClose, onSuccess }) {
           </p>
         )
       )}
+
+      <div className="voucher-action-banner" style={{ marginBottom: 16 }}>
+        {!showVoucher ? (
+          <button
+            type="button"
+            className="secondary full"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderColor: "#059669", color: "#065f46", background: "#f0fdf4" }}
+            onClick={() => setShowVoucher(true)}
+            disabled={busy || !!pending}
+          >
+            <span>🎫 ¿El cliente presenta un Voucher / Vale?</span>
+          </button>
+        ) : (
+          <div className="panel" style={{ background: "#ecfdf5", border: "1.5px solid #a7f3d0", padding: "12px", borderRadius: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <strong style={{ color: "#065f46", fontSize: 14 }}>🎫 Aplicar Voucher / Vale</strong>
+              <button type="button" className="secondary" style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => setShowVoucher(false)}>Cancelar</button>
+            </div>
+            <p style={{ fontSize: 13, color: "#047857", margin: "0 0 8px 0" }}>
+              Si cubre el total, cobra $0. Si el consumo supera el voucher, calcula la diferencia a cobrar automáticamente.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="number"
+                min="1"
+                step="100"
+                placeholder="Monto del voucher (ej: 5000)"
+                value={voucherAmount}
+                onChange={(e) => setVoucherAmount(e.target.value)}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="primary"
+                disabled={!voucherAmount || Number(voucherAmount) <= 0}
+                onClick={handleApplyVoucher}
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="payment-type-toggle">
         <button

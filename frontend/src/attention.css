@@ -955,7 +955,14 @@ button:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
   min-height: 400px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
+}
+
+.kds-column-orders {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+  align-items: start;
 }
 
 .kds-column-header h3 {
@@ -974,11 +981,11 @@ button:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
   background: #ffffff;
   border: 1.5px solid #dfd4c7;
   border-radius: 12px;
-  padding: 16px;
+  padding: 12px 14px;
   box-shadow: 0 3px 8px rgba(59, 36, 23, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 

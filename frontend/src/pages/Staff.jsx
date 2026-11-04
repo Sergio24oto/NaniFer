@@ -977,13 +977,13 @@ export function Kitchen() {
                 </h3>
               </div>
 
-              {!orders.length && (
+              {!orders.length ? (
                 <div className="empty-column">
                   {index === 0 ? "Sin pedidos en cola" : index === 1 ? "Nada preparándose ahora" : "Sin pedidos esperando retiro"}
                 </div>
-              )}
-
-              {orders.map(o => {
+              ) : (
+                <div className="kds-column-orders">
+                  {orders.map(o => {
                 const a = s.accounts.find(a => a.id === o.accountId);
                 const elapsed = elapsedMinutes(o.createdAt);
                 const delayTone = elapsed >= 20 ? "delay-urgent" : elapsed >= 10 ? "delay-warning" : "delay-normal";
@@ -1088,6 +1088,8 @@ export function Kitchen() {
                   </article>
                 );
               })}
+                </div>
+              )}
             </section>
           );
         })}

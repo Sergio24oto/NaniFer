@@ -31,10 +31,10 @@ def format_method(sale):
         for sp in splits:
             sm = sp.get('method', '')
             sa = float(sp.get('amount', 0))
-            lbl = {'efectivo': 'Ef.', 'tarjeta': 'Tarj.', 'transferencia': 'Transf.', 'qr': 'QR'}.get(sm, sm)
+            lbl = {'efectivo': 'Ef.', 'tarjeta': 'Tarj.', 'transferencia': 'Transf.', 'qr': 'QR', 'voucher': 'Voucher'}.get(sm, sm)
             parts.append(f"{lbl}: ${sa:,.0f}".replace(",", "."))
         return "Mixto:\n" + "\n".join(parts)
-    labels = {'efectivo': 'Efectivo', 'tarjeta': 'Tarjeta', 'transferencia': 'Transferencia', 'qr': 'QR / MP', 'mixto': 'Mixto'}
+    labels = {'efectivo': 'Efectivo', 'tarjeta': 'Tarjeta', 'transferencia': 'Transferencia', 'qr': 'QR / MP', 'voucher': 'Voucher', 'mixto': 'Mixto'}
     return labels.get(m, m.capitalize())
 
 

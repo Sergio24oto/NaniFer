@@ -10,6 +10,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
     p.sizes?.find(s => s.available !== false && s.isDefault)?.name ||
     p.sizes?.find(s => s.available !== false && (s.name.toLowerCase().includes("entera") || (p.price != null && Number(s.salePrice) === Number(p.price))))?.name ||
     p.sizes?.find(s => s.available !== false)?.name ||
+    p.sizes?.[0]?.name ||
     "";
   const [size, setSize] = useState(defaultSize);
   const [chosen, setChosen] = useState([]);
@@ -77,6 +78,43 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   const isCombo = Boolean(p.comboConfig?.is_combo && p.comboConfig.steps?.length > 0);
   const comboSteps = isCombo ? p.comboConfig.steps : [];
 
+  const isMultiSize = Boolean(
+    p.sizes &&
+    p.sizes.length > 1 &&
+    !isCombo &&
+    !requiresFlavorOption &&
+    !Boolean(!manual && !productFlavors.length && p.sizes.some(s => s.max && s.max > 0))
+  );
+
+  const [sizeCounts, setSizeCounts] = useState(() => {
+    const init = {};
+    if (p.sizes && p.sizes.length > 1) {
+      p.sizes.forEach(s => {
+        init[s.name] = (s.name === defaultSize) ? 1 : 0;
+      });
+    }
+    return init;
+  });
+
+  const updateSizeCount = (sizeName, newCount) => {
+    const c = Math.max(0, Math.min(99, newCount));
+    setSizeCounts(prev => ({
+      ...prev,
+      [sizeName]: c
+    }));
+  };
+
+  const totalMultiUnits = isMultiSize
+    ? Object.values(sizeCounts).reduce((a, b) => a + (b || 0), 0)
+    : quantity;
+
+  const totalMultiPrice = isMultiSize
+    ? Object.entries(sizeCounts).reduce(
+        (sum, [sz, cnt]) => sum + (cnt || 0) * estimate(p, sz, extras),
+        0
+      )
+    : unit * quantity;
+
   const [comboSelections, setComboSelections] = useState(() => {
     const init = {};
     for (const step of comboSteps) {
@@ -127,6 +165,12 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   });
 
   const buttonText = () => {
+    if (isMultiSize) {
+      if (totalMultiUnits === 0) {
+        return `Elegí al menos un tamaño · $0`;
+      }
+      return `Agregar ${totalMultiUnits} ${totalMultiUnits === 1 ? "unidad" : "unidades"} · ${money(totalMultiPrice)}`;
+    }
     if (isCombo && missingComboStep) {
       if (missingComboStep.type === 'multiple') {
         const cur = (comboSelections[missingComboStep.id] || []).length;
@@ -172,7 +216,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
       onAdd({
         productId: p.id,
         name: p.name,
-        size: "",
+        size: defaultSize || p.sizes?.[0]?.name || "",
         flavors: [],
         extras: [],
         comboSelections,
@@ -180,6 +224,27 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
         quantity,
         unitPrice: unit,
       });
+      return;
+    }
+
+    if (isMultiSize) {
+      const items = Object.entries(sizeCounts)
+        .filter(([_, count]) => count > 0)
+        .map(([szName, count]) => ({
+          productId: p.id,
+          name: p.name,
+          size: szName,
+          flavors: chosen,
+          extras,
+          notes,
+          quantity: count,
+          unitPrice: estimate(p, szName, extras),
+        }));
+      if (items.length === 1) {
+        onAdd(items[0]);
+      } else if (items.length > 1) {
+        onAdd(items);
+      }
       return;
     }
 
@@ -239,7 +304,8 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
       {p.description && <p className="product-modal-desc">{p.description}</p>}
 
       {/* Selector de cantidad interactivo */}
-      <div className="product-qty-row">
+      {!isMultiSize && (
+        <div className="product-qty-row">
         <span className="product-qty-label">Cantidad:</span>
         <div className="product-stepper">
           <button
@@ -263,6 +329,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           </button>
         </div>
       </div>
+      )}
 
       {isCombo ? (
         <div className="combo-builder-container">
@@ -334,40 +401,109 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
       ) : (
         <>
           {p.sizes?.length > 0 && (
-            <fieldset>
-              <legend>Presentación</legend>
-              {p.sizes.map((z) => (
-                <label className="option" key={z.name}>
-                  <input
-                    type="radio"
-                    name="size"
-                    checked={size === z.name}
-                    disabled={z.available === false}
-                    onChange={() => {
-                      setSize(z.name);
-                      setChosen([]);
-                      setFlavorCounts({});
-                    }}
-                  />
-                  {z.name}{z.available === false ? " · Sin stock" : ""}
-                  <span>
-                    <strong>
-                      {(() => {
-                        const variantPrice =
-                          z.salePrice != null && z.salePrice !== ""
-                            ? z.salePrice
-                            : z.price != null && p.price != null
-                            ? Number(p.price) + Number(z.price)
-                            : z.price != null
-                            ? z.price
-                            : p.price;
-                        return variantPrice != null ? money(variantPrice) : "";
-                      })()}
-                    </strong>
-                  </span>
-                </label>
-              ))}
-            </fieldset>
+            isMultiSize ? (
+              <fieldset className="product-sizes-fieldset">
+                <legend>Presentación · Elegí la cantidad de cada tamaño</legend>
+                <div className="size-stepper-list">
+                  {p.sizes.map((z) => {
+                    const count = sizeCounts[z.name] || 0;
+                    const variantPrice =
+                      z.salePrice != null && z.salePrice !== ""
+                        ? z.salePrice
+                        : z.price != null && p.price != null
+                        ? Number(p.price) + Number(z.price)
+                        : z.price != null
+                        ? z.price
+                        : p.price;
+
+                    return (
+                      <div
+                        key={z.name}
+                        className={`size-stepper-row ${count > 0 ? "active" : ""}`}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "10px 14px",
+                          marginBottom: 8,
+                          borderRadius: 10,
+                          background: count > 0 ? "#fdf7f2" : "#fbf9f6",
+                          border: count > 0 ? "1.5px solid #d97706" : "1px solid #e2d7c9"
+                        }}
+                      >
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <strong style={{ fontSize: 15, color: "#24140b" }}>{z.name}</strong>
+                          <span style={{ fontSize: 13, color: "#716055" }}>
+                            {variantPrice != null ? money(variantPrice) : ""}
+                            {z.available === false ? " · Sin stock" : ""}
+                          </span>
+                        </div>
+                        <div className="product-stepper" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <button
+                            type="button"
+                            className="stepper-btn"
+                            disabled={count <= 0}
+                            onClick={() => updateSizeCount(z.name, count - 1)}
+                            aria-label={`Disminuir ${z.name}`}
+                            style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #cbd5e1", background: "#ffffff", fontSize: 18, cursor: count <= 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >
+                            −
+                          </button>
+                          <span className="stepper-val" style={{ minWidth: 28, textAlign: "center", fontWeight: 800, fontSize: 16 }}>
+                            {count}
+                          </span>
+                          <button
+                            type="button"
+                            className="stepper-btn"
+                            disabled={z.available === false || count >= 99}
+                            onClick={() => updateSizeCount(z.name, count + 1)}
+                            aria-label={`Aumentar ${z.name}`}
+                            style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #cbd5e1", background: "#ffffff", fontSize: 18, cursor: z.available === false ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ) : (
+              <fieldset>
+                <legend>Presentación</legend>
+                {p.sizes.map((z) => (
+                  <label className="option" key={z.name}>
+                    <input
+                      type="radio"
+                      name="size"
+                      checked={size === z.name}
+                      disabled={z.available === false}
+                      onChange={() => {
+                        setSize(z.name);
+                        setChosen([]);
+                        setFlavorCounts({});
+                      }}
+                    />
+                    {z.name}{z.available === false ? " · Sin stock" : ""}
+                    <span>
+                      <strong>
+                        {(() => {
+                          const variantPrice =
+                            z.salePrice != null && z.salePrice !== ""
+                              ? z.salePrice
+                              : z.price != null && p.price != null
+                              ? Number(p.price) + Number(z.price)
+                              : z.price != null
+                              ? z.price
+                              : p.price;
+                          return variantPrice != null ? money(variantPrice) : "";
+                        })()}
+                      </strong>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            )
           )}
 
           {/* Selección de sabor / variedad con panel de surtido interactivo */}
@@ -522,12 +658,11 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
         disabled={
           !p.available ||
           (isCombo && Boolean(missingComboStep)) ||
-          (!isCombo && p.sizes?.length > 0 && !p.sizes.some(z => z.name === size && z.available !== false)) ||
-          (!isCombo && missingIceCreamFlavors) ||
-          (!isCombo && missingFlavorOption) ||
-          !Number.isInteger(quantity) ||
-          quantity < 1 ||
-          quantity > 99
+          (isMultiSize && totalMultiUnits < 1) ||
+          (!isCombo && !isMultiSize && p.sizes?.length > 0 && !p.sizes.some(z => z.name === size && z.available !== false)) ||
+          (!isCombo && !isMultiSize && missingIceCreamFlavors) ||
+          (!isCombo && !isMultiSize && missingFlavorOption) ||
+          (!isMultiSize && (!Number.isInteger(quantity) || quantity < 1 || quantity > 99))
         }
         onClick={handleAdd}
       >

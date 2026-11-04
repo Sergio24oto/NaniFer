@@ -72,13 +72,22 @@ def priced_item(db, item, *, require_flavors=True):
     p = db.get(Product, item.productId)
     if not p or p.archived or not p.available or p.price_pending:
         fail("Producto no disponible.", 422)
-    size = next((s for s in p.sizes if s["name"] == item.size), None)
-    if p.sizes and not size:
+    is_combo = bool(p.combo_config and p.combo_config.get("is_combo"))
+    size = next((s for s in p.sizes if s.get("name") == item.size), None) if p.sizes else None
+    if not size and p.sizes:
+        if is_combo:
+            size = p.sizes[0] if p.sizes else None
+        else:
+            size = next((s for s in p.sizes if s.get("isDefault") and s.get("available", True) and s.get("enabled", True)), None)
+            if not size:
+                size = next((s for s in p.sizes if s.get("available", True) and s.get("enabled", True)), p.sizes[0] if p.sizes else None)
+            if size:
+                item.size = size.get("name", "")
+    if p.sizes and not size and not is_combo:
         fail("Elegí un tamaño válido.", 422)
     if size and not size.get('enabled',True):fail('Presentación deshabilitada.',422)
     if not p.sizes and item.size:
         fail("Este producto no tiene tamaños.", 422)
-    is_combo = bool(p.combo_config and p.combo_config.get("is_combo"))
     if not is_combo:
         product_flavors = p.flavor_options or []
         if product_flavors:

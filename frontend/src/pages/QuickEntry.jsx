@@ -103,14 +103,15 @@ export default function QuickEntry({
       return getProductOperationalScore(b, normalize) - getProductOperationalScore(a, normalize);
     });
   function choose(p) {
-    if (p.sizes?.length > 1 || p.extras?.length) {
+    if (p.sizes?.length > 1 || p.extras?.length || p.flavorOptions?.length || (p.comboConfig?.is_combo && p.comboConfig.steps?.length > 0)) {
       setProduct(p);
       return;
     }
     if (getProductStation(p) === "cocina") {
       setPreparation(true);
     }
-    const size = p.sizes?.[0]?.name || "";
+    const defaultSz = p.sizes?.find(s => s.available !== false && s.isDefault) || p.sizes?.find(s => s.available !== false) || p.sizes?.[0];
+    const size = defaultSz?.name || "";
     setCart(old => addLine(old, {
       productId: p.id,
       name: p.name,

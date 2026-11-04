@@ -23,13 +23,13 @@ class OrderIn(StrictModel):
 
 
 class PaymentSplitIn(StrictModel):
-    method: Literal["efectivo", "tarjeta", "transferencia", "qr"]
+    method: Literal["efectivo", "tarjeta", "transferencia", "qr", "voucher"]
     amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     received: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
 
 
 class PayIn(StrictModel):
-    method: Literal["efectivo", "tarjeta", "transferencia", "qr", "mixto"] = "efectivo"
+    method: Literal["efectivo", "tarjeta", "transferencia", "qr", "voucher", "mixto"] = "efectivo"
     received: Decimal | None = Field(
         default=None, ge=0, max_digits=12, decimal_places=2
     )
