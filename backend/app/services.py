@@ -1,6 +1,6 @@
 from decimal import Decimal
 from uuid import uuid4
-import hashlib, json
+import hashlib, json, re
 from fastapi import HTTPException
 from sqlalchemy import select, func
 from .models import (
@@ -82,12 +82,57 @@ def priced_item(db, item, *, require_flavors=True):
     if not is_combo:
         product_flavors = p.flavor_options or []
         if product_flavors:
-            if require_flavors and len(item.flavors) != 1:
-                fail("Elegí un sabor para este producto.", 422)
-            if len(item.flavors) > 1:
-                fail("Elegí solo 1 sabor.", 422)
-            if any(f not in product_flavors for f in item.flavors):
-                fail("Sabor no disponible para este producto.", 422)
+            s_name = (size.get("name") if size else "").lower()
+            max_units = (size or {}).get("max") or 0
+            if max_units and int(max_units) > 0:
+                pack_units = int(max_units)
+            elif (
+                "media docena" in s_name
+                or "1/2 docena" in s_name
+                or "1/2docena" in s_name
+                or "6 u" in s_name
+                or "6u" in s_name
+            ):
+                pack_units = 6
+            elif "docena" in s_name or "12 u" in s_name or "12u" in s_name:
+                pack_units = 12
+            else:
+                m_units = re.search(r"(\d+)\s*(u|un|unid|unidades)\b", s_name)
+                pack_units = int(m_units.group(1)) if m_units else 1
+
+            if pack_units > 1:
+                total_expected = pack_units * (getattr(item, "quantity", 1) or 1)
+                total_units = 0
+                for f in item.flavors:
+                    m = re.match(r"^(\d+)x\s+(.+)$", f.strip())
+                    if m:
+                        count = int(m.group(1))
+                        fl_name = m.group(2).strip()
+                    else:
+                        count = 1
+                        fl_name = f.strip()
+                    if fl_name not in product_flavors and not any(
+                        p_fl.lower().strip() == fl_name.lower().strip()
+                        for p_fl in product_flavors
+                    ):
+                        fail(f"Sabor no disponible para este producto: {fl_name}", 422)
+                    total_units += count
+                if require_flavors and total_units != total_expected:
+                    fail(f"Elegí las {total_expected} unidades para este producto.", 422)
+            else:
+                if require_flavors and len(item.flavors) != 1:
+                    fail("Elegí un sabor para este producto.", 422)
+                if len(item.flavors) > 1:
+                    fail("Elegí solo 1 sabor.", 422)
+                if any(
+                    f not in product_flavors
+                    and not any(
+                        p_fl.lower().strip() == f.lower().strip()
+                        for p_fl in product_flavors
+                    )
+                    for f in item.flavors
+                ):
+                    fail("Sabor no disponible para este producto.", 422)
         else:
             maximum = (size or {}).get("max", 0)
             if (maximum and not (1 if require_flavors else 0) <= len(item.flavors) <= maximum) or (

@@ -10,7 +10,7 @@ class StrictModel(BaseModel):
 class ItemIn(StrictModel):
     productId: str
     size: str = ""
-    flavors: list[str] = Field(default_factory=list, max_length=10)
+    flavors: list[str] = Field(default_factory=list, max_length=50)
     extras: list[str] = Field(default_factory=list, max_length=20)
     notes: str = Field(default="", max_length=300)
     comboSelections: dict = Field(default_factory=dict)
