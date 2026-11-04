@@ -353,7 +353,8 @@ export function Account({
   const [ack, setAck] = useState(null);
   const [pay, setPay] = useState(false),
     [reserving, setReserving] = useState(false),
-    [joining, setJoining] = useState(false);
+    [joining, setJoining] = useState(false),
+    [moving, setMoving] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -412,6 +413,7 @@ export function Account({
         <Badge tone={a ? "amber" : "green"}>{a ? "Ocupada" : "Libre"}</Badge>
         {s.user?.permissions?.includes("reservations.manage") && <button className="secondary" onClick={() => setReserving(true)}>Reservas</button>}
         <button className="secondary" onClick={() => setJoining(true)}>🔗 Juntar mesas</button>
+        {a && <button className="secondary" onClick={() => setMoving(true)}>🔀 Cambiar mesa</button>}
       </div>
     </div>
     {error && <p className="alert" role="alert">{error}</p>}{message && <p className="success" role="status">{message}</p>}
@@ -709,6 +711,50 @@ export function Account({
                     })}
                   >
                     Juntar con {tableLabel(s, num)}
+                  </button>
+                </div>
+              );
+            })}
+        </div>
+      </Modal>
+    )}
+    {moving && (
+      <Modal title="Cambiar / Mover de mesa" onClose={() => setMoving(false)}>
+        <p style={{ margin: "0 0 14px 0", color: "#624335" }}>
+          ¿A qué mesa se trasladaron los clientes de <strong>{tableLabel(s, effectiveTable)}</strong>?
+        </p>
+
+        <strong style={{ fontSize: 13, color: "#8c6e58", textTransform: "uppercase" }}>Elegí una mesa libre de destino:</strong>
+        <div className="join-modal-list">
+          {allTables
+            .filter(t => t.number !== effectiveTable && !activeAccount(s, t.number) && !s.accounts.some(acc => !acc.closedAt && acc.joinedTables?.includes(t.number)))
+            .map(t => {
+              const num = t.number;
+              return (
+                <div key={num} className="join-modal-item">
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span className={`sector-tag ${t.sector === "afuera" ? "sector-afuera" : "sector-salon"}`} style={{ fontSize: 10, padding: "1px 5px", marginBottom: 0 }}>
+                        {t.sector === "afuera" ? "☀️ Afuera" : "🏠 Salón"}
+                      </span>
+                      <strong>{tableLabel(s, num)}</strong>
+                    </div>
+                    <small style={{ color: "#16a34a", fontWeight: 600 }}>🟢 Libre</small>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={busy}
+                    onClick={() => run(async () => {
+                      await mutate(`/tables/${effectiveTable}/move`, {
+                        targetTable: num
+                      });
+                      await refresh();
+                      setMoving(false);
+                      nav(`/atencion/mesas/${num}`, `Mesa mudada exitosamente. Todos los consumos pasaron a ${tableLabel(s, num)}.`);
+                    })}
+                  >
+                    Mover a {tableLabel(s, num)}
                   </button>
                 </div>
               );

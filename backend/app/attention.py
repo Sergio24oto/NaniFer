@@ -79,6 +79,10 @@ class SeparateTableIn(StrictModel):
     targetTable: int = Field(ge=1)
 
 
+class MoveTableIn(StrictModel):
+    targetTable: int = Field(ge=1)
+
+
 @router.post("/tables/{number}/join")
 def join_tables(number: int, data: JoinTablesIn, auth=Depends(current_session), db=Depends(get_db)):
     target = data.targetTable
@@ -140,6 +144,47 @@ def separate_tables(number: int, data: SeparateTableIn, auth=Depends(current_ses
         v.joined_tables = current
         db.commit()
     return {"ok": True, "separated": target}
+
+
+@router.post("/tables/{number}/move")
+def move_table(number: int, data: MoveTableIn, auth=Depends(current_session), db=Depends(get_db)):
+    target = data.targetTable
+    if number == target:
+        fail("La mesa de destino no puede ser la misma.", 422)
+
+    lock_table(db, number)
+    lock_table(db, target)
+    from .main import find_active_visit_for_table
+    from .models import AttentionCall, Table
+
+    v_source = find_active_visit_for_table(db, number)
+    if not v_source:
+        fail("La mesa origen no tiene una cuenta abierta.", 404)
+
+    target_table_obj = db.get(Table, target)
+    if not target_table_obj or not target_table_obj.active:
+        fail(f"La mesa {target} no existe o no está habilitada.", 422)
+
+    v_target = find_active_visit_for_table(db, target)
+    if v_target:
+        fail(f"La mesa {target} ya está ocupada. Si querés unirlas, usá 'Juntar mesas'.", 422)
+
+    current_joined = list(v_source.joined_tables or [])
+    if target in current_joined:
+        current_joined.remove(target)
+    v_source.joined_tables = current_joined
+
+    v_source.active_table = target
+    v_source.table_number = target
+
+    db.execute(
+        update(AttentionCall)
+        .where(AttentionCall.table == number, AttentionCall.status == "pending")
+        .values(table=target)
+    )
+
+    db.commit()
+    return {"ok": True, "source": number, "target": target}
 
 
 @router.post("/counter/quote")
