@@ -228,7 +228,32 @@ export function Salon({
         const reservation = all.find(x => x.date === date) || (!reservationDate ? all.find(x => x.date > s.calendarToday) || all[0] : null);
         const tableOrders = s.orders.filter(o => o.accountId === a?.id);
         const hasOrders = a && tableOrders.length > 0;
-        return <article key={n} className={"table-card table-card-actions " + (t.sector === "afuera" ? "card-sector-afuera " : "") + (a ? "occupied " : "") + (hasOrders ? "has-orders " : "") + (r ? "ready" : "") + (reservation ? " has-reservation" : "") + (call ? " calling" : "")}>
+        const hasWaiting = hasOrders && tableOrders.some(o => o.status === "pendiente" || o.status === "en preparación");
+        const allDelivered = hasOrders && !hasWaiting && !r && tableOrders.every(o => o.status === "entregado");
+
+        let statusClass = "available";
+        if (call) {
+          statusClass = "calling";
+        } else if (r) {
+          statusClass = "ready";
+        } else if (allDelivered) {
+          statusClass = "served occupied";
+        } else if (hasWaiting) {
+          statusClass = "waiting occupied";
+        } else if (a) {
+          statusClass = "occupied";
+        }
+
+        const cardClasses = [
+          "table-card",
+          "table-card-actions",
+          t.sector === "afuera" ? "card-sector-afuera" : "",
+          statusClass,
+          hasOrders ? "has-orders" : "",
+          reservation ? "has-reservation" : "",
+        ].filter(Boolean).join(" ");
+
+        return <article key={n} className={cardClasses}>
           {call && (
             <div className="call-badge">
               <div className="call-badge-title">
@@ -257,10 +282,18 @@ export function Salon({
               {isJoinedChild && <span className="joined-tag">🔗 Junta con {tableLabel(s, parentAcc.table)}</span>}
               {isJoinedParent && <span className="joined-tag">🔗 Junta con {joinedChildren.map(jt => tableLabel(s, jt)).join(", ")}</span>}
             </div>
-            {hasOrders ? (
-              <Badge tone="red">Pedido ya realizado</Badge>
+            {call ? (
+              <Badge tone="amber">🛎️ ¡Llaman!</Badge>
+            ) : r ? (
+              <Badge tone="green">✓ ¡Listo!</Badge>
+            ) : allDelivered ? (
+              <Badge tone="amber">🍽️ Servido</Badge>
+            ) : hasWaiting ? (
+              <Badge tone="red">⏳ En cocina</Badge>
+            ) : a ? (
+              <Badge tone="neutral">Mesa abierta</Badge>
             ) : (
-              <Badge tone={a ? "amber" : "green"}>{a ? "Ocupada" : "Libre"}</Badge>
+              <Badge tone="green">Libre</Badge>
             )}
           </div>
           <div className="table-balance">
@@ -269,8 +302,13 @@ export function Salon({
           </div>
           {hasOrders && (
             <div className="table-orders-badge">
-              <span>🔔 {tableOrders.length} {tableOrders.length === 1 ? "pedido recibido" : "pedidos recibidos"}</span>
-              {r && <small className="ready-hint">✓ ¡Listo!</small>}
+              <span>
+                {allDelivered
+                  ? `🍽️ ${tableOrders.length} ${tableOrders.length === 1 ? "pedido entregado" : "pedidos entregados"}`
+                  : r
+                  ? `🛎️ ¡Comanda lista para retirar!`
+                  : `⏳ ${tableOrders.length} ${tableOrders.length === 1 ? "pedido en marcha" : "pedidos en marcha"}`}
+              </span>
             </div>
           )}
           {!hasOrders && r && <small className="ready-hint">Productos listos para entregar</small>}

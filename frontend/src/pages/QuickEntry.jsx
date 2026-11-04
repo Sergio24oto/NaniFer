@@ -3,6 +3,61 @@ import { Search, Plus, Minus } from "lucide-react";
 import Product from "./Product";
 import { useStore } from "../store";
 import { money, estimate, getProductStation } from "../domain";
+const CATEGORY_ORDER = [
+  "cafeteria",
+  "cafe",
+  "desayunos",
+  "meriendas",
+  "tostados",
+  "panaderia",
+  "helados",
+  "heladeria",
+  "licuados",
+  "bebidas",
+  "comidas",
+  "pizzas",
+  "empanadas",
+  "combos",
+  "tortas",
+  "dulces"
+];
+
+function getCategoryPriority(cat, normalize) {
+  if (!cat) return 0;
+  const n = normalize(cat);
+  const idx = CATEGORY_ORDER.findIndex(p => n.includes(p));
+  return idx === -1 ? 99 : idx + 1;
+}
+
+function getProductOperationalScore(p, normalize) {
+  const n = normalize(p.name || "");
+  const cat = normalize(p.category || "");
+
+  // 1. Cafetería y desayunos / meriendas básicos (máxima rotación de mozas)
+  if (n.includes("cafe") || n.includes("cortado") || n.includes("lagrima") || n.includes("submarino") || n.includes("jarrito")) return 1000;
+  if (n.includes("tostado") || n.includes("carlit")) return 950;
+  if (n.includes("medialuna") || n.includes("criollo") || n.includes("factura")) return 900;
+  if (n.includes("licuado")) return 850;
+
+  // 2. Heladería (1 kg, 1/2 kg, 1/4 kg, bochas)
+  if (n.includes("1 kg") || n.includes("1kg") || n.includes("kilo")) return 800;
+  if (n.includes("1/2 kg") || n.includes("medio kilo") || n.includes("1/2kg")) return 790;
+  if (n.includes("1/4 kg") || n.includes("cuarto") || n.includes("1/4kg")) return 780;
+  if (n.includes("bocha") || n.includes("cucurucho") || n.includes("tacita") || n.includes("vasito")) return 770;
+  if (cat.includes("helad")) return 750;
+
+  // 3. Bebidas comunes
+  if (n.includes("gaseosa") || n.includes("agua") || n.includes("levite") || n.includes("soda")) return 700;
+  if (n.includes("cerveza") || n.includes("chopp") || n.includes("pinta")) return 680;
+
+  // 4. Comidas saladas de alta rotación
+  if (n.includes("empanada")) return 600;
+  if (n.includes("pizza")) return 550;
+  if (n.includes("papas") || n.includes("picada")) return 500;
+
+  return 100;
+}
+
 export function addLine(cart, item) {
   const signature = x => JSON.stringify([x.productId, x.size, x.flavors, x.extras, x.notes]);
   const index = cart.findIndex(x => signature(x) === signature(item) && x.quantity + item.quantity <= 99);
@@ -26,18 +81,27 @@ export default function QuickEntry({
   const [search, setSearch] = useState("");
   const [product, setProduct] = useState(null);
   const normalize = text => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const products = catalog.products.filter(p => {
-    if (category && p.category !== category) return false;
-    if (!search.trim()) return true;
-    const term = normalize(search.trim());
-    const inName = normalize(p.name || "").includes(term);
-    const inCategory = normalize(p.category || "").includes(term);
-    const inDesc = normalize(p.description || "").includes(term);
-    const inPublicCats = (p.publicCategories || []).some(c => normalize(c || "").includes(term));
-    const inSizes = (p.sizes || []).some(s => normalize(s.name || "").includes(term));
-    const inFlavors = (p.flavorOptions || []).some(f => normalize(f || "").includes(term));
-    return inName || inCategory || inDesc || inPublicCats || inSizes || inFlavors;
-  });
+  const sortedCategories = [
+    "",
+    ...[...catalog.categories].sort((a, b) => getCategoryPriority(a, normalize) - getCategoryPriority(b, normalize))
+  ];
+  const products = catalog.products
+    .filter(p => {
+      if (category && p.category !== category) return false;
+      if (!search.trim()) return true;
+      const term = normalize(search.trim());
+      const inName = normalize(p.name || "").includes(term);
+      const inCategory = normalize(p.category || "").includes(term);
+      const inDesc = normalize(p.description || "").includes(term);
+      const inPublicCats = (p.publicCategories || []).some(c => normalize(c || "").includes(term));
+      const inSizes = (p.sizes || []).some(s => normalize(s.name || "").includes(term));
+      const inFlavors = (p.flavorOptions || []).some(f => normalize(f || "").includes(term));
+      return inName || inCategory || inDesc || inPublicCats || inSizes || inFlavors;
+    })
+    .sort((a, b) => {
+      if (search.trim()) return 0;
+      return getProductOperationalScore(b, normalize) - getProductOperationalScore(a, normalize);
+    });
   function choose(p) {
     if (p.sizes?.length > 1 || p.extras?.length) {
       setProduct(p);
@@ -62,7 +126,7 @@ export default function QuickEntry({
   return <section className="quick-entry">
     <label className="quick-search"><Search size={18} /><span className="sr-only">Buscar productos</span><input type="search" placeholder="Buscar un producto…" value={search} onChange={e => setSearch(e.target.value)} disabled={disabled} /></label>
     <div className="quick-categories" aria-label="Categorías">
-      {["", ...catalog.categories].map(c => <button key={c} className={category === c ? "primary" : "secondary"} onClick={() => setCategory(c)}>{c || "Todos"}</button>)}
+      {sortedCategories.map(c => <button key={c} className={category === c ? "primary" : "secondary"} onClick={() => setCategory(c)}>{c || "Todos"}</button>)}
     </div>
     <p className="note">Si falta stock, precio o carga inicial, avisá al administrador.</p>
     <div className="quick-products">
