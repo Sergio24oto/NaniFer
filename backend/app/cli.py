@@ -72,9 +72,42 @@ def seed(db):
     menu_offerings.apply()
 
 
+def reset_operational_data(db):
+    """
+    Reseteo operativo seguro:
+    Elimina solo los registros transaccionales de prueba (pedidos, cuentas, pagos, caja, ventas, llamados)
+    PRESERVANDO AL 100%:
+    - Productos, categorías, fotos, cartas, combos, variantes, sabores de helado, mesas y usuarios.
+    """
+    tables = [
+        "order_items",
+        "orders",
+        "sale_allocations",
+        "sale_corrections",
+        "sales",
+        "payments",
+        "cash_movements",
+        "cash_shifts",
+        "attention_calls",
+        "reservations",
+        "operations",
+        "public_sessions",
+        "visits",
+        "stock_movements",
+    ]
+    db.execute(text("SET FOREIGN_KEY_CHECKS = 0;"))
+    for t in tables:
+        db.execute(text(f"TRUNCATE TABLE {t};"))
+    db.execute(text("SET FOREIGN_KEY_CHECKS = 1;"))
+    db.commit()
+    print("Reset operativo completado con exito.")
+    print("   - Se borraron: pedidos de prueba, visitas, pagos, ventas, caja y llamadas.")
+    print("   - Se conservaron intactos: todos los productos, fotos, categorias, sabores, mesas y usuarios.")
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["check-db", "seed-demo", "create-user"])
+    parser.add_argument("command", choices=["check-db", "seed-demo", "create-user", "reset-test-data"])
     parser.add_argument("--force", action="store_true", help="Forzar seed-demo en cualquier base")
     parser.add_argument("--username", help="Usuario para create-user")
     parser.add_argument("--name", help="Nombre visible para create-user")
@@ -95,6 +128,9 @@ def main():
                     )
                 seed(db)
                 print("Ejemplos agregados. No se actualizaron registros existentes.")
+                return
+            if args.command == "reset-test-data":
+                reset_operational_data(db)
                 return
             username = (args.username or input("Usuario: ")).strip()
             name = (args.name or input("Nombre visible: ")).strip()
