@@ -16,19 +16,51 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   const [extras, setExtras] = useState([]);
   const [notes, setNotes] = useState("");
   const [quantity, setQuantity] = useState(1);
-  const [unitFlavors, setUnitFlavors] = useState([""]);
+  const [flavorCounts, setFlavorCounts] = useState({});
 
-  const max = p.sizes?.find((s) => s.name === size)?.max;
+  const selectedSizeObj = p.sizes?.find((s) => s.name === size);
+  const max = selectedSizeObj?.max;
   const unit = estimate(p, size, extras);
   const toggle = (v, list, set) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
   const productFlavors = p.flavorOptions || [];
   const requiresFlavorOption = !manual && productFlavors.length > 0;
+
+  // Helper para detectar si la presentación elegida es un pack (ej: docena = 12, media docena = 6)
+  const getPackUnits = (sizeObj) => {
+    if (!sizeObj) return 1;
+    if (sizeObj.max != null && Number(sizeObj.max) > 0) {
+      return Number(sizeObj.max);
+    }
+    const sName = (sizeObj.name || "").toLowerCase();
+    if (
+      sName.includes("media docena") ||
+      sName.includes("1/2 docena") ||
+      sName.includes("1/2docena") ||
+      sName.includes("6 u") ||
+      sName.includes("6u")
+    ) {
+      return 6;
+    }
+    if (sName.includes("docena") || sName.includes("12 u") || sName.includes("12u")) {
+      return 12;
+    }
+    const match = sName.match(/(\d+)\s*(u|un|unid|unidades)\b/);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (n > 1) return n;
+    }
+    return 1;
+  };
+
+  const unitsPerPack = getPackUnits(selectedSizeObj);
+  const isPack = unitsPerPack > 1;
+  const totalUnitsNeeded = isPack ? unitsPerPack * quantity : quantity;
+  const totalSelectedFlavors = Object.values(flavorCounts).reduce((a, b) => a + (b || 0), 0);
+
   const missingFlavorOption =
-    requiresFlavorOption &&
-    (unitFlavors.length < quantity ||
-      unitFlavors.slice(0, quantity).some((fl) => !fl));
+    requiresFlavorOption && totalSelectedFlavors < totalUnitsNeeded;
 
   const requiresIceCreamFlavors = !manual && !productFlavors.length && max;
   const missingIceCreamFlavors = requiresIceCreamFlavors && !chosen.length;
@@ -36,31 +68,11 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   const updateQuantity = (newQty) => {
     const q = Math.max(1, Math.min(99, newQty));
     setQuantity(q);
-    setUnitFlavors((prev) => {
-      const next = [...prev];
-      while (next.length < q) {
-        next.push("");
-      }
-      return next.slice(0, q);
-    });
+    const newNeeded = isPack ? unitsPerPack * q : q;
+    if (totalSelectedFlavors > newNeeded) {
+      setFlavorCounts({});
+    }
   };
-
-  const selectUnitFlavor = (index, fl) => {
-    setUnitFlavors((prev) => {
-      const next = [...prev];
-      next[index] = fl;
-      return next;
-    });
-  };
-
-  const copyFlavorToAll = (fl) => {
-    if (!fl) return;
-    setUnitFlavors(Array(quantity).fill(fl));
-  };
-
-  const firstMissingUnit = requiresFlavorOption
-    ? unitFlavors.slice(0, quantity).findIndex((fl) => !fl)
-    : -1;
 
   const isCombo = Boolean(p.comboConfig?.is_combo && p.comboConfig.steps?.length > 0);
   const comboSteps = isCombo ? p.comboConfig.steps : [];
@@ -125,10 +137,14 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
       return `${missingComboStep.title} · ${money(unit * quantity)}`;
     }
     if (missingFlavorOption) {
-      if (quantity === 1) return `Elegí un sabor · ${money(unit * quantity)}`;
-      const ordinals = ["1ª", "2ª", "3ª", "4ª", "5ª", "6ª", "7ª", "8ª", "9ª", "10ª"];
-      const ord = ordinals[firstMissingUnit] || `${firstMissingUnit + 1}ª`;
-      return `Elegí el sabor de la ${ord} unidad · ${money(unit * quantity)}`;
+      const remaining = totalUnitsNeeded - totalSelectedFlavors;
+      if (totalUnitsNeeded === 1) {
+        return `Elegí un sabor · ${money(unit * quantity)}`;
+      }
+      const isEmpanada = (p.name || "").toLowerCase().includes("empanada");
+      const unitWord = isEmpanada ? "empanada" : "unidad";
+      const pluralWord = isEmpanada ? "empanadas" : "unidades";
+      return `Faltan ${remaining} ${remaining === 1 ? unitWord : pluralWord} · ${money(unit * quantity)}`;
     }
     if (missingIceCreamFlavors) {
       return `Elegí los sabores · ${money(unit * quantity)}`;
@@ -166,36 +182,56 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
       });
       return;
     }
+
     if (productFlavors.length > 0) {
-      const chosenUnits = unitFlavors.slice(0, quantity);
-      const counts = {};
-      for (const fl of chosenUnits) {
-        const k = fl || "";
-        counts[k] = (counts[k] || 0) + 1;
+      if (isPack) {
+        const flavorBreakdown = Object.entries(flavorCounts)
+          .filter(([_, count]) => count > 0)
+          .map(([fl, count]) => (count > 1 ? `${count}x ${fl}` : fl));
+
+        onAdd({
+          productId: p.id,
+          name: p.name,
+          size: selectedSizeObj?.name || size,
+          flavors: flavorBreakdown,
+          extras,
+          notes,
+          quantity,
+          unitPrice: unit,
+        });
+      } else {
+        const items = Object.entries(flavorCounts)
+          .filter(([_, count]) => count > 0)
+          .map(([fl, count]) => ({
+            productId: p.id,
+            name: p.name,
+            size,
+            flavors: [fl],
+            extras,
+            notes,
+            quantity: count,
+            unitPrice: unit,
+          }));
+
+        if (items.length === 1) {
+          onAdd(items[0]);
+        } else if (items.length > 1) {
+          onAdd(items);
+        }
       }
-      const items = Object.entries(counts).map(([fl, qty]) => ({
-        productId: p.id,
-        name: p.name,
-        size,
-        flavors: fl ? [fl] : [],
-        extras,
-        notes,
-        quantity: qty,
-        unitPrice: unit,
-      }));
-      onAdd(items.length === 1 ? items[0] : items);
-    } else {
-      onAdd({
-        productId: p.id,
-        name: p.name,
-        size,
-        flavors: chosen,
-        extras,
-        notes,
-        quantity,
-        unitPrice: unit,
-      });
+      return;
     }
+
+    onAdd({
+      productId: p.id,
+      name: p.name,
+      size,
+      flavors: chosen,
+      extras,
+      notes,
+      quantity,
+      unitPrice: unit,
+    });
   };
 
   return (
@@ -310,6 +346,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
                     onChange={() => {
                       setSize(z.name);
                       setChosen([]);
+                      setFlavorCounts({});
                     }}
                   />
                   {z.name}{z.available === false ? " · Sin stock" : ""}
@@ -333,75 +370,111 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
             </fieldset>
           )}
 
-          {/* Selección de sabor / variedad para cada unidad si tiene opciones */}
+          {/* Selección de sabor / variedad con panel de surtido interactivo */}
           {productFlavors.length > 0 && (
-            quantity === 1 ? (
+            totalUnitsNeeded === 1 ? (
               <fieldset className="product-flavor-fieldset">
                 <legend>Sabor o variedad {manual ? "(opcional)" : "· Elegí 1"}</legend>
                 {productFlavors.map((fl) => (
                   <label className="option" key={fl}>
                     <input
                       type="radio"
-                      name="productFlavor_0"
-                      checked={unitFlavors[0] === fl}
-                      onChange={() => selectUnitFlavor(0, fl)}
+                      name="productFlavor_single"
+                      checked={(flavorCounts[fl] || 0) === 1}
+                      onChange={() => setFlavorCounts({ [fl]: 1 })}
                     />
                     {fl}
                   </label>
                 ))}
               </fieldset>
             ) : (
-              <div className="multi-flavor-container">
-                <div className="multi-flavor-header">
-                  <span>Sabores para las {quantity} unidades:</span>
-                  {unitFlavors[0] && (
+              <div className="flavor-assortment-container">
+                <div className="flavor-assortment-header">
+                  <span className="flavor-assortment-title">
+                    🥟 Sabores ({totalUnitsNeeded} {totalUnitsNeeded === 1 ? "unidad" : "unidades"}):
+                  </span>
+                  <span className={`flavor-assortment-badge ${totalSelectedFlavors === totalUnitsNeeded ? "ready" : ""}`}>
+                    {totalSelectedFlavors} / {totalUnitsNeeded} {totalSelectedFlavors === totalUnitsNeeded ? "✓" : "elegidas"}
+                  </span>
+                </div>
+
+                {/* Acciones rápidas: Todas de un sabor o Limpiar */}
+                <div className="flavor-assortment-quick-actions">
+                  <span className="quick-action-label">⚡ Todas de:</span>
+                  {productFlavors.slice(0, 5).map((fl) => (
                     <button
                       type="button"
-                      className="copy-flavor-btn"
-                      onClick={() => copyFlavorToAll(unitFlavors[0])}
-                      title={`Aplicar "${unitFlavors[0]}" a todas las unidades`}
+                      key={fl}
+                      className="quick-all-btn"
+                      onClick={() => setFlavorCounts({ [fl]: totalUnitsNeeded })}
+                      title={`Elegir todas de ${fl}`}
                     >
-                      Repetir "{unitFlavors[0]}" en todas
+                      {fl}
+                    </button>
+                  ))}
+                  {totalSelectedFlavors > 0 && (
+                    <button
+                      type="button"
+                      className="quick-clear-btn"
+                      onClick={() => setFlavorCounts({})}
+                    >
+                      Limpiar
                     </button>
                   )}
                 </div>
 
-                {Array.from({ length: quantity }, (_, idx) => {
-                  const ordinals = ["1ª", "2ª", "3ª", "4ª", "5ª", "6ª", "7ª", "8ª", "9ª", "10ª"];
-                  const ord = ordinals[idx] || `${idx + 1}ª`;
-                  const title =
-                    idx === 0
-                      ? "1ª unidad: ¿Qué sabor querés?"
-                      : `¿Y la ${ord} qué va a ser?`;
+                {/* Lista interactiva con [+] y [-] por sabor */}
+                <div className="flavor-stepper-list">
+                  {productFlavors.map((fl) => {
+                    const count = flavorCounts[fl] || 0;
+                    const canIncrease = totalSelectedFlavors < totalUnitsNeeded;
+                    const canDecrease = count > 0;
 
-                  return (
-                    <fieldset key={idx} className="product-flavor-fieldset unit-flavor-box">
-                      <legend className="unit-flavor-title">
-                        <span className="unit-badge">{ord}</span>
-                        <strong>{title}</strong>
-                        {unitFlavors[idx] && (
-                          <span className="unit-selected-tag">✓ {unitFlavors[idx]}</span>
-                        )}
-                      </legend>
-                      <div className="unit-flavor-options">
-                        {productFlavors.map((fl) => (
-                          <label
-                            className={`option unit-flavor-opt ${unitFlavors[idx] === fl ? "selected" : ""}`}
-                            key={fl}
+                    return (
+                      <div key={fl} className={`flavor-stepper-row ${count > 0 ? "active" : ""}`}>
+                        <span className="flavor-stepper-name">{fl}</span>
+                        <div className="flavor-stepper-controls">
+                          <button
+                            type="button"
+                            className="flavor-stepper-btn"
+                            disabled={!canDecrease}
+                            onClick={() => {
+                              if (!canDecrease) return;
+                              setFlavorCounts((prev) => {
+                                const nextCount = (prev[fl] || 0) - 1;
+                                if (nextCount <= 0) {
+                                  const copy = { ...prev };
+                                  delete copy[fl];
+                                  return copy;
+                                }
+                                return { ...prev, [fl]: nextCount };
+                              });
+                            }}
+                            aria-label={`Quitar 1 ${fl}`}
                           >
-                            <input
-                              type="radio"
-                              name={`productFlavor_${idx}`}
-                              checked={unitFlavors[idx] === fl}
-                              onChange={() => selectUnitFlavor(idx, fl)}
-                            />
-                            {fl}
-                          </label>
-                        ))}
+                            −
+                          </button>
+                          <span className="flavor-stepper-count">{count}</span>
+                          <button
+                            type="button"
+                            className="flavor-stepper-btn"
+                            disabled={!canIncrease}
+                            onClick={() => {
+                              if (!canIncrease) return;
+                              setFlavorCounts((prev) => ({
+                                ...prev,
+                                [fl]: (prev[fl] || 0) + 1,
+                              }));
+                            }}
+                            aria-label={`Agregar 1 ${fl}`}
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
-                    </fieldset>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )
           )}

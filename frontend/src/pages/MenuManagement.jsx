@@ -694,14 +694,17 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                                   </label>
                                 )}
                                 <label>
-                                  Máximo de sabores (heladería)
+                                  Unidades / sabores a elegir (ej: 12 para docena, 6 para media docena)
                                   <input
                                     type="number"
                                     min="0"
-                                    max="10"
+                                    max="99"
                                     value={z.max || 0}
                                     onChange={e => updateVariant(i, { max: Number(e.target.value) })}
                                   />
+                                  <small style={{ color: "#64748b", fontSize: "12px", display: "block", marginTop: "2px" }}>
+                                    Para helados: límite de gustos. Para empanadas/packs: unidades incluidas (ej. 12 = docena).
+                                  </small>
                                 </label>
                                 <label style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
                                   <input
