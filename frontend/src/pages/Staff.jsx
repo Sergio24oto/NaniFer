@@ -414,6 +414,19 @@ export function Account({
         {s.user?.permissions?.includes("reservations.manage") && <button className="secondary" onClick={() => setReserving(true)}>Reservas</button>}
         <button className="secondary" onClick={() => setJoining(true)}>🔗 Juntar mesas</button>
         {a && <button className="secondary" onClick={() => setMoving(true)}>🔀 Cambiar mesa</button>}
+        {!a && (
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy || !s.connected || changed || !!pendingSave || (reservation && ack !== reservation.acknowledgment)}
+            onClick={() => run(async () => {
+              const result = await mutate("/tables/" + table + "/open", { reservationAcknowledgment: ack });
+              setExpectedAccount(result.id);
+            })}
+          >
+            Abrir mesa sin consumos
+          </button>
+        )}
       </div>
     </div>
     {error && <p className="alert" role="alert">{error}</p>}{message && <p className="success" role="status">{message}</p>}
@@ -567,9 +580,24 @@ export function Account({
           )}
         </div>
 
-        <details className="account-secondary">
-          <summary>Responsable de la mesa y opciones avanzadas</summary>
-          {a && (
+        {!a ? (
+          <div className="account-secondary open-table-direct-box" style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", padding: "10px 0" }}>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy || !s.connected || changed || !!pendingSave || (reservation && ack !== reservation.acknowledgment)}
+              onClick={() => run(async () => {
+                const result = await mutate("/tables/" + table + "/open", { reservationAcknowledgment: ack });
+                setExpectedAccount(result.id);
+              })}
+            >
+              Abrir mesa sin consumos
+            </button>
+            <small style={{ color: "#64748b" }}>Cobrar, entregar y cerrar la visita son acciones independientes.</small>
+          </div>
+        ) : (
+          <details className="account-secondary">
+            <summary>Responsable de la mesa y opciones avanzadas</summary>
             <label>
               Responsable
               <select
@@ -584,21 +612,9 @@ export function Account({
                 {s.staff.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </label>
-          )}
-          {!a && (
-            <button
-              className="secondary"
-              disabled={busy || !s.connected || changed || !!pendingSave || (reservation && ack !== reservation.acknowledgment)}
-              onClick={() => run(async () => {
-                const result = await mutate("/tables/" + table + "/open", { reservationAcknowledgment: ack });
-                setExpectedAccount(result.id);
-              })}
-            >
-              Abrir mesa sin consumos
-            </button>
-          )}
-          <small>Cobrar, entregar y cerrar la visita son acciones independientes.</small>
-        </details>
+            <small>Cobrar, entregar y cerrar la visita son acciones independientes.</small>
+          </details>
+        )}
       </section>
 
       {/* 2. SECCIÓN SECUNDARIA (ABAJO): AGREGAR MÁS PRODUCTOS */}
