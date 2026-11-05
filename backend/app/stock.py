@@ -89,7 +89,8 @@ class StockProductCreateIn(StrictModel):
 
 @router.post('/products')
 def create_stock_product(data: StockProductCreateIn, key: str = Header(alias='Idempotency-Key'), auth=Depends(current_session), db=Depends(get_db)):
-    admin(auth)
+    if auth[0].role not in ('admin', 'staff'):
+        fail('Solo personal autorizado puede crear productos.', 403)
     db.scalar(select(User).where(User.id == auth[0].id).with_for_update())
     def save():
         cat = None

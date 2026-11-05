@@ -83,6 +83,9 @@ def ensure_schema():
                 )
                 db.commit()
                 logging.info("Default admin user '%s' created.", admin_user)
+
+            from .services import ensure_recarga_virtual
+            ensure_recarga_virtual(db)
     except Exception as e:
         logging.error("Initial seed/user check failed: %s", e)
 

@@ -22,7 +22,7 @@ export const time = (d) =>
     minute: "2-digit",
   });
 export function itemInput(i) {
-  return {
+  const obj = {
     productId: i.productId || i.product || "",
     size: i.size || "",
     flavors: i.flavors || [],
@@ -30,6 +30,10 @@ export function itemInput(i) {
     notes: i.notes || "",
     quantity: i.quantity,
   };
+  if (i.customPrice != null && Number(i.customPrice) > 0) {
+    obj.customPrice = Number(i.customPrice);
+  }
+  return obj;
 }
 export function estimate(p, size, extras) {
   return (

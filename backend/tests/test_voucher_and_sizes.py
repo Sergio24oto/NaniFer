@@ -69,3 +69,50 @@ def test_payment_voucher_schemas():
     assert len(pay_split.splits) == 2
     assert pay_split.splits[0].method == "voucher"
     assert pay_split.splits[1].method == "efectivo"
+
+
+def test_recarga_virtual_open_price():
+    with SessionLocal() as db_session:
+        # Create or ensure prod-recarga-virtual exists
+        from app.services import ensure_recarga_virtual
+        p = ensure_recarga_virtual(db_session)
+        assert p is not None
+        assert p.id == "prod-recarga-virtual"
+
+        # Item with customPrice = $3500
+        item = ItemIn(
+            productId="prod-recarga-virtual",
+            quantity=1,
+            customPrice=Decimal("3500.00"),
+            notes="Personal 381445566"
+        )
+        snap, price = priced_item(db_session, item)
+        assert price == Decimal("3500.00")
+        assert snap["unitPrice"] == 3500.00
+        assert snap["notes"] == "Personal 381445566"
+
+
+def test_staff_can_create_stock_product():
+    with SessionLocal() as db_session:
+        from app.stock import create_stock_product, StockProductCreateIn
+        from app.models import User
+        staff = db_session.scalar(select(User).where(User.role == "staff").limit(1))
+        if not staff:
+            staff = User(id=uid(), username="teststaff", name="Test Staff", role="staff", password_hash="dummy")
+            db_session.add(staff)
+            db_session.commit()
+
+        data = StockProductCreateIn(
+            name="Alfajor Test Moza",
+            price=Decimal("1500.00"),
+            area="manual",
+            manageStock=False,
+            initialStock=False
+        )
+        res = create_stock_product(data, key="key-" + uid(), auth=(staff, None), db=db_session)
+        assert res["name"] == "Alfajor Test Moza"
+
+        prod = db_session.get(Product, res["id"])
+        if prod:
+            db_session.delete(prod)
+            db_session.commit()

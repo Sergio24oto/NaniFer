@@ -15,6 +15,7 @@ class ItemIn(StrictModel):
     notes: str = Field(default="", max_length=300)
     comboSelections: dict = Field(default_factory=dict)
     quantity: int = Field(ge=1, le=99, strict=True)
+    customPrice: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
 
 
 class OrderIn(StrictModel):

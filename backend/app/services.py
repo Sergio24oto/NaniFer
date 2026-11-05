@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, func
 from .models import (
     Product,
+    Category,
     Flavor,
     Visit,
     Table,
@@ -68,10 +69,51 @@ def totals(db, id):
     return Decimal(consumed), Decimal(paid), Decimal(consumed) - Decimal(paid)
 
 
+def ensure_recarga_virtual(db):
+    p = db.get(Product, "prod-recarga-virtual")
+    if not p:
+        cat = db.scalar(
+            select(Category)
+            .where((Category.name.ilike("%servicio%")) | (Category.name.ilike("%kiosco%")) | (Category.name.ilike("%otro%")))
+            .limit(1)
+        )
+        if not cat:
+            cat = db.scalar(select(Category).limit(1))
+        if cat:
+            p = Product(
+                id="prod-recarga-virtual",
+                name="Recarga Virtual",
+                description="Recargas de telefonía, transporte y servicios.",
+                category_id=cat.id,
+                price=Decimal("1.00"),
+                available=True,
+                in_menu=False,
+                sort_order=999,
+                emoji="📱",
+                stock_mode="manual",
+                sizes=[],
+                extras=[],
+                flavor_options=[],
+                combo_config={}
+            )
+            db.add(p)
+            db.commit()
+    return p
+
+
 def priced_item(db, item, *, require_flavors=True):
     p = db.get(Product, item.productId)
+    if not p and item.productId == "prod-recarga-virtual":
+        p = ensure_recarga_virtual(db)
     if not p or p.archived or not p.available or p.price_pending:
         fail("Producto no disponible.", 422)
+
+    # Soporte para precio libre / Recarga Virtual
+    if p and (p.id == "prod-recarga-virtual" or p.name.lower().startswith("recarga virtual") or getattr(p, "stock_mode", None) == "open_price"):
+        price = Decimal(str(item.customPrice)) if item.customPrice is not None and item.customPrice > 0 else p.price
+        snapshot = item.model_dump()
+        snapshot.update(name=p.name, unitPrice=float(price))
+        return snapshot, price
     is_combo = bool(p.combo_config and p.combo_config.get("is_combo"))
     size = next((s for s in p.sizes if s.get("name") == item.size), None) if p.sizes else None
     if not size and p.sizes:
