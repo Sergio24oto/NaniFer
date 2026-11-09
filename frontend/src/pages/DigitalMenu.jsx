@@ -15,6 +15,7 @@ function Photo({ src, alt, ...props }) {
 
 function getCategoryHeaderImage(catName = "") {
   const n = catName.toLowerCase();
+  if (n.includes("tacc") || n.includes("gluten") || n.includes("celiac")) return "/menu/sintacc.jpg";
   if (n.includes("comida") || n.includes("pizza") || n.includes("cena") || n.includes("almuerzo")) return "/menu/headers/comidas.webp";
   if (n.includes("bebid") || n.includes("gaseosa") || n.includes("jugo") || n.includes("agua")) return "/menu/headers/bebidas.webp";
   if (n.includes("golosin") || n.includes("kiosco") || n.includes("quiosco") || n.includes("chocolat") || n.includes("caramel") || n.includes("chicle") || n.includes("gomita")) return "/menu/headers/golosinas.webp";
@@ -27,6 +28,7 @@ function getCategoryHeaderImage(catName = "") {
 function getCategoryCardImage(c) {
   if (c.image) return c.image;
   const n = (c.name || "").toLowerCase();
+  if (n.includes("tacc") || n.includes("gluten") || n.includes("celiac")) return "/menu/sintacc.jpg";
   if (n.includes("bebid")) return "/menu/bebidas.webp";
   if (n.includes("golosin") || n.includes("gomita") || n.includes("caramel") || n.includes("chicle")) return "/menu/golosinas.webp";
   if (n.includes("comida") || n.includes("pizza") || n.includes("cena")) return "/menu/pizza.webp";
@@ -603,7 +605,7 @@ export default function DigitalMenu({ table }) {
 
               <div className="editorial-art-composition">
                 <img
-                  src={getCategoryHeaderImage(cat.name)}
+                  src={cat.image || getCategoryHeaderImage(cat.name)}
                   alt={cat.name}
                   className="editorial-art-img"
                   fetchPriority="high"

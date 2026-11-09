@@ -237,7 +237,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
     <Modal
       title={modalTitle}
       onClose={() => { if (!busy && !uncertain) onClose(); }}
-      className={isProduct ? 'product-modal-wide' : ''}
+      className={isProduct || isCategory ? 'product-modal-wide' : ''}
     >
       <form onSubmit={handleSubmit}>
         <fieldset disabled={busy || uncertain} className="catalog-fields">
@@ -268,40 +268,133 @@ function Editor({ item, kind, data, onClose, onSaved }) {
 
           {isCategory && (
             <>
-              <label>
-                Nombre de la categoría
-                <input
-                  required
-                  maxLength={100}
-                  value={value.name}
-                  onChange={e => change('name', e.target.value)}
-                  placeholder="Ej: Cafetería, Bebidas, Helados..."
-                  autoFocus
-                />
-              </label>
-              <label>
-                Área de stock
-                <select value={value.stockArea || 'other'} onChange={e => change('stockArea', e.target.value)}>
-                  <option value="other">Otros</option>
-                  <option value="beverages">Bebidas</option>
-                  <option value="kiosk">Kiosco</option>
-                  <option value="candies">Golosinas</option>
-                  <option value="manual">Venta libre</option>
-                </select>
-              </label>
-              <label>
-                Orden en la carta
-                <input required type="number" min="0" max="9999" value={value.order} onChange={e => change('order', e.target.value)} />
-              </label>
-              <label>
-                Nota para clientes
-                <textarea maxLength={500} value={value.note || ''} onChange={e => change('note', e.target.value)} placeholder="Nota informativa que verán los clientes..." />
-              </label>
-              <label className="option">
-                <input type="checkbox" checked={value.visible} onChange={e => change('visible', e.target.checked)} />
-                Mostrar categoría en la carta pública
-              </label>
-              <small>Ocultarla conserva sus productos para atención interna de mozos.</small>
+              <div className="editor-top-grid">
+                <div className="photo-uploader-box">
+                  <div
+                    className="photo-preview-wrap"
+                    onClick={() => setShowPhotoGallery(prev => !prev)}
+                    title="Hacé clic para elegir foto de la categoría"
+                  >
+                    {value.image ? (
+                      <img src={value.image} alt={value.name || 'Foto de la categoría'} />
+                    ) : (
+                      <div className="photo-placeholder">
+                        <Camera size={28} />
+                        <span>Elegir foto</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="photo-actions">
+                    <div className="photo-actions-row">
+                      <button
+                        type="button"
+                        onClick={() => setShowPhotoGallery(prev => !prev)}
+                      >
+                        {value.image ? 'Galería' : 'De galería'}
+                      </button>
+                      {value.image && (
+                        <button
+                          type="button"
+                          onClick={() => { change('image', ''); setShowPhotoGallery(false); setUploadMsg(''); }}
+                        >
+                          Quitar
+                        </button>
+                      )}
+                    </div>
+
+                    <label className={`photo-upload-label ${uploadingPhoto ? 'loading' : ''}`}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={handleUploadPhoto}
+                        disabled={uploadingPhoto}
+                      />
+                      <span>{uploadingPhoto ? '⏳ Optimizando...' : '📸 Subir foto'}</span>
+                    </label>
+
+                    {uploadMsg && (
+                      <span className={`photo-upload-msg ${uploadMsg.startsWith('Error') ? 'error' : ''}`}>
+                        {uploadMsg}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="editor-main-fields">
+                  <div className="editor-field">
+                    <label>Nombre de la categoría *</label>
+                    <input
+                      required
+                      maxLength={100}
+                      value={value.name}
+                      onChange={e => change('name', e.target.value)}
+                      placeholder="Ej: Cafetería, Bebidas, Sin TACC..."
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="editor-field">
+                    <label>Área de stock</label>
+                    <select value={value.stockArea || 'other'} onChange={e => change('stockArea', e.target.value)}>
+                      <option value="other">Otros / Cocina / Salón</option>
+                      <option value="beverages">Bebidas</option>
+                      <option value="kiosk">Kiosco</option>
+                      <option value="candies">Golosinas</option>
+                      <option value="manual">Venta libre</option>
+                    </select>
+                  </div>
+
+                  <div className="editor-field">
+                    <label>Orden en la carta</label>
+                    <input required type="number" min="0" max="9999" value={value.order} onChange={e => change('order', e.target.value)} />
+                  </div>
+
+                  <div className="editor-field">
+                    <label>Nota para clientes (opcional)</label>
+                    <textarea maxLength={500} rows={2} value={value.note || ''} onChange={e => change('note', e.target.value)} placeholder="Nota informativa que verán los clientes al entrar a la categoría..." />
+                  </div>
+
+                  <label className="option" style={{ marginTop: '8px' }}>
+                    <input type="checkbox" checked={value.visible} onChange={e => change('visible', e.target.checked)} />
+                    Mostrar categoría en la carta pública
+                  </label>
+                  <small style={{ color: '#64748b' }}>Ocultarla conserva sus productos para atención interna de mozos.</small>
+                </div>
+              </div>
+
+              {showPhotoGallery && (
+                <div className="photo-gallery-picker">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h4>Elegí una foto de la carta o subí una:</h4>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <label className={`photo-upload-label ${uploadingPhoto ? 'loading' : ''}`} style={{ padding: '3px 8px', fontSize: '11px' }}>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={handleUploadPhoto}
+                          disabled={uploadingPhoto}
+                        />
+                        <span>{uploadingPhoto ? '⏳ Procesando...' : '📸 Subir nueva'}</span>
+                      </label>
+                      <button type="button" className="text-button" onClick={() => setShowPhotoGallery(false)}>Cerrar</button>
+                    </div>
+                  </div>
+                  <div className="gallery-grid">
+                    {(data?.images || []).map(src => (
+                      <div
+                        key={src}
+                        className={`gallery-item ${value.image === src ? 'selected' : ''}`}
+                        onClick={() => { change('image', src); setShowPhotoGallery(false); }}
+                        title={src.split('/').pop()}
+                      >
+                        <img src={src} alt={src.split('/').pop()} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -1140,7 +1233,7 @@ export default function MenuManagement() {
             {itemsList.map((item, idx) => (
               <article className="panel catalog-row" key={item.id}>
                 <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', flex: 1 }}>
-                  {tab === 'products' && (
+                  {(tab === 'products' || tab === 'categories') && (
                     <div className="catalog-row-thumb">
                       {item.image ? (
                         <img src={item.image} alt={item.name} onError={(e) => { e.currentTarget.style.display = 'none'; }} />

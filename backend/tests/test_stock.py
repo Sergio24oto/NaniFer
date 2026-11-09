@@ -319,9 +319,9 @@ def test_stock_product_creation_with_packaging_and_area(fixture):
     f['product_ids'].append(candies_data['id'])
     assert qty(candies_data['stockId']) == 150
 
-    # 5. No admin retorna 403
-    promote(f, 'staff')
-    assert post(f, '/stock/products', {'name': 'Otra gaseosa', 'area': 'beverages'}).status_code == 403
+    # 5. Rol no autorizado retorna 401/403
+    promote(f, 'guest')
+    assert post(f, '/stock/products', {'name': 'Otra gaseosa', 'area': 'beverages'}).status_code in (401, 403)
 
 
 

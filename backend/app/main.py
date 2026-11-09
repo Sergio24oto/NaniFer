@@ -84,6 +84,63 @@ def ensure_schema():
                 db.commit()
                 logging.info("Default admin user '%s' created.", admin_user)
 
+            # 4. Ensure Sin TACC category and initial offerings
+            try:
+                cat_sintacc = db.scalar(select(Category).where(Category.name == "Sin TACC"))
+                if not cat_sintacc:
+                    cat_sintacc = Category(
+                        id=uid(),
+                        name="Sin TACC",
+                        stock_area="other",
+                        image="/menu/sintacc.jpg",
+                        sort_order=8,
+                        public_visible=True,
+                        note="Opciones libres de gluten aptas para celíacos",
+                    )
+                    db.add(cat_sintacc)
+                    db.flush()
+                elif not cat_sintacc.image:
+                    cat_sintacc.image = "/menu/sintacc.jpg"
+                    db.flush()
+
+                sintacc_items = [
+                    ("Pizza individual", "Cuatro porciones", Decimal("9000.00"), "/menu/pizza.webp", []),
+                    ("Empanadas jamón y queso", "Por unidad", Decimal("3000.00"), "/menu/sintacc.jpg", []),
+                    ("Tarta individual", "Jamón y queso | calabaza | verdura", Decimal("7500.00"), "/menu/sintacc.jpg", ["Jamón y queso", "Calabaza", "Verdura"]),
+                    ("Tostada", "Porción de tostadas sin gluten", Decimal("1500.00"), "/menu/sintacc.jpg", []),
+                    ("Alfajor chocolate negro", "Bañado en chocolate negro", Decimal("5000.00"), "/menu/sintacc.jpg", []),
+                    ("Alfajor chocolate blanco", "Bañado en chocolate blanco", Decimal("5000.00"), "/menu/sintacc.jpg", []),
+                    ("Alfajor almendra", "Con harina de almendras y dulce de leche", Decimal("3500.00"), "/menu/sintacc.jpg", []),
+                    ("Alfajor con chips", "Masa con chips de chocolate", Decimal("3500.00"), "/menu/sintacc.jpg", []),
+                    ("Cookies", "Red velvet | limón, arándanos y chips", Decimal("4500.00"), "/menu/sintacc.jpg", ["Red velvet", "Limón, arándanos y chips"]),
+                    ("Pepas", "Membrillo | dulce de leche", Decimal("2500.00"), "/menu/sintacc.jpg", ["Membrillo", "Dulce de leche"]),
+                    ("Tarta dulce porción", "Consultar variedades disponibles", Decimal("6500.00"), "/menu/tortas.webp", []),
+                ]
+
+                for idx, (p_name, p_desc, p_price, p_img, p_flavors) in enumerate(sintacc_items):
+                    existing = db.scalar(select(Product).where(Product.category_id == cat_sintacc.id, Product.name == p_name, Product.archived == False))
+                    if not existing:
+                        db.add(Product(
+                            id=uid(),
+                            category_id=cat_sintacc.id,
+                            name=p_name,
+                            description=p_desc,
+                            price=p_price,
+                            available=True,
+                            in_menu=True,
+                            sort_order=idx,
+                            image=p_img,
+                            flavor_options=p_flavors,
+                            public_categories=[],
+                            sizes=[],
+                            extras=[],
+                            cone_links={},
+                            combo_config={},
+                        ))
+                db.commit()
+            except Exception as ex:
+                logging.warning("Sin TACC auto-seed check bypassed: %s", ex)
+
             from .services import ensure_recarga_virtual
             ensure_recarga_virtual(db)
     except Exception as e:
