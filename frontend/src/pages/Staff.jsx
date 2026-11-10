@@ -156,7 +156,7 @@ export function Salon({
     ? allTables
     : allTables.filter(t => t.sector === sectorFilter);
   return <main className="salon-compact">
-    <div className="page-heading"><div className="intro"><span className="eyebrow">ATENCIÓN</span><h1>Mesas y Mostrador</h1><p>{opened.length} de {allTables.length} mesas ocupadas · {money(opened.reduce((n, a) => n + a.balance, 0))} pendiente</p></div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><button className="secondary" onClick={() => nav("/atencion/comandera")}><ClipboardList size={17} /> Mozas · {ready.length} listos</button>{s.user?.role === "admin" && <button className="secondary" onClick={() => setManagingTables(true)}>⚙️ Gestionar mesas</button>}</div></div>
+    <div className="page-heading"><div className="intro"><span className="eyebrow">ATENCIÓN</span><h1>Mesas y Mostrador</h1><p>{opened.length === 0 ? `Todas las mesas libres (${allTables.length}) · Sin cobros pendientes` : `${opened.length} de ${allTables.length} mesas ocupadas · ${money(opened.reduce((n, a) => n + a.balance, 0))} pendiente`}</p></div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><button className="secondary" onClick={() => nav("/atencion/comandera")}><ClipboardList size={17} /> Mozas · {ready.length} listos</button>{s.user?.role === "admin" && <button className="secondary" onClick={() => setManagingTables(true)}>⚙️ Gestionar mesas</button>}</div></div>
     {message && <p className="success" role="status">{message}</p>}
     {pendingCalls.length > 0 && (
       <div className="calls-alert-banner" role="alert">
@@ -297,8 +297,17 @@ export function Salon({
             )}
           </div>
           <div className="table-balance">
-            <small>Pendiente de cobro</small>
-            <strong className={hasOrders ? "balance-due-text" : ""}>{money(a?.balance || 0)}</strong>
+            {a ? (
+              <>
+                <small>{a.balance > 0 ? "Pendiente de cobro" : "Cuenta saldada"}</small>
+                <strong className={hasOrders && a.balance > 0 ? "balance-due-text" : ""}>{money(a.balance || 0)}</strong>
+              </>
+            ) : (
+              <>
+                <small style={{ color: "#64748b" }}>Disponible</small>
+                <span style={{ fontSize: "13px", color: "#16a34a", fontWeight: 600 }}>Sin consumos</span>
+              </>
+            )}
           </div>
           {hasOrders && (
             <div className="table-orders-badge">
