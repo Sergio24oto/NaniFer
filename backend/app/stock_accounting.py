@@ -63,6 +63,56 @@ def apply_order(db, item, ids, rows, user_id):
         movement(db,row,row.quantity-item.quantity,row.opened,'order',user_id,order_item_id=item.id)
 
 
+def revert_order_item_stock(db, item, quantity_to_return, user_id, reason="Cancelación/edición consumo"):
+    if quantity_to_return <= 0:
+        return
+    batches = deepcopy((item.snapshot or {}).get("stockBatches", []))
+    component_ids = []
+    if batches:
+        for b in batches:
+            component_ids.extend(b.get("components", []))
+    else:
+        p = db.get(Product, item.product_id)
+        if p:
+            component_ids = components(db, p, (item.snapshot or {}).get("size", ""))
+    component_ids = list(dict.fromkeys(component_ids))
+    if component_ids:
+        rows = {r.id: r for r in db.scalars(
+            select(StockItem).where(StockItem.id.in_(component_ids)).with_for_update()
+        )}
+        for cid in component_ids:
+            row = rows.get(cid)
+            if row and row.quantity is not None:
+                movement(db, row, row.quantity + quantity_to_return, row.opened,
+                         'order_cancel', user_id, note=reason)
+
+
+def consume_additional_order_stock(db, item, quantity_to_add, user_id, reason="Aumento consumo"):
+    if quantity_to_add <= 0:
+        return
+    batches = deepcopy((item.snapshot or {}).get("stockBatches", []))
+    component_ids = []
+    if batches:
+        for b in batches:
+            component_ids.extend(b.get("components", []))
+    else:
+        p = db.get(Product, item.product_id)
+        if p:
+            component_ids = components(db, p, (item.snapshot or {}).get("size", ""))
+    component_ids = list(dict.fromkeys(component_ids))
+    if component_ids:
+        rows = {r.id: r for r in db.scalars(
+            select(StockItem).where(StockItem.id.in_(component_ids)).with_for_update()
+        )}
+        for cid in component_ids:
+            row = rows.get(cid)
+            if row and row.quantity is not None:
+                if row.quantity < quantity_to_add:
+                    fail(f"Sin stock suficiente de {row.name} para aumentar este producto.", 409)
+                movement(db, row, row.quantity - quantity_to_add, row.opened,
+                         'order', user_id, note=reason, order_item_id=item.id)
+
+
 def catalog_availability(product, stock):
     own=next((r for r in stock.values() if r.product_id==product.id),None)
     base=product.available and not product.archived and not product.price_pending and (product.stock_mode!='unit' or (own is not None and (own.quantity or 0)>0))

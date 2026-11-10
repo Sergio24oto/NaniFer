@@ -6,7 +6,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Badge, Items } from "../components";
-import { activeAccount, money, itemInput, time } from "../domain";
+import { activeAccount, money, itemInput, time, tableLabel } from "../domain";
 import {
   useStore,
   mutate,
@@ -72,7 +72,7 @@ export default function Menu({ table, manual = false, onDone }) {
       {!manual && (
         <section className="menu-hero brand-hero">
           <div>
-            <Badge tone="green">MESA {table}</Badge>
+            <Badge tone="green">{tableLabel(s, table).toUpperCase()}</Badge>
             <h1>
               Un ratito para
               <br />
@@ -119,7 +119,7 @@ export default function Menu({ table, manual = false, onDone }) {
               )
             }
           >
-            Iniciar visita · Mesa {table}
+            Iniciar visita · {tableLabel(s, table)}
           </button>
         </div>
       )}
@@ -179,7 +179,7 @@ export default function Menu({ table, manual = false, onDone }) {
         <aside>
           <div className="panel cart">
             <h2>
-              <ShoppingBag size={20} /> Tu pedido · Mesa {table}
+              <ShoppingBag size={20} /> Tu pedido · {tableLabel(s, table)}
             </h2>
             {pending && (
               <p className="note">

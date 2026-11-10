@@ -354,7 +354,8 @@ export function Account({
   const [pay, setPay] = useState(false),
     [reserving, setReserving] = useState(false),
     [joining, setJoining] = useState(false),
-    [moving, setMoving] = useState(false);
+    [moving, setMoving] = useState(false),
+    [editingOrder, setEditingOrder] = useState(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -551,9 +552,22 @@ export function Account({
                       <span className="badge-salon-origin">📝 Salón{o.createdByName ? " · " + o.createdByName : ""}</span>
                     )}
                   </div>
-                  <Badge tone={o.status === "entregado" ? "green" : o.status === "listo para entregar" ? "green" : "amber"}>
-                    {o.status.toUpperCase()}
-                  </Badge>
+                  <div className="order-header-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {!a?.closedAt && (
+                      <button
+                        type="button"
+                        className="edit-order-btn-header"
+                        disabled={busy || !s.connected}
+                        onClick={() => setEditingOrder(o)}
+                        title="Corregir cantidades o quitar productos por error"
+                      >
+                        ✏️ Editar
+                      </button>
+                    )}
+                    <Badge tone={o.status === "entregado" ? "green" : o.status === "listo para entregar" ? "green" : "amber"}>
+                      {o.status.toUpperCase()}
+                    </Badge>
+                  </div>
                 </div>
 
                 <div className="staff-order-items">
@@ -564,16 +578,29 @@ export function Account({
                   <span className="order-subtotal">
                     Subtotal: <strong>{money(o.items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0))}</strong>
                   </span>
-                  {o.status !== "entregado" && (
-                    <button
-                      type="button"
-                      className="deliver-order-btn"
-                      disabled={busy || !s.connected}
-                      onClick={() => run(() => mutate("/orders/" + o.id + "/deliver", {}))}
-                    >
-                      ✓ Marcar como entregado
-                    </button>
-                  )}
+                  <div className="staff-order-actions-right" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {!a?.closedAt && (
+                      <button
+                        type="button"
+                        className="edit-order-btn"
+                        disabled={busy || !s.connected}
+                        onClick={() => setEditingOrder(o)}
+                        title="Corregir cantidades o quitar productos por error"
+                      >
+                        ✏️ Editar consumo
+                      </button>
+                    )}
+                    {o.status !== "entregado" && (
+                      <button
+                        type="button"
+                        className="deliver-order-btn"
+                        disabled={busy || !s.connected}
+                        onClick={() => run(() => mutate("/orders/" + o.id + "/deliver", {}))}
+                      >
+                        ✓ Marcar como entregado
+                      </button>
+                    )}
+                  </div>
                 </div>
               </article>
             ))
@@ -777,6 +804,18 @@ export function Account({
             })}
         </div>
       </Modal>
+    )}
+    {editingOrder && (
+      <EditOrderModal
+        order={editingOrder}
+        tableLabel={tableLabel(s, effectiveTable)}
+        catalog={s.catalog}
+        onClose={() => setEditingOrder(null)}
+        onSuccess={(msg) => {
+          setEditingOrder(null);
+          setMessage(msg);
+        }}
+      />
     )}
 
   </main>;
@@ -1095,5 +1134,298 @@ export function Kitchen() {
         })}
       </div>
     </main>
+  );
+}
+
+
+export function EditOrderModal({ order, tableLabel, catalog, onClose, onSuccess }) {
+  const [items, setItems] = useState(() =>
+    (order.items || []).map((i) => ({
+      ...i,
+      quantity: i.quantity || 1,
+      flavors: i.flavors || [],
+      extras: i.extras || [],
+      notes: i.notes || "",
+    }))
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [confirmingCancelAll, setConfirmingCancelAll] = useState(false);
+  const [showAddSection, setShowAddSection] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const origSubtotal = (order.items || []).reduce(
+    (acc, i) => acc + (i.quantity || 1) * (i.unitPrice || 0),
+    0
+  );
+  const newSubtotal = items.reduce(
+    (acc, i) => acc + (i.quantity || 1) * (i.unitPrice || 0),
+    0
+  );
+  const diff = newSubtotal - origSubtotal;
+
+  const updateQuantity = (index, delta) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const newQty = next[index].quantity + delta;
+      if (newQty <= 0) {
+        next.splice(index, 1);
+      } else {
+        next[index] = { ...next[index], quantity: newQty };
+      }
+      return next;
+    });
+  };
+
+  const removeItem = (index) => {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addProductToOrder = (product) => {
+    const defaultSize = (product.sizes || []).find((s) => s.isDefault) || (product.sizes || [])[0];
+    const unitPrice = defaultSize?.salePrice ?? (product.price + (defaultSize?.price || 0));
+    setItems((prev) => [
+      ...prev,
+      {
+        productId: product.id,
+        name: product.name,
+        size: defaultSize?.name || "",
+        flavors: [],
+        extras: [],
+        notes: "",
+        quantity: 1,
+        unitPrice: unitPrice,
+      },
+    ]);
+    setShowAddSection(false);
+    setSearch("");
+  };
+
+  const handleSave = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      if (items.length === 0) {
+        await mutate(`/orders/${order.id}`, {}, "DELETE");
+        onSuccess("Pedido anulado por completo. Saldo de la mesa actualizado.");
+      } else {
+        const payload = {
+          items: items.map((i) => ({
+            id: i.id || null,
+            productId: i.productId,
+            size: i.size || "",
+            flavors: i.flavors || [],
+            extras: i.extras || [],
+            notes: i.notes || "",
+            quantity: i.quantity,
+            customPrice: i.customPrice || null,
+          })),
+        };
+        await mutate(`/orders/${order.id}`, payload, "PUT");
+        onSuccess("¡Consumo corregido correctamente! Saldo de la mesa actualizado.");
+      }
+    } catch (e) {
+      setError(e.message || "Error al modificar el pedido.");
+      setBusy(false);
+    }
+  };
+
+  const handleCancelEntireOrder = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await mutate(`/orders/${order.id}`, {}, "DELETE");
+      onSuccess("Pedido anulado por completo. Saldo de la mesa actualizado.");
+    } catch (e) {
+      setError(e.message || "Error al anular el pedido.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title={`✏️ Editar consumo · ${tableLabel}`} onClose={onClose} className="edit-order-modal">
+      <div className="edit-order-modal-body">
+        <div className="edit-order-intro">
+          <p>
+            Modificá las cantidades o quitá los productos cargados por error en este pedido ({time(order.createdAt)}).
+          </p>
+        </div>
+
+        {error && <p className="alert" role="alert">{error}</p>}
+
+        <div className="edit-order-items-list">
+          {items.length === 0 ? (
+            <div className="empty-edit-items-banner">
+              <span className="banner-icon">⚠️</span>
+              <div>
+                <strong>Has quitado todos los productos de este pedido.</strong>
+                <p>Al guardar, el pedido se anulará por completo y se restará del total de la mesa.</p>
+              </div>
+            </div>
+          ) : (
+            items.map((i, idx) => (
+              <div key={i.id || idx} className="edit-order-item-row">
+                <div className="edit-order-item-info">
+                  <strong className="item-name">{i.name}</strong>
+                  {(i.size || (i.flavors && i.flavors.length > 0) || (i.extras && i.extras.length > 0)) && (
+                    <small className="item-details">
+                      {[i.size, ...(i.flavors || []), ...(i.extras || [])].filter(Boolean).join(" · ")}
+                    </small>
+                  )}
+                  {i.notes && <p className="item-note">"{i.notes}"</p>}
+                  <span className="item-unit-price">{money(i.unitPrice)} c/u</span>
+                </div>
+
+                <div className="edit-order-item-controls">
+                  <div className="stepper-box">
+                    <button
+                      type="button"
+                      className="stepper-btn"
+                      disabled={busy}
+                      onClick={() => updateQuantity(idx, -1)}
+                      title="Reducir cantidad"
+                    >
+                      -
+                    </button>
+                    <span className="stepper-qty">{i.quantity}</span>
+                    <button
+                      type="button"
+                      className="stepper-btn"
+                      disabled={busy || i.quantity >= 99}
+                      onClick={() => updateQuantity(idx, 1)}
+                      title="Aumentar cantidad"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <span className="item-row-total">{money(i.quantity * i.unitPrice)}</span>
+
+                  <button
+                    type="button"
+                    className="item-delete-btn"
+                    disabled={busy}
+                    onClick={() => removeItem(idx)}
+                    title="Quitar este producto"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="edit-order-add-section">
+          {!showAddSection ? (
+            <button
+              type="button"
+              className="secondary add-item-toggle-btn"
+              disabled={busy}
+              onClick={() => setShowAddSection(true)}
+            >
+              + Agregar otro producto a este pedido
+            </button>
+          ) : (
+            <div className="add-item-picker-box">
+              <div className="picker-header">
+                <strong>Buscar producto para sumar:</strong>
+                <button type="button" className="close-picker-btn" onClick={() => setShowAddSection(false)}>✕ Cerrar</button>
+              </div>
+              <input
+                type="search"
+                placeholder="Buscar producto (ej. Criollo, Café, Gaseosa)..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                autoFocus
+              />
+              <div className="picker-results-list">
+                {(catalog?.products || [])
+                  .filter((p) => p.available && !p.archived && !p.price_pending)
+                  .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
+                  .slice(0, 8)
+                  .map((p) => (
+                    <div key={p.id} className="picker-result-item" onClick={() => addProductToOrder(p)}>
+                      <div>
+                        <strong>{p.name}</strong>
+                        {p.category && <small>{p.category}</small>}
+                      </div>
+                      <span className="picker-price">{money(p.price)}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="edit-order-summary-box">
+          <div className="summary-row">
+            <span>Subtotal original:</span>
+            <strong>{money(origSubtotal)}</strong>
+          </div>
+          <div className="summary-row highlight">
+            <span>Nuevo subtotal del pedido:</span>
+            <strong className="new-subtotal-val">{money(newSubtotal)}</strong>
+          </div>
+          {diff !== 0 && (
+            <div className={"summary-diff " + (diff < 0 ? "diff-decrease" : "diff-increase")}>
+              {diff < 0
+                ? `Disminución de ${money(Math.abs(diff))} en la cuenta`
+                : `Aumento de ${money(diff)} en la cuenta`}
+            </div>
+          )}
+        </div>
+
+        {confirmingCancelAll && (
+          <div className="cancel-order-confirm-box">
+            <p><strong>¿Seguro que deseás anular por completo este pedido?</strong> Esta acción no se puede deshacer.</p>
+            <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+              <button
+                type="button"
+                className="danger cancel-confirm-btn"
+                disabled={busy}
+                onClick={handleCancelEntireOrder}
+              >
+                {busy ? "Anulando..." : "Sí, anular pedido"}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={() => setConfirmingCancelAll(false)}
+              >
+                No cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="edit-order-modal-actions">
+          {!confirmingCancelAll && (
+            <button
+              type="button"
+              className="danger-outline cancel-all-btn"
+              disabled={busy}
+              onClick={() => setConfirmingCancelAll(true)}
+            >
+              🗑️ Anular todo el pedido
+            </button>
+          )}
+          <div style={{ display: "flex", gap: "10px", marginLeft: "auto" }}>
+            <button type="button" className="secondary" disabled={busy} onClick={onClose}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="primary save-edit-btn"
+              disabled={busy}
+              onClick={handleSave}
+            >
+              {busy ? "Guardando..." : items.length === 0 ? "Anular pedido" : "Guardar corrección"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }

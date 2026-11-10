@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from app.main import app
 from app.db import SessionLocal
-from app.models import Visit, Order, Payment, Product, Reservation, User, Sale, Table
+from app.models import StockItem, Visit, Order, Payment, Product, Reservation, User, Sale, Table
 from app.attention import calendar_today
 from test_mysql import fixture, key, account, pay, deliver, HEADERS
 
@@ -338,3 +338,177 @@ def test_table_sectors_and_management(fixture):
     # Admin can delete the newly created table
     del_r = c.delete(f'/api/tables/{new_num}')
     assert del_r.status_code == 200
+
+
+def test_edit_order_quantity_and_totals(fixture):
+    f = fixture
+    c = f['client']
+    t = f['table']
+
+    # Open table and add order with 2 units (price is 1000 each in fixture -> total 2000)
+    r = post(f, f'/tables/{t}/consumptions', {
+        'items': [{'productId': f['product'], 'quantity': 2}],
+        'needsPreparation': False
+    })
+    assert r.status_code == 200
+
+    state = c.get('/api/state').json()
+    orders = [o for o in state['orders'] if o['table'] == t]
+    assert len(orders) == 1
+    order = orders[0]
+    assert len(order['items']) == 1
+    item = order['items'][0]
+    assert item['quantity'] == 2
+    assert 'id' in item
+    unit_price = item['unitPrice']
+
+    # Table balance
+    acc = next(a for a in state['accounts'] if a['table'] == t)
+    assert acc['total'] == 2 * unit_price
+    assert acc['balance'] == 2 * unit_price
+
+    # Edit consumption: reduce quantity from 2 to 1 (waitstaff made a mistake)
+    edit_res = c.put(f"/api/orders/{order['id']}", json={
+        'items': [{
+            'id': item['id'],
+            'productId': f['product'],
+            'quantity': 1,
+            'notes': 'Corregido por error de moza'
+        }]
+    })
+    assert edit_res.status_code == 200, edit_res.text
+    res_data = edit_res.json()
+    assert res_data['ok'] is True
+    assert res_data['total'] == 1 * unit_price
+    assert res_data['balance'] == 1 * unit_price
+
+    # Verify state after edit
+    state_after = c.get('/api/state').json()
+    acc_after = next(a for a in state_after['accounts'] if a['table'] == t)
+    assert acc_after['total'] == 1 * unit_price
+    assert acc_after['balance'] == 1 * unit_price
+
+    orders_after = [o for o in state_after['orders'] if o['table'] == t]
+    assert len(orders_after) == 1
+    assert orders_after[0]['items'][0]['quantity'] == 1
+
+
+def test_delete_item_and_cancel_order(fixture):
+    f = fixture
+    c = f['client']
+    t = f['table']
+
+    r = post(f, f'/tables/{t}/consumptions', {
+        'items': [{'productId': f['product'], 'quantity': 2}],
+        'needsPreparation': False
+    })
+    assert r.status_code == 200
+
+    state = c.get('/api/state').json()
+    order = next(o for o in state['orders'] if o['table'] == t)
+    item_id = order['items'][0]['id']
+
+    # Delete the single item via DELETE /api/orders/{id}/items/{item_id}
+    del_item_res = c.delete(f"/api/orders/{order['id']}/items/{item_id}")
+    assert del_item_res.status_code == 200
+    assert del_item_res.json()['deletedOrder'] is True
+
+    # Check state: order is deleted and balance is 0
+    state_after = c.get('/api/state').json()
+    orders_after = [o for o in state_after['orders'] if o['table'] == t]
+    assert len(orders_after) == 0
+    acc_after = next(a for a in state_after['accounts'] if a['table'] == t)
+    assert acc_after['total'] == 0
+    assert acc_after['balance'] == 0
+
+
+def test_cancel_order_directly_and_paid_protection(fixture):
+    f = fixture
+    c = f['client']
+    t = f['table']
+
+    post(f, f'/tables/{t}/consumptions', {
+        'items': [{'productId': f['product'], 'quantity': 1}],
+        'needsPreparation': False
+    })
+
+    state = c.get('/api/state').json()
+    order = next(o for o in state['orders'] if o['table'] == t)
+
+    # Cancel directly via DELETE /api/orders/{id}
+    del_res = c.delete(f"/api/orders/{order['id']}")
+    assert del_res.status_code == 200
+    assert del_res.json()['deleted'] is True
+
+    # Re-add order and pay it
+    acc = next(a for a in state['accounts'] if a['table'] == t)
+    r2 = post(f, f'/tables/{t}/consumptions', {
+        'expectedAccount': acc['id'],
+        'items': [{'productId': f['product'], 'quantity': 1}],
+        'needsPreparation': False
+    })
+    assert r2.status_code == 200, r2.text
+    state2 = c.get('/api/state').json()
+    order2 = next(o for o in state2['orders'] if o['table'] == t)
+    acc2 = next(a for a in state2['accounts'] if a['table'] == t)
+
+    # Pay the table
+    pay_res = post(f, f"/visits/{acc2['id']}/payments", {
+        'method': 'efectivo',
+        'expectedBalance': acc2['balance'],
+        'received': acc2['balance']
+    })
+    assert pay_res.status_code == 200
+
+    # Attempting to delete or edit a paid order must fail (409)
+    assert c.delete(f"/api/orders/{order2['id']}").status_code == 409
+    assert c.put(f"/api/orders/{order2['id']}", json={'items': []}).status_code == 409
+
+
+def test_order_edit_and_cancel_reverts_stock(fixture):
+    from test_stock import configured
+    f = fixture
+    c = f['client']
+    t = f['table']
+
+    sid = configured(f, initial=10)
+
+    # Initial stock is 10
+    with SessionLocal() as db:
+        assert db.get(StockItem, sid).quantity == 10
+
+    # Place order of 2 units
+    post(f, f'/tables/{t}/consumptions', {
+        'items': [{'productId': f['product'], 'quantity': 2}],
+        'needsPreparation': False
+    })
+
+    # Stock should be 8
+    with SessionLocal() as db:
+        assert db.get(StockItem, sid).quantity == 8
+
+    state = c.get('/api/state').json()
+    order = next(o for o in state['orders'] if o['table'] == t)
+    item = order['items'][0]
+
+    # Edit order: reduce quantity to 1
+    edit_res = c.put(f"/api/orders/{order['id']}", json={
+        'items': [{
+            'id': item['id'],
+            'productId': f['product'],
+            'quantity': 1,
+        }]
+    })
+    assert edit_res.status_code == 200
+
+    # Stock should be restored by 1 unit -> now 9
+    with SessionLocal() as db:
+        assert db.get(StockItem, sid).quantity == 9
+
+    # Cancel the entire order
+    del_res = c.delete(f"/api/orders/{order['id']}")
+    assert del_res.status_code == 200
+
+    # Stock should be restored by the remaining 1 unit -> now back to 10!
+    with SessionLocal() as db:
+        assert db.get(StockItem, sid).quantity == 10

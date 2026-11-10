@@ -21,7 +21,7 @@ class EmptyCall(StrictModel):
 
 def order_json(db,o):
  lines=list(db.scalars(select(OrderItem).where(OrderItem.order_id==o.id)))
- return dict(id=o.id,number=o.number,table=db.get(Visit,o.visit_id).table_number,status=o.status,createdAt=iso(o.created_at),items=[{k:v for k,v in i.snapshot.items() if k in {'productId','name','size','quantity','flavors','extras','notes'}}|{'unitPrice':float(i.unit_price)} for i in lines],total=float(sum(i.quantity*i.unit_price for i in lines)))
+ return dict(id=o.id,number=o.number,table=db.get(Visit,o.visit_id).table_number,status=o.status,createdAt=iso(o.created_at),items=[{k:v for k,v in i.snapshot.items() if k in {'productId','name','size','quantity','flavors','extras','notes'}}|{'id': i.id, 'unitPrice':float(i.unit_price)} for i in lines],total=float(sum(i.quantity*i.unit_price for i in lines)))
 
 @router.post('/public/qr/{number}/orders')
 def send(number:int,data:Basket,key:str=Header(alias='Idempotency-Key'),who=Depends(device),db=Depends(get_db)):

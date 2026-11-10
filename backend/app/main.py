@@ -20,7 +20,7 @@ from .models import (
     now,
 )
 from .auth import COOKIE, digest, verify, current_session, password_hash
-from .schemas import LoginIn, OrderIn, PayIn, StatusIn, StaffIn, ManualOrderIn, OpenIn
+from .schemas import LoginIn, OrderIn, PayIn, StatusIn, StaffIn, ManualOrderIn, OpenIn, OrderEditIn
 from .services import *
 
 import logging
@@ -482,6 +482,56 @@ def deliver_all(id: str, auth=Depends(current_session), db=Depends(get_db)):
         order.status = "entregado"
     db.commit()
     return {"ok": True}
+
+
+@app.put("/api/orders/{id}")
+def modify_order(
+    id: str,
+    data: OrderEditIn,
+    auth=Depends(current_session),
+    db=Depends(get_db),
+):
+    if auth[0].role not in ("staff", "admin"):
+        fail("Solo el personal o administrador puede modificar consumos.", 403)
+    order = db.get(Order, id)
+    if not order:
+        fail("Pedido inexistente.", 404)
+    result = edit_order(db, order, data, auth[0])
+    db.commit()
+    return result
+
+
+@app.delete("/api/orders/{id}")
+def remove_order(
+    id: str,
+    auth=Depends(current_session),
+    db=Depends(get_db),
+):
+    if auth[0].role not in ("staff", "admin"):
+        fail("Solo el personal o administrador puede anular consumos.", 403)
+    order = db.get(Order, id)
+    if not order:
+        fail("Pedido inexistente.", 404)
+    result = cancel_order(db, order, auth[0])
+    db.commit()
+    return result
+
+
+@app.delete("/api/orders/{id}/items/{item_id}")
+def remove_order_item(
+    id: str,
+    item_id: str,
+    auth=Depends(current_session),
+    db=Depends(get_db),
+):
+    if auth[0].role not in ("staff", "admin"):
+        fail("Solo el personal o administrador puede eliminar productos de un consumo.", 403)
+    order = db.get(Order, id)
+    if not order:
+        fail("Pedido inexistente.", 404)
+    result = delete_order_item(db, order, item_id, auth[0])
+    db.commit()
+    return result
 
 
 def public_visit(db, request, number):

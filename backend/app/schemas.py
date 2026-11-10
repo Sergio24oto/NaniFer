@@ -57,6 +57,21 @@ class ManualOrderIn(OrderIn):
     needsPreparation: bool = False
 
 
+class OrderItemEditIn(StrictModel):
+    id: str | None = None
+    productId: str
+    size: str = ""
+    flavors: list[str] = Field(default_factory=list, max_length=50)
+    extras: list[str] = Field(default_factory=list, max_length=20)
+    notes: str = Field(default="", max_length=300)
+    quantity: int = Field(ge=1, le=99)
+    customPrice: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
+
+
+class OrderEditIn(StrictModel):
+    items: list[OrderItemEditIn] = Field(default_factory=list)
+
+
 class ConsumptionIn(StrictModel):
     expectedAccount: str | None = None
     items: list[ItemIn] = Field(min_length=1, max_length=50)

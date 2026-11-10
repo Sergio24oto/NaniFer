@@ -252,6 +252,184 @@ def make_order(db, visit, data, *, origin="qr", user=None, delivered=False):
     return {"id": order.id, "accountId": visit.id}
 
 
+def edit_order(db, order, data, user):
+    from .stock_accounting import revert_order_item_stock, consume_additional_order_stock, prepare_order, apply_order
+    from .models import SaleAllocation, StockMovement
+    from sqlalchemy import update
+
+    visit = lock_visit(db, order.visit_id)
+    require_open(visit)
+    if visit.closed_at:
+        fail("No se puede modificar un pedido de una visita cerrada.", 409)
+
+    allocated = db.scalar(
+        select(SaleAllocation.order_item_id)
+        .join(OrderItem, OrderItem.id == SaleAllocation.order_item_id)
+        .where(OrderItem.order_id == order.id)
+        .limit(1)
+    )
+    if allocated:
+        fail("No se puede editar este pedido porque ya tiene cobros o pagos asociados.", 409)
+
+    existing_items = {i.id: i for i in db.scalars(select(OrderItem).where(OrderItem.order_id == order.id))}
+    incoming_items_with_id = {i.id: i for i in data.items if i.id and i.id in existing_items}
+    incoming_new_items = [i for i in data.items if not i.id or i.id not in existing_items]
+
+    # 1. Remove deleted items
+    for item_id, item in list(existing_items.items()):
+        if item_id not in incoming_items_with_id:
+            revert_order_item_stock(db, item, item.quantity, user.id, reason=f"Cancelación consumo mesa (Pedido #{order.number})")
+            db.execute(update(StockMovement).where(StockMovement.order_item_id == item.id).values(order_item_id=None))
+            db.delete(item)
+
+    # 2. Update existing items
+    for item_id, inc in incoming_items_with_id.items():
+        item = existing_items[item_id]
+        delta = inc.quantity - item.quantity
+        if delta < 0:
+            revert_order_item_stock(db, item, abs(delta), user.id, reason=f"Reducción consumo mesa (Pedido #{order.number})")
+        elif delta > 0:
+            consume_additional_order_stock(db, item, delta, user.id, reason=f"Aumento consumo mesa (Pedido #{order.number})")
+        item.quantity = inc.quantity
+        snapshot = dict(item.snapshot or {})
+        snapshot["quantity"] = inc.quantity
+        if inc.notes is not None:
+            snapshot["notes"] = inc.notes
+        if "stockBatches" in snapshot and snapshot["stockBatches"]:
+            snapshot["stockBatches"][0]["quantity"] = inc.quantity
+        item.snapshot = snapshot
+
+    # 3. Add new items
+    if incoming_new_items:
+        plans, stock_rows = prepare_order(db, incoming_new_items)
+        priced = [priced_item(db, i, require_flavors=False) for i in incoming_new_items]
+        for index, (snapshot, price) in enumerate(priced):
+            new_item = OrderItem(
+                id=uid(),
+                order_id=order.id,
+                product_id=snapshot["productId"],
+                quantity=snapshot["quantity"],
+                unit_price=price,
+                snapshot=snapshot,
+            )
+            db.add(new_item)
+            db.flush()
+            apply_order(db, new_item, plans[index], stock_rows, user.id)
+
+    db.flush()
+
+    remaining = list(db.scalars(select(OrderItem).where(OrderItem.order_id == order.id)))
+    is_deleted = False
+    if not remaining:
+        db.delete(order)
+        db.flush()
+        is_deleted = True
+
+    consumed, paid, balance = totals(db, visit.id)
+    if consumed < paid:
+        fail("El nuevo importe de la mesa no puede ser inferior a lo que ya fue pagado.", 409)
+
+    return {
+        "ok": True,
+        "orderId": None if is_deleted else order.id,
+        "deleted": is_deleted,
+        "remainingItems": len(remaining),
+        "total": float(consumed),
+        "balance": float(balance)
+    }
+
+
+def cancel_order(db, order, user):
+    from .stock_accounting import revert_order_item_stock
+    from .models import SaleAllocation, StockMovement
+    from sqlalchemy import update
+
+    visit = lock_visit(db, order.visit_id)
+    require_open(visit)
+    if visit.closed_at:
+        fail("No se puede anular un pedido de una visita cerrada.", 409)
+
+    allocated = db.scalar(
+        select(SaleAllocation.order_item_id)
+        .join(OrderItem, OrderItem.id == SaleAllocation.order_item_id)
+        .where(OrderItem.order_id == order.id)
+        .limit(1)
+    )
+    if allocated:
+        fail("No se puede anular este pedido porque ya tiene cobros o pagos asociados.", 409)
+
+    items = list(db.scalars(select(OrderItem).where(OrderItem.order_id == order.id)))
+    for item in items:
+        revert_order_item_stock(db, item, item.quantity, user.id, reason=f"Anulación completa consumo mesa (Pedido #{order.number})")
+        db.execute(update(StockMovement).where(StockMovement.order_item_id == item.id).values(order_item_id=None))
+        db.delete(item)
+
+    db.flush()
+    db.delete(order)
+    db.flush()
+
+    consumed, paid, balance = totals(db, visit.id)
+    if consumed < paid:
+        fail("El nuevo importe de la mesa no puede ser inferior a lo que ya fue pagado.", 409)
+
+    return {
+        "ok": True,
+        "orderId": order.id,
+        "deleted": True,
+        "total": float(consumed),
+        "balance": float(balance)
+    }
+
+
+def delete_order_item(db, order, item_id, user):
+    from .stock_accounting import revert_order_item_stock
+    from .models import SaleAllocation, StockMovement
+    from sqlalchemy import update
+
+    visit = lock_visit(db, order.visit_id)
+    require_open(visit)
+    if visit.closed_at:
+        fail("No se puede modificar un pedido de una visita cerrada.", 409)
+
+    item = db.get(OrderItem, item_id)
+    if not item or item.order_id != order.id:
+        fail("Ítem no encontrado en este pedido.", 404)
+
+    allocated = db.scalar(
+        select(SaleAllocation.order_item_id)
+        .where(SaleAllocation.order_item_id == item.id)
+        .limit(1)
+    )
+    if allocated:
+        fail("No se puede eliminar este producto porque ya fue cobrado.", 409)
+
+    revert_order_item_stock(db, item, item.quantity, user.id, reason=f"Eliminación producto de mesa (Pedido #{order.number})")
+    db.execute(update(StockMovement).where(StockMovement.order_item_id == item.id).values(order_item_id=None))
+    db.delete(item)
+    db.flush()
+
+    remaining = list(db.scalars(select(OrderItem).where(OrderItem.order_id == order.id)))
+    is_deleted = False
+    if not remaining:
+        db.delete(order)
+        db.flush()
+        is_deleted = True
+
+    consumed, paid, balance = totals(db, visit.id)
+    if consumed < paid:
+        fail("El nuevo importe de la mesa no puede ser inferior a lo que ya fue pagado.", 409)
+
+    return {
+        "ok": True,
+        "orderId": None if is_deleted else order.id,
+        "deletedItemId": item_id,
+        "deletedOrder": is_deleted,
+        "remainingItems": len(remaining),
+        "total": float(consumed),
+        "balance": float(balance)
+    }
+
+
 def make_payment(db, visit, data, user):
     require_open(visit)
     consumed, paid, balance = totals(db, visit.id)
@@ -419,7 +597,7 @@ def state_for(db, visits, internal=False):
                 "status": o.status,
                 **({"origin": o.origin, "createdBy": o.created_by, "createdByName": names.get(o.created_by, "")} if internal else {}),
                 "items": [
-                    {**{k:v for k,v in i.snapshot.items() if k != "stockBatches"}, "unitPrice": float(i.unit_price)}
+                    {**{k:v for k,v in i.snapshot.items() if k != "stockBatches"}, "id": i.id, "unitPrice": float(i.unit_price)}
                     for i in items
                     if i.order_id == o.id
                 ],
