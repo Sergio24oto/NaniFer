@@ -77,12 +77,22 @@ function Editor({ item, kind, data, onClose, onSaved }) {
   const change = (key, v) => setValue(old => ({ ...old, [key]: v }));
 
   const handleAddSubcategory = () => {
-    const val = newSubcategoryInput.trim();
-    if (!val) return;
+    const raw = newSubcategoryInput.trim();
+    if (!raw) return;
+    const newItems = raw
+      .split(/[,;\n]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (!newItems.length) return;
+
     const current = value.subcategories || [];
-    if (!current.some(s => (typeof s === 'string' ? s : s?.name || '').toLowerCase() === val.toLowerCase())) {
-      change('subcategories', [...current, val]);
+    const added = [...current];
+    for (const item of newItems) {
+      if (!added.some(s => (typeof s === 'string' ? s : s?.name || '').toLowerCase() === item.toLowerCase())) {
+        added.push(item);
+      }
     }
+    change('subcategories', added);
     setNewSubcategoryInput('');
   };
 

@@ -196,6 +196,15 @@ def priced_item(db, item, *, require_flavors=True):
             if any(f not in available for f in item.flavors):
                 fail("Sabor agotado.", 422)
     extras = {e["name"]: e for e in p.extras}
+    if is_combo:
+        upgrade_coffee = (p.combo_config or {}).get("upgradeCoffee", {})
+        if upgrade_coffee.get("enabled", True):
+            u_price = Decimal(str(upgrade_coffee.get("price", 500)))
+            u_name = str(upgrade_coffee.get("label", "Café Grande")).strip()
+            extras[u_name] = {"name": u_name, "price": u_price}
+            for extra_item in item.extras:
+                if extra_item == u_name or extra_item.startswith(u_name):
+                    extras[extra_item] = {"name": extra_item, "price": u_price}
     if len(set(item.extras)) != len(item.extras) or any(
         e not in extras for e in item.extras
     ):

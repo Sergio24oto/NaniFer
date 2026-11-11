@@ -3,6 +3,33 @@ import { Modal } from "../components";
 import { money, estimate } from "../domain";
 import { useStore } from "../store";
 
+export function isCoffeeOption(optionName) {
+  if (!optionName) return false;
+  const n = String(optionName).toLowerCase();
+  if (
+    n.includes("té") ||
+    n.includes("te") ||
+    n.includes("mate") ||
+    n.includes("jugo") ||
+    n.includes("chocolatada")
+  ) {
+    return false;
+  }
+  return (
+    n.includes("caf") ||
+    n.includes("cortado") ||
+    n.includes("leche") ||
+    n.includes("lágrima") ||
+    n.includes("lagrima") ||
+    n.includes("jarrito") ||
+    n.includes("capuchino") ||
+    n.includes("submarino") ||
+    n.includes("expreso") ||
+    n.includes("espresso") ||
+    n.includes("americano")
+  );
+}
+
 export default function Product({ product: initialProduct, onClose, onAdd, manual = false }) {
   const { catalog } = useStore();
   const p = catalog.products.find(x => x.id === initialProduct.id) || initialProduct;
@@ -19,9 +46,24 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   const [quantity, setQuantity] = useState(1);
   const [flavorCounts, setFlavorCounts] = useState({});
 
+  const isCombo = Boolean(p.comboConfig?.is_combo && p.comboConfig.steps?.length > 0);
+  const comboSteps = isCombo ? p.comboConfig.steps : [];
+
+  const upgradeConfig = p.comboConfig?.upgradeCoffee || {
+    enabled: true,
+    price: 500,
+    label: "Café Grande",
+  };
+  const isCoffeeUpgradeEnabled = Boolean(isCombo && upgradeConfig.enabled !== false);
+  const coffeeUpgradePrice = Number(upgradeConfig.price) || 500;
+  const coffeeUpgradeLabel = (upgradeConfig.label || "Café Grande").trim();
+
+  const [upgradeCoffee, setUpgradeCoffee] = useState(false);
+
   const selectedSizeObj = p.sizes?.find((s) => s.name === size);
   const max = selectedSizeObj?.max;
-  const unit = estimate(p, size, extras);
+  const comboCoffeeExtra = (isCombo && upgradeCoffee && isCoffeeUpgradeEnabled) ? coffeeUpgradePrice : 0;
+  const unit = estimate(p, size, extras) + comboCoffeeExtra;
   const toggle = (v, list, set) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
@@ -75,9 +117,6 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
     }
   };
 
-  const isCombo = Boolean(p.comboConfig?.is_combo && p.comboConfig.steps?.length > 0);
-  const comboSteps = isCombo ? p.comboConfig.steps : [];
-
   const isMultiSize = Boolean(
     p.sizes &&
     p.sizes.length > 1 &&
@@ -128,10 +167,15 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   });
 
   const selectComboSingle = (stepId, opt) => {
+    const isDeselecting = comboSelections[stepId] === opt;
+    const nextVal = isDeselecting ? "" : opt;
     setComboSelections(prev => ({
       ...prev,
-      [stepId]: prev[stepId] === opt ? "" : opt
+      [stepId]: nextVal
     }));
+    if (!isCoffeeOption(nextVal)) {
+      setUpgradeCoffee(false);
+    }
   };
 
   const toggleComboMultiple = (stepId, opt, max = 2) => {
@@ -207,19 +251,28 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           const str = Object.entries(counts).map(([k, c]) => c > 1 ? `${c}x ${k}` : k).join(', ');
           summaryParts.push(`${step.title}: ${str}`);
         } else if (val) {
-          summaryParts.push(`${step.title}: ${val}`);
+          const isCoffee = isCoffeeOption(val);
+          const displayVal = (isCoffee && upgradeCoffee && isCoffeeUpgradeEnabled)
+            ? `${val} (GRANDE)`
+            : val;
+          summaryParts.push(`${step.title}: ${displayVal}`);
         }
       }
       const comboSummary = summaryParts.join(' · ');
       const finalNotes = [comboSummary, notes.trim()].filter(Boolean).join(' | ');
+
+      const comboExtras = (upgradeCoffee && isCoffeeUpgradeEnabled)
+        ? [`${coffeeUpgradeLabel} (+${money(coffeeUpgradePrice)})`]
+        : [];
 
       onAdd({
         productId: p.id,
         name: p.name,
         size: defaultSize || p.sizes?.[0]?.name || "",
         flavors: [],
-        extras: [],
+        extras: comboExtras,
         comboSelections,
+        upgradeCoffee: upgradeCoffee && isCoffeeUpgradeEnabled,
         notes: finalNotes,
         quantity,
         unitPrice: unit,
@@ -394,6 +447,27 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
                     );
                   })}
                 </div>
+
+                {isCoffeeUpgradeEnabled && !isMultiple && isCoffeeOption(val) && (
+                  <div className="combo-coffee-upgrade-card">
+                    <div className="combo-coffee-upgrade-left">
+                      <span className="coffee-upgrade-icon">☕✨</span>
+                      <div className="coffee-upgrade-texts">
+                        <strong>¿Agrandar a Café Grande?</strong>
+                        <small>
+                          El combo incluye tamaño mediano. Agrandalo por +{money(coffeeUpgradePrice)}.
+                        </small>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={`combo-coffee-upgrade-btn ${upgradeCoffee ? "active" : ""}`}
+                      onClick={() => setUpgradeCoffee(!upgradeCoffee)}
+                    >
+                      {upgradeCoffee ? "✓ Grande sumado" : `+ Agrandar (+${money(coffeeUpgradePrice)})`}
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

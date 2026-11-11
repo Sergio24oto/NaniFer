@@ -23,14 +23,19 @@ const mockCatalog = [
   { id: "empanada-1", name: "Empanada criolla", category: "Comidas", price: 1500, available: true },
   { id: "hel-1", name: "1KG Helado", category: "Helados", price: 24500, available: true },
   { id: "hel-2", name: "Copa NaniFer", category: "Helados", price: 6500, available: true },
+  { id: "untables-1", name: "Untables", category: "Meriendas/Desayunos", price: 1200, flavorOptions: ["Mermelada", "Dulce de leche", "Queso crema"], available: true },
+  { id: "tostada-campo", name: "Tostada de campo", category: "Meriendas/Desayunos", price: 2000, available: true },
 ];
 
-test("detectProductType clasifica solo los 5 disparadores estratégicos y silencia el resto", () => {
+test("detectProductType clasifica los disparadores estratégicos y silencia el resto", () => {
   assert.equal(detectProductType({ name: "Pizza especial" }), "pizza");
   assert.equal(detectProductType({ name: "Brahma 1 Lt" }), "cerveza");
   assert.equal(detectProductType({ name: "Café con leche" }), "cafe");
   assert.equal(detectProductType({ name: "Jugo Naranja vaso" }), "licuado");
   assert.equal(detectProductType({ name: "Picada para dos" }), "picada");
+  assert.equal(detectProductType({ name: "Criollos" }), "panaderia");
+  assert.equal(detectProductType({ name: "Tostada de campo" }), "panaderia");
+  assert.equal(detectProductType({ name: "Medialunas" }), "panaderia");
 
   // Todo lo demás devuelve 'other' o 'helados' para NO abrir cartel
   assert.equal(detectProductType({ name: "Coca-Cola 1.5L" }), "other");
@@ -130,4 +135,21 @@ test("Al agregar Helados, NO se genera ninguna sugerencia", () => {
   const iceCream = mockCatalog.find((p) => p.id === "hel-1");
   const suggestions = getSmartPairingSuggestions(iceCream, mockCatalog, []);
   assert.equal(suggestions, null);
+});
+
+test("Al agregar Criollo, Tostada de campo o Medialuna, sugiere Untables y Café", () => {
+  const tostada = mockCatalog.find((p) => p.id === "tostada-campo");
+  const suggestions = getSmartPairingSuggestions(tostada, mockCatalog, []);
+  assert.ok(suggestions);
+  assert.match(suggestions.title, /panadería|tostada/i);
+  const names = suggestions.items.map((i) => i.product.name);
+  assert.ok(names.includes("Untables"));
+  assert.ok(names.includes("Café con leche"));
+
+  // Si ya tiene Untables en el carrito, no lo ofrece
+  const cartWithUntables = [{ productId: "untables-1", name: "Untables", quantity: 1 }];
+  const suggestions2 = getSmartPairingSuggestions(tostada, mockCatalog, cartWithUntables);
+  assert.ok(suggestions2);
+  const names2 = suggestions2.items.map((i) => i.product.name);
+  assert.ok(!names2.includes("Untables"));
 });

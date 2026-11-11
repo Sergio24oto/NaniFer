@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { Modal } from "../components";
 import { money, operationId } from "../domain";
 import { request, useStore } from "../store";
+import { isCoffeeOption } from "./Product";
 import {
   Sparkles,
   Plus,
@@ -75,6 +76,17 @@ export default function ComboEditor({ item, data, onClose, onSaved }) {
   const [image, setImage] = useState(item?.image || "");
   const [inMenu, setInMenu] = useState(item?.inMenu ?? true);
   const [order, setOrder] = useState(item?.order ?? 0);
+
+  // Agrandar infusión (Café Grande)
+  const [upgradeCoffeeEnabled, setUpgradeCoffeeEnabled] = useState(
+    existingConfig.upgradeCoffee?.enabled ?? true
+  );
+  const [upgradeCoffeePrice, setUpgradeCoffeePrice] = useState(
+    existingConfig.upgradeCoffee?.price != null ? String(existingConfig.upgradeCoffee.price) : "500"
+  );
+  const [upgradeCoffeeLabel, setUpgradeCoffeeLabel] = useState(
+    existingConfig.upgradeCoffee?.label || "Café Grande"
+  );
 
   // Block B: Pasos de elección del combo
   const [steps, setSteps] = useState(() => {
@@ -291,8 +303,16 @@ export default function ComboEditor({ item, data, onClose, onSaved }) {
       flavorOptions: [],
       comboConfig: {
         is_combo: true,
-        steps: cleanedSteps
-      }
+        steps: cleanedSteps,
+        upgradeCoffee: {
+          enabled: Boolean(upgradeCoffeeEnabled),
+          price: Number(upgradeCoffeePrice) || 500,
+          label: (upgradeCoffeeLabel || "Café Grande").trim()
+        }
+      },
+      extras: upgradeCoffeeEnabled
+        ? [{ name: (upgradeCoffeeLabel || "Café Grande").trim(), price: Number(upgradeCoffeePrice) || 500 }]
+        : []
     };
 
     try {
@@ -669,6 +689,55 @@ export default function ComboEditor({ item, data, onClose, onSaved }) {
               <Plus size={18} />
               + Agregar otro paso de elección
             </button>
+
+            {/* Configuración de Agrandar Infusión */}
+            <div className="combo-upgrade-coffee-section">
+              <div className="combo-upgrade-coffee-header">
+                <div className="combo-upgrade-coffee-title-wrap">
+                  <span className="combo-upgrade-coffee-icon">☕</span>
+                  <div>
+                    <strong className="combo-upgrade-coffee-title">Agrandar Infusión (Café Grande)</strong>
+                    <p className="combo-upgrade-coffee-desc">
+                      Si el cliente elige un café (con leche, lágrima, etc.), se le ofrecerá la opción de agrandarlo por un costo adicional.
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>
+                  <input
+                    type="checkbox"
+                    checked={upgradeCoffeeEnabled}
+                    onChange={(e) => setUpgradeCoffeeEnabled(e.target.checked)}
+                  />
+                  <span>Habilitado</span>
+                </label>
+              </div>
+              {upgradeCoffeeEnabled && (
+                <div className="combo-upgrade-coffee-body">
+                  <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <label style={{ fontSize: "13px", fontWeight: 600, color: "#475569" }}>Precio adicional ($):</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      value={upgradeCoffeePrice}
+                      onChange={(e) => setUpgradeCoffeePrice(e.target.value)}
+                      placeholder="500"
+                      style={{ width: "110px", padding: "6px 8px", borderRadius: "6px", border: "1px solid #cbd5e1" }}
+                    />
+                  </div>
+                  <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <label style={{ fontSize: "13px", fontWeight: 600, color: "#475569" }}>Etiqueta en comanda / mesa:</label>
+                    <input
+                      type="text"
+                      value={upgradeCoffeeLabel}
+                      onChange={(e) => setUpgradeCoffeeLabel(e.target.value)}
+                      placeholder="Café Grande"
+                      style={{ width: "160px", padding: "6px 8px", borderRadius: "6px", border: "1px solid #cbd5e1" }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </section>
 
           {/* Footer de guardado */}
@@ -794,6 +863,21 @@ export default function ComboEditor({ item, data, onClose, onSaved }) {
                             </div>
                           )}
                         </div>
+
+                        {upgradeCoffeeEnabled && !isMultiple && isCoffeeOption(val) && (
+                          <div className="combo-coffee-upgrade-card" style={{ margin: "8px 0 0" }}>
+                            <div className="combo-coffee-upgrade-left">
+                              <span className="coffee-upgrade-icon">☕✨</span>
+                              <div className="coffee-upgrade-texts">
+                                <strong style={{ fontSize: "12px" }}>¿Agrandar a Café Grande?</strong>
+                                <small style={{ fontSize: "10.5px" }}>+{money(Number(upgradeCoffeePrice) || 500)}</small>
+                              </div>
+                            </div>
+                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#8A4F1D", background: "#FAF0E1", padding: "4px 8px", borderRadius: "12px" }}>
+                              Opción activa
+                            </span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

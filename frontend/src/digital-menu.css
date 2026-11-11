@@ -1,8 +1,8 @@
-/* ==========================================================================
-   NaniFer Carta Digital · Experiencia Editorial Gourmet
+﻿/* ==========================================================================
+   NaniFer Carta Digital Â· Experiencia Editorial Gourmet
    ========================================================================== */
 
-/* Fondo inmersivo con la fotografía real del salón y sus lámparas cálidas */
+/* Fondo inmersivo con la fotografÃ­a real del salÃ³n y sus lÃ¡mparas cÃ¡lidas */
 body.public-menu-page {
   background: linear-gradient(180deg, rgba(43, 27, 16, 0.72) 0%, rgba(43, 27, 16, 0.58) 50%, rgba(43, 27, 16, 0.78) 100%),
               url('/menu/nanifer.webp');
@@ -264,7 +264,7 @@ body.public-menu-page > div > header {
   margin: 0 auto;
 }
 
-/* Categorías en portada */
+/* CategorÃ­as en portada */
 .menu-section-title {
   background: #FAF4E8;
   padding: 26px 28px 20px;
@@ -372,7 +372,7 @@ body.public-menu-page > div > header {
 }
 
 /* ==========================================================================
-   VISTA DE CARTA EDITORIAL GOURMET (Al entrar a una categoría)
+   VISTA DE CARTA EDITORIAL GOURMET (Al entrar a una categorÃ­a)
    ========================================================================== */
 
 .editorial-view {
@@ -421,7 +421,7 @@ body.public-menu-page > div > header {
   letter-spacing: 0.5px;
 }
 
-/* Hoja de carta tipo restaurante/cafetería */
+/* Hoja de carta tipo restaurante/cafeterÃ­a */
 .editorial-card {
   background: #FAF4E8;
   border-radius: 28px;
@@ -434,7 +434,7 @@ body.public-menu-page > div > header {
   overflow: hidden;
 }
 
-/* Encabezado editorial con caligrafía y composición artística */
+/* Encabezado editorial con caligrafÃ­a y composiciÃ³n artÃ­stica */
 .editorial-header {
   position: static;
   background: transparent;
@@ -507,7 +507,7 @@ body.public-menu-page > div > header {
   margin-top: 10px;
 }
 
-/* Composición artística de cabecera */
+/* ComposiciÃ³n artÃ­stica de cabecera */
 .editorial-art-composition {
   border-radius: 20px;
   overflow: hidden;
@@ -563,7 +563,7 @@ body.public-menu-page > div > header {
   cursor: not-allowed;
 }
 
-/* Miniatura fotográfica del producto en la carta editorial */
+/* Miniatura fotogrÃ¡fica del producto en la carta editorial */
 .editorial-product-thumb {
   width: 74px;
   height: 74px;
@@ -668,7 +668,7 @@ body.public-menu-page > div > header {
   letter-spacing: 0.5px;
 }
 
-/* Botón interactivo (+) */
+/* BotÃ³n interactivo (+) */
 .editorial-add-btn {
   width: 40px;
   height: 40px;
@@ -904,7 +904,7 @@ body.public-menu-page > div > header {
 }
 
 /* ==========================================================================
-   SUB-CATEGORÍAS EDITORIALES DENTRO DE BEBIDAS (Cervezas, Jugos, Gaseosas)
+   SUB-CATEGORÃAS EDITORIALES DENTRO DE BEBIDAS (Cervezas, Jugos, Gaseosas)
    ========================================================================== */
 
 .editorial-subnav {
@@ -1074,7 +1074,7 @@ body.public-menu-page > div > header {
   }
 }
 
-/* Botón flotante estilo iPhone para volver a la carta */
+/* BotÃ³n flotante estilo iPhone para volver a la carta */
 .floating-ios-back-btn {
   position: fixed;
   top: 14px;
@@ -1145,7 +1145,7 @@ body.public-menu-page > div > header {
   transition: transform 0.1s ease-out, opacity 0.1s ease-out;
 }
 
-/* Estilos de selección de cantidad y variantes en modal Product */
+/* Estilos de selecciÃ³n de cantidad y variantes en modal Product */
 .product-modal-desc {
   color: #64748b;
   font-size: 14px;
@@ -1984,131 +1984,157 @@ body.public-menu-page > div > header {
 .cart-item-row-wrapper .quick-line {
   border-bottom: none !important;
   padding: 10px 0 !important;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 12px;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .cart-item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  flex: 1 1 0% !important;
+  min-width: 110px !important;
+  overflow: hidden !important;
 }
 
 .cart-item-name {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--brand-wood-dark, #2C1810);
-  line-height: 1.25;
-  word-break: break-word;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: var(--brand-wood-dark, #2C1810) !important;
+  line-height: 1.3 !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  display: block !important;
 }
 
 .cart-item-sub {
-  font-size: 13px;
-  color: #7B6856;
-  line-height: 1.25;
+  font-size: 13px !important;
+  color: #7B6856 !important;
+  line-height: 1.25 !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
 }
 
 .cart-item-price {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--brand-gold-dark, #8A4F1D);
-  margin-top: 2px;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: var(--brand-gold-dark, #8A4F1D) !important;
+  margin-top: 2px !important;
+  white-space: nowrap !important;
 }
 
 .cart-change-variety-btn {
-  align-self: flex-start;
-  margin-top: 6px;
-  background: #FDF8EE;
-  border: 1px dashed #C8A474;
-  color: #8A4F1D;
-  font-size: 12px;
-  font-weight: 700;
-  border-radius: 6px;
-  padding: 3px 8px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.15s ease;
+  align-self: flex-start !important;
+  margin-top: 6px !important;
+  background: #FDF8EE !important;
+  border: 1px dashed #C8A474 !important;
+  color: #8A4F1D !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  border-radius: 6px !important;
+  padding: 3px 8px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
 }
 
 .cart-change-variety-btn:hover {
-  background: #F5E8D2;
-  border-color: #8A4F1D;
+  background: #F5E8D2 !important;
+  border-color: #8A4F1D !important;
 }
 
 /* Stepper de cantidad para evitar problemas de tipeo numérico */
 .cart-item-stepper-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 104px !important;
 }
 
 .cart-item-stepper-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #7B6856;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  color: #7B6856 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+  line-height: 1 !important;
 }
 
 .cart-item-stepper {
-  display: inline-flex;
-  align-items: center;
-  background: #FFF;
-  border: 1.5px solid #D5C2A5;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
+  display: inline-flex !important;
+  align-items: center !important;
+  background: #FFF !important;
+  border: 1.5px solid #D5C2A5 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+  width: auto !important;
 }
 
 .cart-stepper-btn {
-  width: 32px;
-  height: 32px;
-  background: #F9F6F0;
-  border: none;
-  font-size: 16px;
-  font-weight: 800;
-  color: #4A3319;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: background 0.15s ease;
-  padding: 0;
-  margin: 0;
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  height: 32px !important;
+  flex: 0 0 30px !important;
+  background: #F9F6F0 !important;
+  border: none !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: #4A3319 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  transition: background 0.15s ease !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .cart-stepper-btn:hover:not(:disabled) {
-  background: #E8DEC8;
+  background: #E8DEC8 !important;
 }
 
 .cart-stepper-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
 }
 
 .cart-stepper-input {
-  width: 38px;
-  height: 32px;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 32px !important;
+  flex: 0 0 36px !important;
+  display: inline-block !important;
+  box-sizing: border-box !important;
   border: none !important;
   border-left: 1px solid #E8DEC8 !important;
   border-right: 1px solid #E8DEC8 !important;
-  text-align: center;
-  font-size: 14.5px;
-  font-weight: 800;
-  color: #2C1810;
+  text-align: center !important;
+  font-size: 14.5px !important;
+  font-weight: 800 !important;
+  color: #2C1810 !important;
   background: #FFF !important;
-  padding: 0;
-  margin: 0;
-  outline: none;
+  padding: 0 !important;
+  margin: 0 !important;
+  outline: none !important;
   box-shadow: none !important;
   border-radius: 0 !important;
 }
@@ -2119,21 +2145,23 @@ body.public-menu-page > div > header {
 
 /* Botón quitar estilizado */
 .cart-remove-item-btn {
-  background: transparent;
-  border: 1px solid #E5CDB2;
-  color: #8C6239;
-  border-radius: 6px;
-  padding: 7px 11px;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  background: transparent !important;
+  border: 1px solid #E5CDB2 !important;
+  color: #8C6239 !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
 }
 
 .cart-remove-item-btn:hover {
-  background: #FDF2F0;
-  color: #C0392B;
-  border-color: #E6B0AA;
+  background: #FDF2F0 !important;
+  color: #C0392B !important;
+  border-color: #E6B0AA !important;
 }
 
 /* Selector desplegable de variedad en el carrito */
@@ -2225,18 +2253,168 @@ body.public-menu-page > div > header {
 }
 
 @media (max-width: 360px) {
+  .cart-item-row-wrapper .quick-line {
+    gap: 8px !important;
+  }
   .cart-stepper-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 14px;
+    width: 26px !important;
+    min-width: 26px !important;
+    max-width: 26px !important;
+    height: 28px !important;
+    font-size: 14px !important;
   }
   .cart-stepper-input {
-    width: 32px;
-    height: 28px;
-    font-size: 13px;
+    width: 30px !important;
+    min-width: 30px !important;
+    max-width: 30px !important;
+    height: 28px !important;
+    font-size: 13px !important;
   }
   .cart-remove-item-btn {
-    padding: 5px 8px;
-    font-size: 11.5px;
+    padding: 5px 8px !important;
+    font-size: 11.5px !important;
   }
+}
+
+/* ==========================================================================
+   COMBOS: AGRANDAR INFUSIÓN (CAFÉ GRANDE)
+   ========================================================================== */
+
+.combo-coffee-upgrade-card {
+  margin-top: 12px;
+  background: linear-gradient(135deg, #FFFDF9 0%, #FBF3E6 100%);
+  border: 1.5px dashed #D4A86A;
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 2px 6px rgba(138, 79, 29, 0.06);
+  animation: fadeInUpgrade 0.2s ease-out;
+}
+
+@keyframes fadeInUpgrade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.combo-coffee-upgrade-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.coffee-upgrade-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.coffee-upgrade-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.coffee-upgrade-texts strong {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #3B2417;
+  line-height: 1.25;
+}
+
+.coffee-upgrade-texts small {
+  font-size: 11.5px;
+  color: #78583E;
+  line-height: 1.25;
+}
+
+.combo-coffee-upgrade-btn {
+  flex: 0 0 auto;
+  background: #FFF;
+  border: 1.5px solid #8A4F1D;
+  color: #8A4F1D;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 7px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.combo-coffee-upgrade-btn:hover {
+  background: #FAF0E1;
+}
+
+.combo-coffee-upgrade-btn.active {
+  background: #8A4F1D;
+  color: #FFF;
+  border-color: #8A4F1D;
+  box-shadow: 0 2px 6px rgba(138, 79, 29, 0.3);
+}
+
+/* En el editor de combos (administración) */
+.combo-upgrade-coffee-section {
+  background: #FAF7F2;
+  border: 1.5px solid #E2D3BE;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.combo-upgrade-coffee-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.combo-upgrade-coffee-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.combo-upgrade-coffee-icon {
+  font-size: 24px;
+}
+
+.combo-upgrade-coffee-title {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #2C1810;
+}
+
+.combo-upgrade-coffee-desc {
+  font-size: 12.5px;
+  color: #64748B;
+  margin: 2px 0 0;
+}
+
+.combo-upgrade-coffee-body {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #E2D3BE;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.combo-upgrade-coffee-body .form-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.combo-upgrade-coffee-body label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
 }

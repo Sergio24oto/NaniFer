@@ -107,6 +107,46 @@ export function isProductTostado(p) {
   return text.includes("tostado");
 }
 
+export function isProductTostada(p) {
+  if (!p || isIceCream(p)) return false;
+  const text = `${p.id || ""} ${p.name || ""}`.toLowerCase();
+  if (text.includes("tostado")) return false; // El tostado es el sándwich caliente
+  return text.includes("tostada");
+}
+
+export function isProductUntables(p) {
+  if (!p || isIceCream(p)) return false;
+  const text = `${p.id || ""} ${p.name || ""}`.toLowerCase();
+  return (
+    text.includes("untable") ||
+    text.includes("mermelada") ||
+    text.includes("dulce de leche") ||
+    text.includes("queso crema")
+  );
+}
+
+export function isProductCoffee(p) {
+  if (!p || isIceCream(p)) return false;
+  const name = (p.name || "").toLowerCase();
+  return (
+    name.includes("caf") ||
+    name.includes("cortado") ||
+    name.includes("latte") ||
+    name.includes("lagrima") ||
+    name.includes("lágrima") ||
+    name.includes("submarino") ||
+    name.includes("capuchino") ||
+    name.includes("cappuccino") ||
+    name.includes("expreso") ||
+    name.includes("espresso") ||
+    name.includes("americano")
+  );
+}
+
+export function isProductBakeryUntableTrigger(p) {
+  return isProductCriollo(p) || isProductTostada(p) || isProductMedialuna(p);
+}
+
 /**
  * Checks if the customer's current cart already contains a product matching the predicate.
  */
@@ -181,6 +221,11 @@ export function detectProductType(product) {
     return "cafe";
   }
 
+  // 6. Panadería (Criollos, Tostadas de campo, Medialunas) -> Sugiere Untables
+  if (isProductBakeryUntableTrigger(product)) {
+    return "panaderia";
+  }
+
   return "other";
 }
 
@@ -238,6 +283,8 @@ export function getSmartPairingSuggestions(addedProduct, catalogProducts = [], c
   const hasCriolloInCart = cartHasType(currentCart, catalogProducts, isProductCriollo);
   const hasSweetBakeryInCart = cartHasType(currentCart, catalogProducts, isProductSweetBakery);
   const hasTostadoInCart = cartHasType(currentCart, catalogProducts, isProductTostado);
+  const hasUntablesInCart = cartHasType(currentCart, catalogProducts, isProductUntables);
+  const hasCoffeeInCart = cartHasType(currentCart, catalogProducts, isProductCoffee);
 
   if (type === "pizza") {
     // 1. Cerveza (1 sola opción: preferir litro compartida o fría) - Solo si NO tiene cerveza en carrito
@@ -365,6 +412,14 @@ export function getSmartPairingSuggestions(addedProduct, catalogProducts = [], c
       );
     }
 
+    // 4. Untables si no tiene
+    if (!hasUntablesInCart && matched.length < 3) {
+      addCandidate(
+        (p) => isProductUntables(p),
+        "Para untar 🧈"
+      );
+    }
+
     if (matched.length === 0) return null;
     return {
       title: "Completá tu café con algo rico ☕🥐",
@@ -435,6 +490,40 @@ export function getSmartPairingSuggestions(addedProduct, catalogProducts = [], c
     return {
       title: "¡Acompañá tu picada con una buena bebida! 🧀🍻",
       subtitle: "Elegí tu bebida favorita para compartir:",
+      items: matched.slice(0, 3),
+    };
+  }
+
+  if (type === "panaderia") {
+    // 1. Untables (con o sin variedades: Dulce de leche, mermelada, queso crema)
+    if (!hasUntablesInCart) {
+      addCandidate(
+        (p) => isProductUntables(p),
+        "Para untar 🧈"
+      );
+    }
+
+    // 2. Café recién hecho
+    if (!hasCoffeeInCart) {
+      addCandidate(
+        (p) => isProductCoffee(p),
+        "Recién hecho ☕"
+      );
+    }
+
+    // 3. Jugo natural o exprimido
+    addCandidate(
+      (p) => {
+        const n = (p.name || "").toLowerCase();
+        return n.includes("exprimido") || (n.includes("jugo") && n.includes("naranja"));
+      },
+      "Bien fresco 🍊"
+    );
+
+    if (matched.length === 0) return null;
+    return {
+      title: "¡Ideal para acompañar tu tostada o panadería! 🧈☕",
+      subtitle: "Sumá un untable delicioso o tu café favorito:",
       items: matched.slice(0, 3),
     };
   }
