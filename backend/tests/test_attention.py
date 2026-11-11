@@ -512,3 +512,15 @@ def test_order_edit_and_cancel_reverts_stock(fixture):
     # Stock should be restored by the remaining 1 unit -> now back to 10!
     with SessionLocal() as db:
         assert db.get(StockItem, sid).quantity == 10
+
+
+def test_counter_recarga_virtual(fixture):
+    f = fixture
+    items = [{'productId': 'prod-recarga-virtual', 'quantity': 1, 'customPrice': 1001, 'notes': 'Línea: 381...'}]
+    r_quote = post(f, '/counter/quote', {'items': items})
+    assert r_quote.status_code == 200
+
+    body = {'items': items, 'method': 'efectivo', 'expectedBalance': 1001}
+    r_checkout = post(f, '/counter/checkout', body)
+    assert r_checkout.status_code == 200
+

@@ -150,6 +150,11 @@ export function pendingOperation(scope) {
     return null;
   }
 }
+export function clearPendingOperation(scope) {
+  try {
+    sessionStorage.removeItem("nf.pending." + scope);
+  } catch {}
+}
 export async function submitOnce(scope, path, body) {
   let pending = pendingOperation(scope);
   if (!pending) {

@@ -111,7 +111,7 @@ def priced_item(db, item, *, require_flavors=True):
     # Soporte para precio libre / Recarga Virtual
     if p and (p.id == "prod-recarga-virtual" or p.name.lower().startswith("recarga virtual") or getattr(p, "stock_mode", None) == "open_price"):
         price = Decimal(str(item.customPrice)) if item.customPrice is not None and item.customPrice > 0 else p.price
-        snapshot = item.model_dump()
+        snapshot = item.model_dump(mode="json")
         snapshot.update(name=p.name, unitPrice=float(price))
         return snapshot, price
     is_combo = bool(p.combo_config and p.combo_config.get("is_combo"))
@@ -220,7 +220,7 @@ def priced_item(db, item, *, require_flavors=True):
     price = (
         Decimal(str(size['salePrice'])) if size and size.get('salePrice') is not None else p.price + Decimal(str((size or {}).get("price", 0)))
     ) + sum((Decimal(str(extras[e]["price"])) for e in item.extras), Decimal(0))
-    snapshot = item.model_dump()
+    snapshot = item.model_dump(mode="json")
     snapshot.update(name=p.name)
     return snapshot, price
 

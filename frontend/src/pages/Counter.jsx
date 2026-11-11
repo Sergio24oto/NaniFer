@@ -3,7 +3,7 @@ import { useDraft } from "../useDraft";
 import QuickEntry from "./QuickEntry";
 import { restoreCart } from "./Staff";
 import { Modal } from "../components";
-import { useStore, request, submitOnce, pendingOperation } from "../store";
+import { useStore, request, submitOnce, pendingOperation, clearPendingOperation } from "../store";
 import { itemInput, money } from "../domain";
 
 const METHODS = [
@@ -58,6 +58,16 @@ export default function Counter({ nav }) {
   const [showVoucher, setShowVoucher] = useState(false);
   const [voucherAmount, setVoucherAmount] = useState("");
   const lock = useRef(false);
+
+  function handleDiscardAll() {
+    clearPendingOperation(scope);
+    draft.clear();
+    setPreparation(false);
+    setQuote(null);
+    setError("");
+    setMessage("");
+    setDiscard(false);
+  }
 
   function handleApplyVoucher() {
     const val = Number(voucherAmount);
@@ -195,6 +205,46 @@ export default function Counter({ nav }) {
         </p>
       )}
       {draft.storageError && <p className="alert">{draft.storageError}</p>}
+      {pending && (
+        <div
+          className="panel"
+          style={{
+            background: "#fffbeb",
+            border: "1.5px solid #fde68a",
+            padding: "12px 16px",
+            borderRadius: 10,
+            margin: "12px 0",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <strong style={{ color: "#b45309" }}>⚠️ Compra pendiente de confirmación</strong>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#92400e" }}>
+              Hubo un problema de conexión o cobro en la última operación.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setQuote(Number(pending.body.expectedBalance))}
+            >
+              Reintentar cobro
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setDiscard(true)}
+            >
+              Descartar y desbloquear
+            </button>
+          </div>
+        </div>
+      )}
       {cart.length > 0 && !pending && (
         <p className="note">
           Borrador de Mostrador sin confirmar.{" "}
@@ -208,16 +258,22 @@ export default function Counter({ nav }) {
       )}
       {discard && (
         <Modal title="Descartar borrador" onClose={() => setDiscard(false)}>
-          <p>¿Descartar esta compra sin guardar?</p>
-          <button
-            className="primary"
-            onClick={() => {
-              draft.clear();
-              setDiscard(false);
-            }}
-          >
-            Confirmar descarte
-          </button>
+          <p>¿Descartar esta compra y desbloquear el mostrador?</p>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button
+              className="primary"
+              onClick={handleDiscardAll}
+            >
+              Confirmar descarte
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setDiscard(false)}
+            >
+              Volver
+            </button>
+          </div>
         </Modal>
       )}
       <QuickEntry
@@ -527,64 +583,77 @@ export default function Counter({ nav }) {
             </>
           )}
 
-          <button
-            className="primary full"
-            disabled={busy || !s.connected || (!pending && invalid)}
-            onClick={() =>
-              run(async () => {
-                let payload;
-                if (isSplit) {
-                  payload = {
-                    items: cart.map(itemInput),
-                    needsPreparation: preparation,
-                    method: "mixto",
-                    expectedBalance: quote,
-                    splits: splits.map((sp) => ({
-                      method: sp.method,
-                      amount: Number(sp.amount),
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button
+              className="primary full"
+              disabled={busy || !s.connected || (!pending && invalid)}
+              onClick={() =>
+                run(async () => {
+                  let payload;
+                  if (isSplit) {
+                    payload = {
+                      items: cart.map(itemInput),
+                      needsPreparation: preparation,
+                      method: "mixto",
+                      expectedBalance: quote,
+                      splits: splits.map((sp) => ({
+                        method: sp.method,
+                        amount: Number(sp.amount),
+                        received:
+                          sp.method === "efectivo" && sp.received !== ""
+                            ? Number(sp.received)
+                            : null,
+                      })),
+                    };
+                  } else {
+                    payload = {
+                      items: cart.map(itemInput),
+                      needsPreparation: preparation,
+                      method,
                       received:
-                        sp.method === "efectivo" && sp.received !== ""
-                          ? Number(sp.received)
+                        method === "efectivo" && received !== ""
+                          ? Number(received)
                           : null,
-                    })),
-                  };
-                } else {
-                  payload = {
-                    items: cart.map(itemInput),
-                    needsPreparation: preparation,
-                    method,
-                    received:
-                      method === "efectivo" && received !== ""
-                        ? Number(received)
-                        : null,
-                    expectedBalance: quote,
-                  };
-                }
+                      expectedBalance: quote,
+                    };
+                  }
 
-                const result = await submitOnce(
-                  scope,
-                  "/counter/checkout",
-                  payload
-                );
-                draft.clear();
-                setPreparation(false);
-                setQuote(null);
-                setReceived("");
-                setMethod("efectivo");
-                setMessage(
-                  "Compra de " +
-                    money(result.total) +
-                    " cobrada. Mostrador está listo para la próxima compra."
-                );
-              })
-            }
-          >
-            {busy
-              ? "Guardando…"
-              : pending
-              ? "Reintentar la misma compra"
-              : "Confirmar cobro"}
-          </button>
+                  const result = await submitOnce(
+                    scope,
+                    "/counter/checkout",
+                    payload
+                  );
+                  draft.clear();
+                  setPreparation(false);
+                  setQuote(null);
+                  setReceived("");
+                  setMethod("efectivo");
+                  setMessage(
+                    "Compra de " +
+                      money(result.total) +
+                      " cobrada. Mostrador está listo para la próxima compra."
+                  );
+                })
+              }
+            >
+              {busy
+                ? "Guardando…"
+                : pending
+                ? "Reintentar la misma compra"
+                : "Confirmar cobro"}
+            </button>
+            {pending && (
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={handleDiscardAll}
+                title="Descartar esta compra y desbloquear el mostrador"
+              >
+                Descartar
+              </button>
+            )}
+          </div>
         </Modal>
       )}
     </main>

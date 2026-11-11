@@ -326,7 +326,7 @@ export default function QuickEntry({
             <input
               type="number"
               min="1"
-              step="50"
+              step="any"
               placeholder="Ej: 2000"
               value={rechargeAmount}
               onChange={e => setRechargeAmount(e.target.value)}
