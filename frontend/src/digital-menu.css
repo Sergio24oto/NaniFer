@@ -161,13 +161,36 @@ body.public-menu-page > div > header {
 .digital-brand-center {
   display: flex;
   justify-content: center;
-  margin: 12px 0 20px;
+  margin: 14px 0 22px;
+  position: relative;
+}
+
+.digital-brand-center::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(260px, 65vw);
+  height: min(220px, 55vw);
+  background: radial-gradient(circle, rgba(217, 169, 75, 0.28) 0%, rgba(255, 248, 235, 0.16) 45%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .digital-hero-logo {
+  position: relative;
+  z-index: 1;
   width: min(220px, 55vw);
   height: auto;
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(-2px -2px 0 rgba(255, 255, 255, 0.95))
+          drop-shadow(2px -2px 0 rgba(255, 255, 255, 0.95))
+          drop-shadow(-2px 2px 0 rgba(255, 255, 255, 0.95))
+          drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.95))
+          drop-shadow(0 0 10px rgba(255, 250, 240, 0.75))
+          drop-shadow(0 8px 24px rgba(0, 0, 0, 0.85));
+  transition: transform 0.25s ease, filter 0.25s ease;
 }
 
 /* Bienvenida / Intro */

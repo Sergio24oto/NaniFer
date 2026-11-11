@@ -16,6 +16,7 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [orderSent, setOrderSent] = useState(false);
   const [alternative, setAlternative] = useState(false);
 
   const scope = "nf.public.pending." + table;
@@ -31,7 +32,8 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
     setError("");
     if (kind === "orders") {
       setCart([]);
-      setMessage("¡Pedido enviado a recepción!");
+      setOrderSent(true);
+      setMessage("");
     } else {
       setMessage(
         "La moza fue avisada. En breve se acercará a la " +
@@ -95,7 +97,7 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
 
   return (
     <Modal
-      title={"Tu selección · " + tableLabel(null, table)}
+      title={orderSent ? "¡Pedido enviado! · " + tableLabel(null, table) : "Tu selección · " + tableLabel(null, table)}
       onClose={() => !busy && onClose()}
     >
       {message && (
@@ -121,7 +123,54 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
         </p>
       )}
 
-      {!cart.length && (
+      {orderSent ? (
+        <div
+          className="order-sent-success-view"
+          style={{ textAlign: "center", padding: "18px 12px 10px" }}
+        >
+          <div style={{ fontSize: "44px", marginBottom: "12px", lineHeight: 1 }}>✨🍽️</div>
+          <h3
+            style={{
+              fontSize: "19px",
+              color: "var(--brand-wood-dark, #3B2417)",
+              marginBottom: "8px",
+              fontWeight: 800,
+            }}
+          >
+            ¡Pedido enviado con éxito!
+          </h3>
+          <p
+            style={{
+              color: "#5A3A22",
+              fontSize: "15px",
+              lineHeight: "1.45",
+              marginBottom: "24px",
+            }}
+          >
+            Tu pedido ya fue recibido por el personal.<br />
+            <strong>Pronto se trae el pedido a tu mesa.</strong><br />
+            <small style={{ color: "#78583e", fontSize: "12.5px" }}>¡Muchas gracias por tu visita!</small>
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <button
+              type="button"
+              className="primary full"
+              onClick={onClose}
+              style={{ fontWeight: 700, padding: "12px" }}
+            >
+              Seguir explorando la carta
+            </button>
+            <button
+              type="button"
+              className="secondary full"
+              disabled={busy || !!pending}
+              onClick={() => send("call")}
+            >
+              🛎️ Llamar a la moza a la {tableLabel(null, table)}
+            </button>
+          </div>
+        </div>
+      ) : !cart.length ? (
         <div
           className="empty-cart-view"
           style={{ textAlign: "center", padding: "14px 0" }}
@@ -143,7 +192,7 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
             🛎️ Llamar a la moza a la {tableLabel(null, table)}
           </button>
         </div>
-      )}
+      ) : null}
 
       {cart.map((i, n) => (
         <div className="quick-line" key={n}>

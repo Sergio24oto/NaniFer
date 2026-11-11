@@ -706,7 +706,7 @@ export default function DigitalMenu({ table }) {
           <article className="editorial-card">
             <div className="editorial-header">
               <div className="editorial-header-text">
-                <span className="editorial-script-eyebrow">menu</span>
+                <span className="editorial-script-eyebrow">menú</span>
                 <h1 className="editorial-title">{cat.name.replace(/\//g, " / ").toUpperCase()}</h1>
                 <div className="editorial-brand-stamp">
                   <span className="stamp-sub">NANIFER</span>
