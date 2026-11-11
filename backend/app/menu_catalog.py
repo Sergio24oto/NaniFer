@@ -116,6 +116,7 @@ def management(db=Depends(get_db), auth=Depends(admin)):
                 sizes=p.sizes or [],
                 flavorOptions=p.flavor_options or [],
                 comboConfig=p.combo_config or {},
+                extras=p.extras or [],
             )
             for p in db.scalars(select(Product).order_by(Product.sort_order, Product.name, Product.id))
         ],
@@ -392,6 +393,7 @@ class ProductIn(StrictModel):
     sizes: list = Field(default_factory=list)
     flavorOptions: list[str] = Field(default_factory=list)
     comboConfig: dict | None = None
+    extras: list = Field(default_factory=list)
 
     @field_validator('name')
     @classmethod
@@ -418,6 +420,8 @@ def apply_product(db, p, data: ProductIn):
     p.flavor_options = [opt.strip() for opt in data.flavorOptions if opt.strip()]
     if data.comboConfig is not None:
         p.combo_config = data.comboConfig
+    if data.extras is not None:
+        p.extras = data.extras
     if data.manageStock is not None:
         if data.manageStock:
             p.stock_mode = 'unit'

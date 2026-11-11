@@ -79,13 +79,15 @@ export default function ComboEditor({ item, data, onClose, onSaved }) {
 
   // Agrandar infusión (Café Grande)
   const [upgradeCoffeeEnabled, setUpgradeCoffeeEnabled] = useState(
-    existingConfig.upgradeCoffee?.enabled ?? true
+    existingConfig.upgradeCoffee?.enabled ?? (item?.extras?.length > 0 || !isEditing)
   );
-  const [upgradeCoffeePrice, setUpgradeCoffeePrice] = useState(
-    existingConfig.upgradeCoffee?.price != null ? String(existingConfig.upgradeCoffee.price) : "500"
-  );
+  const [upgradeCoffeePrice, setUpgradeCoffeePrice] = useState(() => {
+    if (existingConfig.upgradeCoffee?.price != null) return String(existingConfig.upgradeCoffee.price);
+    if (item?.extras?.[0]?.price != null) return String(item.extras[0].price);
+    return "500";
+  });
   const [upgradeCoffeeLabel, setUpgradeCoffeeLabel] = useState(
-    existingConfig.upgradeCoffee?.label || "Café Grande"
+    existingConfig.upgradeCoffee?.label || item?.extras?.[0]?.name || "Café Grande"
   );
 
   // Block B: Pasos de elección del combo
@@ -289,10 +291,16 @@ export default function ComboEditor({ item, data, onClose, onSaved }) {
       options: s.options
     }));
 
+    const finalCoffeePrice = upgradeCoffeePrice !== "" && !isNaN(Number(upgradeCoffeePrice))
+      ? Math.max(0, Number(upgradeCoffeePrice))
+      : 500;
+    const finalCoffeeLabel = (upgradeCoffeeLabel || "Café Grande").trim() || "Café Grande";
+
     const body = {
       name: name.trim(),
       description: description.trim(),
       categoryId,
+      subcategory: (item?.subcategory || "").trim(),
       publicCategories: (publicCategories || []).filter(cId => cId && cId !== categoryId),
       price: Number(price),
       image: image || null,
@@ -306,12 +314,12 @@ export default function ComboEditor({ item, data, onClose, onSaved }) {
         steps: cleanedSteps,
         upgradeCoffee: {
           enabled: Boolean(upgradeCoffeeEnabled),
-          price: Number(upgradeCoffeePrice) || 500,
-          label: (upgradeCoffeeLabel || "Café Grande").trim()
+          price: finalCoffeePrice,
+          label: finalCoffeeLabel
         }
       },
       extras: upgradeCoffeeEnabled
-        ? [{ name: (upgradeCoffeeLabel || "Café Grande").trim(), price: Number(upgradeCoffeePrice) || 500 }]
+        ? [{ name: finalCoffeeLabel, price: finalCoffeePrice }]
         : []
     };
 

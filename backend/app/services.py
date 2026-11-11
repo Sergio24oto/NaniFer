@@ -203,7 +203,15 @@ def priced_item(db, item, *, require_flavors=True):
             u_name = str(upgrade_coffee.get("label", "Café Grande")).strip()
             extras[u_name] = {"name": u_name, "price": u_price}
             for extra_item in item.extras:
-                if extra_item == u_name or extra_item.startswith(u_name):
+                clean_ei = extra_item.strip().lower()
+                clean_un = u_name.lower()
+                if (
+                    extra_item == u_name
+                    or extra_item.startswith(u_name)
+                    or clean_ei.startswith(clean_un)
+                    or clean_ei.startswith("café grande")
+                    or clean_ei.startswith("cafe grande")
+                ):
                     extras[extra_item] = {"name": extra_item, "price": u_price}
     if len(set(item.extras)) != len(item.extras) or any(
         e not in extras for e in item.extras

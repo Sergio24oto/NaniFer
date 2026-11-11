@@ -229,3 +229,95 @@ def test_category_and_product_subcategories(fixture):
         assert db.get(Product, prod_id).subcategory == 'Empanadas'
 
 
+def test_combo_product_extras_and_coffee_upgrade(fixture):
+    f = fixture
+    c = f['client']
+    with SessionLocal() as db:
+        db.get(User, f['user_id']).role = 'admin'
+        db.commit()
+        cat_id = db.get(Product, f['product']).category_id
+
+    combo_body = {
+        'name': 'Combo Desayuno ' + key(),
+        'description': 'Infusión + 2 medialunas',
+        'categoryId': cat_id,
+        'subcategory': 'Combos',
+        'publicCategories': [],
+        'price': '4500',
+        'image': None,
+        'available': True,
+        'inMenu': True,
+        'order': 0,
+        'sizes': [],
+        'flavorOptions': [],
+        'comboConfig': {
+            'is_combo': True,
+            'steps': [
+                {
+                    'id': 'step-1',
+                    'title': 'Elegí tu Infusión',
+                    'type': 'single',
+                    'min': 1,
+                    'max': 1,
+                    'required': True,
+                    'options': ['Café', 'Café con leche', 'Té']
+                }
+            ],
+            'upgradeCoffee': {
+                'enabled': True,
+                'price': 1000,
+                'label': 'Café Grande'
+            }
+        },
+        'extras': [
+            {'name': 'Café Grande', 'price': 1000}
+        ]
+    }
+
+    # Creating combo with extras and coffee upgrade
+    r = c.post('/api/menu-management/products', json=combo_body, headers={'Idempotency-Key': key()})
+    assert r.status_code == 200
+    pid = r.json()['id']
+    f['product_ids'].append(pid)
+
+    with SessionLocal() as db:
+        p_db = db.get(Product, pid)
+        assert p_db.combo_config['upgradeCoffee']['price'] == 1000
+        assert p_db.extras == [{'name': 'Café Grande', 'price': 1000}]
+
+    # Updating combo coffee upgrade price from 1000 to 1200
+    combo_body['comboConfig']['upgradeCoffee']['price'] = 1200
+    combo_body['extras'] = [{'name': 'Café Grande', 'price': 1200}]
+    r_put = c.put('/api/menu-management/products/' + pid, json=combo_body)
+    assert r_put.status_code == 200
+
+    with SessionLocal() as db:
+        p_db = db.get(Product, pid)
+        assert p_db.combo_config['upgradeCoffee']['price'] == 1200
+        assert p_db.extras == [{'name': 'Café Grande', 'price': 1200}]
+
+    # Order combo with coffee upgrade
+    v = open_visit(f)
+    order_body = {
+        'expectedAccount': v,
+        'items': [
+            {
+                'productId': pid,
+                'size': '',
+                'flavors': [],
+                'extras': ['Café Grande (+$1.200)'],
+                'notes': 'Elegí tu Infusión: Café con leche (GRANDE)',
+                'quantity': 1
+            }
+        ]
+    }
+    r_order = c.post('/api/visits/' + v + '/orders', json=order_body, headers={'Idempotency-Key': key()})
+    assert r_order.status_code == 200
+    order_id = r_order.json()['id']
+    with SessionLocal() as db:
+        item = db.scalar(select(OrderItem).where(OrderItem.order_id == order_id))
+        # Base 4500 + 1200 upgrade = 5700
+        assert item.unit_price == Decimal('5700')
+
+
+
