@@ -52,6 +52,7 @@ class Category(Base):
     public_visible: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
 
     note: Mapped[str] = mapped_column(String(500), default="", server_default="")
+    subcategories: Mapped[list] = mapped_column(JSON, default=list)
 
 
 class Product(Base):
@@ -69,6 +70,7 @@ class Product(Base):
     archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     price_pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     public_categories: Mapped[list] = mapped_column(JSON, default=list)
+    subcategory: Mapped[str] = mapped_column(String(100), default="", server_default="")
     stock_mode: Mapped[str] = mapped_column(String(20), default="manual", server_default="manual")
     cone_links: Mapped[dict] = mapped_column(JSON, default=dict)
     sizes: Mapped[list] = mapped_column(JSON, default=list)

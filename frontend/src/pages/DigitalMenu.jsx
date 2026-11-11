@@ -205,6 +205,118 @@ function getDesayunoSectionId(p) {
   return "acompanar";
 }
 
+const COMIDA_SECTIONS = [
+  {
+    id: "pizzas",
+    icon: "🍕",
+    shortLabel: "Pizzas",
+    eyebrow: "A LA PIEDRA Y CASERAS",
+    title: "PIZZAS",
+    subtitle: "Pizzas enteras e individuales, especiales, roquefort y con huevo.",
+  },
+  {
+    id: "empanadas",
+    icon: "🥟",
+    shortLabel: "Empanadas",
+    eyebrow: "AL HORNO",
+    title: "EMPANADAS",
+    subtitle: "Empanadas por unidad y por docena: árabes, jamón y queso, criollas y dulces.",
+  },
+  {
+    id: "cazuelas",
+    icon: "🍲",
+    shortLabel: "Cazuelas",
+    eyebrow: "VARIEDADES PARA COMPARTIR",
+    title: "CAZUELAS",
+    subtitle: "Cazuelas calientes y para picar, ideales para acompañar tu bebida favorita.",
+  },
+  {
+    id: "picadas",
+    icon: "🧀",
+    shortLabel: "Picadas y Papas",
+    eyebrow: "TABLAS Y GUARNICIONES",
+    title: "PICADAS Y PAPAS FRITAS",
+    subtitle: "Picadas completas, porciones de papas fritas doradas y papas con cheddar.",
+  },
+  {
+    id: "sin-tacc",
+    icon: "🌾",
+    shortLabel: "Sin TACC",
+    eyebrow: "OPCIONES SIN GLUTEN",
+    title: "OPCIONES SIN TACC",
+    subtitle: "Opciones saladas y aptas para celíacos.",
+  },
+  {
+    id: "otros",
+    icon: "🥪",
+    shortLabel: "Tostados y Minutas",
+    eyebrow: "MINUTAS Y SALADOS",
+    title: "TOSTADOS Y MINUTAS",
+    subtitle: "Tostados, sándwiches y minutas para disfrutar en el salón.",
+  },
+];
+
+function slugifySubcategory(text) {
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getIconForSubcategory(text) {
+  const n = (text || "").toLowerCase();
+  if (n.includes("pizza")) return "🍕";
+  if (n.includes("empanad")) return "🥟";
+  if (n.includes("cazuela")) return "🍲";
+  if (n.includes("picada") || n.includes("queso") || n.includes("fiambre")) return "🧀";
+  if (n.includes("papa") || n.includes("frit")) return "🍟";
+  if (n.includes("tacc") || n.includes("celiac") || n.includes("gluten")) return "🌾";
+  if (n.includes("hamburgues") || n.includes("burger")) return "🍔";
+  if (n.includes("sandwich") || n.includes("tostad") || n.includes("lomit")) return "🥪";
+  if (n.includes("dulce") || n.includes("torta") || n.includes("postre") || n.includes("alfajor")) return "🍰";
+  if (n.includes("combo") || n.includes("promo")) return "🥐";
+  if (n.includes("caf") || n.includes("infusion") || n.includes("te")) return "☕";
+  if (n.includes("cerveza")) return "🍺";
+  if (n.includes("litro")) return "🍻";
+  if (n.includes("jugo") || n.includes("licuado") || n.includes("batido")) return "🍊";
+  if (n.includes("gaseosa") || n.includes("agua") || n.includes("refresco")) return "🥤";
+  if (n.includes("helad")) return "🍨";
+  if (n.includes("salad")) return "🥗";
+  return "✨";
+}
+
+function getComidaSectionId(p) {
+  const pSub = (p.subcategory || "").toLowerCase();
+  if (pSub.includes("pizza")) return "pizzas";
+  if (pSub.includes("empanad")) return "empanadas";
+  if (pSub.includes("cazuela")) return "cazuelas";
+  if (pSub.includes("picada") || pSub.includes("papa")) return "picadas";
+  if (pSub.includes("tacc") || pSub.includes("gluten") || pSub.includes("celiac")) return "sin-tacc";
+  if (pSub.includes("tostad") || pSub.includes("sandwich") || pSub.includes("minuta")) return "otros";
+
+  const text = `${p.name || ""} ${p.description || ""} ${p.id || ""}`.toLowerCase();
+  const cat = (p.category || "").toLowerCase();
+
+  if (cat.includes("tacc") || /sin tacc|sintacc|gluten|celiac/.test(text)) {
+    return "sin-tacc";
+  }
+  if (/empanad/.test(text)) {
+    return "empanadas";
+  }
+  if (/pizza|fugazz|muzza|napolitan/.test(text)) {
+    return "pizzas";
+  }
+  if (/cazuela/.test(text)) {
+    return "cazuelas";
+  }
+  if (/picada|tabla|papa|cheddar|bastones|rabas|nugget/.test(text)) {
+    return "picadas";
+  }
+  return "otros";
+}
+
 export default function DigitalMenu({ table }) {
   useEffect(() => {
     document.body.classList.add("public-menu-page");
@@ -719,18 +831,61 @@ export default function DigitalMenu({ table }) {
               };
 
               const isMeriendas = /merienda|desayun/.test((cat.name || "").toLowerCase());
+              const isComidas = /comida|cena|salado|pizz/.test((cat.name || "").toLowerCase());
 
-              const sectionsConfig = isBebidas
-                ? BEVERAGE_SECTIONS
-                : isMeriendas
-                ? DESAYUNO_SECTIONS
-                : null;
+              let sectionsConfig = null;
+              let getSectionId = null;
 
-              const getSectionId = isBebidas
-                ? getBeverageSectionId
-                : isMeriendas
-                ? getDesayunoSectionId
-                : null;
+              if (Array.isArray(cat.subcategories) && cat.subcategories.length > 0) {
+                sectionsConfig = cat.subcategories.map((sub) => {
+                  const label = typeof sub === "string" ? sub : (sub.name || sub.title || "");
+                  const slug = typeof sub === "string" ? slugifySubcategory(sub) : (sub.id || slugifySubcategory(label));
+                  const icon = (typeof sub === "object" && sub.icon) ? sub.icon : getIconForSubcategory(label);
+                  return {
+                    id: slug,
+                    rawName: label,
+                    icon,
+                    shortLabel: label,
+                    eyebrow: "SECCIÓN",
+                    title: label.toUpperCase(),
+                    subtitle: `Variedades y opciones de ${label.toLowerCase()}.`,
+                  };
+                });
+
+                getSectionId = (p) => {
+                  if (p.subcategory) {
+                    const match = sectionsConfig.find(
+                      (sec) =>
+                        sec.id === slugifySubcategory(p.subcategory) ||
+                        sec.rawName.toLowerCase() === p.subcategory.toLowerCase() ||
+                        p.subcategory.toLowerCase().includes(sec.id) ||
+                        sec.rawName.toLowerCase().includes(p.subcategory.toLowerCase())
+                    );
+                    if (match) return match.id;
+                  }
+                  const text = `${p.name || ""} ${p.description || ""} ${p.category || ""}`.toLowerCase();
+                  for (const sec of sectionsConfig) {
+                    const sName = sec.rawName.toLowerCase();
+                    const rootWord = sName.replace(/s\b/, "");
+                    if (text.includes(sName) || (rootWord.length >= 4 && text.includes(rootWord))) {
+                      return sec.id;
+                    }
+                  }
+                  if (isComidas) return getComidaSectionId(p);
+                  if (isBebidas) return getBeverageSectionId(p);
+                  if (isMeriendas) return getDesayunoSectionId(p);
+                  return sectionsConfig[0]?.id || "otros";
+                };
+              } else if (isBebidas) {
+                sectionsConfig = BEVERAGE_SECTIONS;
+                getSectionId = getBeverageSectionId;
+              } else if (isMeriendas) {
+                sectionsConfig = DESAYUNO_SECTIONS;
+                getSectionId = getDesayunoSectionId;
+              } else if (isComidas) {
+                sectionsConfig = COMIDA_SECTIONS;
+                getSectionId = getComidaSectionId;
+              }
 
               if (!sectionsConfig) {
                 return (

@@ -33,6 +33,8 @@ function Editor({ item, kind, data, onClose, onSaved }) {
       inMenu: pending?.body?.inMenu ?? item?.inMenu ?? true,
       order: pending?.body?.order ?? item?.order ?? 0,
       publicCategories: pending?.body?.publicCategories ?? item?.publicCategories ?? [],
+      subcategories: pending?.body?.subcategories ?? item?.subcategories ?? [],
+      subcategory: pending?.body?.subcategory ?? item?.subcategory ?? '',
       sizes: initialSizes,
       flavorOptions: Array.isArray(initialFlavors) ? initialFlavors : [],
       comboConfig: pending?.body?.comboConfig ?? item?.comboConfig ?? null
@@ -41,6 +43,8 @@ function Editor({ item, kind, data, onClose, onSaved }) {
       description: '',
       categoryId: data?.categories?.[0]?.id || '',
       publicCategories: [],
+      subcategories: [],
+      subcategory: '',
       price: '',
       image: '',
       available: true,
@@ -58,6 +62,8 @@ function Editor({ item, kind, data, onClose, onSaved }) {
   const [pricingMode, setPricingMode] = useState(
     initialSizes.length > 0 ? 'variants' : 'simple'
   );
+  const [newSubcategoryInput, setNewSubcategoryInput] = useState('');
+  const [customSubcategoryMode, setCustomSubcategoryMode] = useState(false);
   const [showPhotoGallery, setShowPhotoGallery] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
@@ -69,6 +75,16 @@ function Editor({ item, kind, data, onClose, onSaved }) {
   const s = useStore();
 
   const change = (key, v) => setValue(old => ({ ...old, [key]: v }));
+
+  const handleAddSubcategory = () => {
+    const val = newSubcategoryInput.trim();
+    if (!val) return;
+    const current = value.subcategories || [];
+    if (!current.some(s => (typeof s === 'string' ? s : s?.name || '').toLowerCase() === val.toLowerCase())) {
+      change('subcategories', [...current, val]);
+    }
+    setNewSubcategoryInput('');
+  };
 
   async function handleUploadPhoto(e) {
     const file = e.target.files?.[0];
@@ -154,7 +170,8 @@ function Editor({ item, kind, data, onClose, onSaved }) {
         order: Number(value.order || 0),
         visible: Boolean(value.visible),
         note: value.note || '',
-        stockArea: value.stockArea || 'other'
+        stockArea: value.stockArea || 'other',
+        subcategories: (value.subcategories || []).map(s => (typeof s === 'string' ? s.trim() : (s?.name || '')).trim()).filter(Boolean),
       };
     } else {
       const parsedFlavors = flavorInput
@@ -201,6 +218,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
         name: value.name.trim(),
         description: value.description ? value.description.trim() : '',
         categoryId: value.categoryId,
+        subcategory: (value.subcategory || '').trim(),
         publicCategories: (value.publicCategories || []).filter(cId => cId && cId !== value.categoryId),
         price: finalPrice,
         image: value.image || null,
@@ -355,6 +373,113 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                     <textarea maxLength={500} rows={2} value={value.note || ''} onChange={e => change('note', e.target.value)} placeholder="Nota informativa que verán los clientes al entrar a la categoría..." />
                   </div>
 
+                  <div className="editor-field" style={{ marginTop: '10px' }}>
+                    <label>Subcategorías / Botones de búsqueda rápida (opcional)</label>
+                    <small style={{ color: '#64748b', display: 'block', marginBottom: '8px', fontSize: '12px' }}>
+                      Definí secciones como "Pizzas", "Empanadas", "Cazuelas", "Picadas y Papas", "Sin TACC", etc. Se mostrarán como botones rápidos arriba en la carta digital.
+                    </small>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      <input
+                        type="text"
+                        placeholder="Nombre de subcategoría (ej: Pizzas)..."
+                        value={newSubcategoryInput}
+                        onChange={e => setNewSubcategoryInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddSubcategory();
+                          }
+                        }}
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={handleAddSubcategory}
+                        style={{ whiteSpace: 'nowrap' }}
+                      >
+                        + Agregar
+                      </button>
+                    </div>
+
+                    {(!value.subcategories || value.subcategories.length === 0) && (
+                      <div style={{ marginBottom: '8px' }}>
+                        <button
+                          type="button"
+                          className="text-button"
+                          style={{
+                            fontSize: '12px',
+                            color: '#854d0e',
+                            background: '#fef9c3',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid #fef08a',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => {
+                            const isFood = /comida|cena|salado|pizz/i.test(value.name || '');
+                            const isBreakfast = /desayun|meriend/i.test(value.name || '');
+                            const isDrink = /bebid/i.test(value.name || '');
+                            const isSinTacc = /tacc|gluten/i.test(value.name || '');
+
+                            let defaults = [];
+                            if (isFood) defaults = ['Pizzas', 'Empanadas', 'Cazuelas', 'Picadas y Papas', 'Sin TACC', 'Tostados y Minutas'];
+                            else if (isBreakfast) defaults = ['Combos & Promos', 'Infusiones', 'Para acompañar', 'Algo dulce'];
+                            else if (isDrink) defaults = ['Gaseosas y Aguas', 'Jugos y Licuados', 'Cervezas', 'Cervezas 1 Litro'];
+                            else if (isSinTacc) defaults = ['Opciones saladas', 'Opciones dulces'];
+                            else defaults = ['Pizzas', 'Empanadas', 'Cazuelas', 'Picadas y Papas', 'Sin TACC'];
+                            change('subcategories', defaults);
+                          }}
+                        >
+                          ✨ Cargar subcategorías recomendadas
+                        </button>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {(value.subcategories || []).map((sub, idx) => (
+                        <span
+                          key={idx}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: '#f1f5f9',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '16px',
+                            padding: '3px 10px',
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            color: '#334155'
+                          }}
+                        >
+                          <span>{sub}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (value.subcategories || []).filter((_, i) => i !== idx);
+                              change('subcategories', updated);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: '0 2px',
+                              cursor: 'pointer',
+                              color: '#94a3b8',
+                              fontWeight: 700,
+                              fontSize: '14px',
+                              lineHeight: 1
+                            }}
+                            title="Eliminar"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
                   <label className="option" style={{ marginTop: '8px' }}>
                     <input type="checkbox" checked={value.visible} onChange={e => change('visible', e.target.checked)} />
                     Mostrar categoría en la carta pública
@@ -482,6 +607,63 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                       {(data?.categories || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
+
+                  {(() => {
+                    const selCat = (data?.categories || []).find(c => c.id === value.categoryId);
+                    let subOptions = selCat?.subcategories || [];
+                    if (!subOptions || subOptions.length === 0) {
+                      const cName = (selCat?.name || '').toLowerCase();
+                      if (/comida|cena|salado|pizz/.test(cName)) {
+                        subOptions = ['Pizzas', 'Empanadas', 'Cazuelas', 'Picadas y Papas', 'Sin TACC', 'Tostados y Minutas'];
+                      } else if (/desayun|meriend/.test(cName)) {
+                        subOptions = ['Combos & Promos', 'Infusiones', 'Para acompañar', 'Algo dulce'];
+                      } else if (/bebid/.test(cName)) {
+                        subOptions = ['Gaseosas y Aguas', 'Jugos y Licuados', 'Cervezas', 'Cervezas 1 Litro'];
+                      } else if (/tacc|gluten/.test(cName)) {
+                        subOptions = ['Opciones saladas', 'Opciones dulces'];
+                      }
+                    }
+
+                    return (
+                      <div className="editor-field">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label>Subcategoría (Botón rápido en la carta)</label>
+                          <button
+                            type="button"
+                            className="text-button"
+                            style={{ fontSize: '11px', padding: 0 }}
+                            onClick={() => setCustomSubcategoryMode(prev => !prev)}
+                          >
+                            {customSubcategoryMode ? 'Elegir de lista' : '✏️ Escribir otra'}
+                          </button>
+                        </div>
+                        <small style={{ color: '#64748b', display: 'block', marginBottom: '6px', fontSize: '12px' }}>
+                          Ubicación dentro de la sección (ej. Pizzas, Empanadas, Cazuelas, Sin TACC).
+                        </small>
+                        {customSubcategoryMode ? (
+                          <input
+                            type="text"
+                            placeholder="Nombre de subcategoría libre..."
+                            value={value.subcategory || ''}
+                            onChange={e => change('subcategory', e.target.value)}
+                          />
+                        ) : (
+                          <select
+                            value={value.subcategory || ''}
+                            onChange={e => change('subcategory', e.target.value)}
+                          >
+                            <option value="">-- Sin subcategoría (o detección automática) --</option>
+                            {subOptions.map(sub => (
+                              <option key={sub} value={sub}>{sub}</option>
+                            ))}
+                            {value.subcategory && !subOptions.includes(value.subcategory) && (
+                              <option value={value.subcategory}>{value.subcategory} (Personalizada)</option>
+                            )}
+                          </select>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div className="editor-field">
                     <label>Categorías adicionales en la carta (opción múltiple):</label>
@@ -989,6 +1171,7 @@ export default function MenuManagement() {
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
+  const [subFilter, setSubFilter] = useState('');
   const [flavorFilter, setFlavorFilter] = useState('');
   const [menuFilter, setMenuFilter] = useState('');
   const [tab, setTab] = useState('products');
@@ -1106,6 +1289,7 @@ export default function MenuManagement() {
       if (tab === 'products') {
         if (item.archived !== archived) return false;
         if (filter && item.categoryId !== filter && !item.publicCategories?.includes(filter)) return false;
+        if (subFilter && item.subcategory !== subFilter) return false;
         if (menuFilter === 'in_menu' && !item.inMenu) return false;
         if (menuFilter === 'off_menu' && item.inMenu) return false;
         return true;
@@ -1197,11 +1381,45 @@ export default function MenuManagement() {
               <>
                 <label>
                   Categoría
-                  <select value={filter} onChange={e => setFilter(e.target.value)}>
+                  <select
+                    value={filter}
+                    onChange={e => {
+                      setFilter(e.target.value);
+                      setSubFilter('');
+                    }}
+                  >
                     <option value="">Todas</option>
                     {data.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </label>
+                {filter && (
+                  (() => {
+                    const activeCat = data.categories.find(c => c.id === filter);
+                    let subList = activeCat?.subcategories || [];
+                    if (!subList || subList.length === 0) {
+                      const cName = (activeCat?.name || '').toLowerCase();
+                      if (/comida|cena|salado|pizz/.test(cName)) {
+                        subList = ['Pizzas', 'Empanadas', 'Cazuelas', 'Picadas y Papas', 'Sin TACC', 'Tostados y Minutas'];
+                      } else if (/desayun|meriend/.test(cName)) {
+                        subList = ['Combos & Promos', 'Infusiones', 'Para acompañar', 'Algo dulce'];
+                      } else if (/bebid/.test(cName)) {
+                        subList = ['Gaseosas y Aguas', 'Jugos y Licuados', 'Cervezas', 'Cervezas 1 Litro'];
+                      } else if (/tacc|gluten/.test(cName)) {
+                        subList = ['Opciones saladas', 'Opciones dulces'];
+                      }
+                    }
+                    if (subList.length === 0) return null;
+                    return (
+                      <label>
+                        Subcategoría
+                        <select value={subFilter} onChange={e => setSubFilter(e.target.value)}>
+                          <option value="">Todas las subcategorías</option>
+                          {subList.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </label>
+                    );
+                  })()
+                )}
                 <label>
                   Carta digital
                   <select value={menuFilter} onChange={e => setMenuFilter(e.target.value)}>
@@ -1255,6 +1473,11 @@ export default function MenuManagement() {
                       </strong>
                       <p>
                         <strong>{data.categories.find(c => c.id === item.categoryId)?.name || 'Sin categoría'}</strong>
+                        {item.subcategory && (
+                          <span style={{ color: '#0369a1', background: '#e0f2fe', border: '1px solid #bae6fd', padding: '1px 7px', borderRadius: '8px', fontSize: '11px', fontWeight: 700, marginLeft: '6px' }}>
+                            📂 {item.subcategory}
+                          </span>
+                        )}
                         {item.publicCategories?.length > 0 && (
                           <span style={{ color: '#4f46e5', fontWeight: 600, fontSize: '0.82rem', marginLeft: '4px' }}>
                             {'(+ ' + item.publicCategories.map(cid => data.categories.find(c => c.id === cid)?.name).filter(Boolean).join(', ') + ')'}
@@ -1319,6 +1542,11 @@ export default function MenuManagement() {
                   {tab === 'categories' && (
                     <p>
                       Orden {item.order} · {item.visible ? 'Visible en la carta pública' : 'Oculta al público'}
+                      {item.subcategories?.length > 0 && (
+                        <span style={{ color: '#0369a1', fontWeight: 600, marginLeft: '4px' }}>
+                          · Subsecciones: {item.subcategories.join(', ')}
+                        </span>
+                      )}
                       {item.note && ` · "${item.note}"`}
                     </p>
                   )}

@@ -27,6 +27,7 @@ def categories(db):
             visible=c.public_visible,
             note=c.note,
             stockArea=c.stock_area,
+            subcategories=c.subcategories or [],
         )
         for c in db.scalars(select(Category).order_by(Category.sort_order, Category.name))
     ]
@@ -104,6 +105,7 @@ def management(db=Depends(get_db), auth=Depends(admin)):
                 image=p.image,
                 description=p.description,
                 categoryId=p.category_id,
+                subcategory=p.subcategory or "",
                 publicCategories=p.public_categories or [],
                 price=None if p.price_pending else str(p.price),
                 available=p.available,
@@ -135,6 +137,7 @@ class CategoryIn(StrictModel):
     visible: bool
     note: str = Field(default="", max_length=500)
     stockArea: Literal['other', 'beverages', 'kiosk', 'candies', 'manual'] = 'other'
+    subcategories: list = Field(default_factory=list)
 
     @field_validator('name')
     @classmethod
@@ -171,6 +174,7 @@ def create_category(data: CategoryIn, key: str = Header(alias='Idempotency-Key')
             public_visible=data.visible,
             note=data.note,
             stock_area=data.stockArea,
+            subcategories=data.subcategories,
         )
         db.add(c)
         db.flush()
@@ -192,6 +196,7 @@ def update_category(id: str, data: CategoryIn, db=Depends(get_db), auth=Depends(
     c.public_visible = data.visible
     c.note = data.note
     c.stock_area = data.stockArea
+    c.subcategories = data.subcategories
     db.commit()
     return {'saved': True}
 
@@ -376,6 +381,7 @@ class ProductIn(StrictModel):
     name: str = Field(min_length=1, max_length=150)
     description: str = Field(default='', max_length=500)
     categoryId: str
+    subcategory: str = Field(default="", max_length=100)
     publicCategories: list[str] = Field(default_factory=list)
     price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     image: str | None = None
@@ -400,6 +406,7 @@ def apply_product(db, p, data: ProductIn):
     p.name = data.name
     p.description = data.description.strip()
     p.category_id = data.categoryId
+    p.subcategory = data.subcategory.strip() if data.subcategory else ""
     p.public_categories = [cid for cid in dict.fromkeys(data.publicCategories) if cid and cid != data.categoryId]
     p.price_pending = data.price is None
     p.price = data.price if data.price is not None else Decimal(0)

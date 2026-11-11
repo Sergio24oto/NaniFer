@@ -165,3 +165,67 @@ def test_upload_photo_and_assign_product(fixture):
     prod = next(p for p in menu_res.json()['products'] if p['id'] == pid)
     assert prod['image'] == img_url
 
+
+def test_category_and_product_subcategories(fixture):
+    f = fixture
+    c = f['client']
+    with SessionLocal() as db:
+        db.get(User, f['user_id']).role = 'admin'
+        db.commit()
+
+    cat_name = 'Comidas Test ' + key()
+    cat_body = {
+        'name': cat_name,
+        'image': None,
+        'order': 10,
+        'visible': True,
+        'note': 'Sección de comidas',
+        'stockArea': 'other',
+        'subcategories': ['Pizzas', 'Empanadas', 'Cazuelas', 'Picadas y Papas', 'Sin TACC']
+    }
+    r_cat = c.post('/api/menu-management/categories', json=cat_body, headers={'Idempotency-Key': key()})
+    assert r_cat.status_code == 200
+    cat_id = r_cat.json()['id']
+
+    # Verify category in management list has subcategories
+    mgmt = c.get('/api/menu-management').json()
+    cat_data = next(ct for ct in mgmt['categories'] if ct['id'] == cat_id)
+    assert cat_data['subcategories'] == ['Pizzas', 'Empanadas', 'Cazuelas', 'Picadas y Papas', 'Sin TACC']
+
+    # Create product with subcategory
+    p_body = {
+        'name': 'Pizza Napolitana ' + key(),
+        'description': 'Muzzarella y tomate',
+        'categoryId': cat_id,
+        'subcategory': 'Pizzas',
+        'price': '8500',
+        'image': None,
+        'available': True,
+        'inMenu': True,
+        'order': 1
+    }
+    r_prod = c.post('/api/menu-management/products', json=p_body, headers={'Idempotency-Key': key()})
+    assert r_prod.status_code == 200
+    prod_id = r_prod.json()['id']
+    f['product_ids'].append(prod_id)
+
+    # Verify product in management
+    mgmt_after = c.get('/api/menu-management').json()
+    prod_saved = next(p for p in mgmt_after['products'] if p['id'] == prod_id)
+    assert prod_saved['subcategory'] == 'Pizzas'
+
+    # Verify in public menu
+    public_menu = c.get('/api/public/menu/1').json()
+    pub_cat = next(ct for ct in public_menu['categories'] if ct['id'] == cat_id)
+    assert pub_cat['subcategories'] == ['Pizzas', 'Empanadas', 'Cazuelas', 'Picadas y Papas', 'Sin TACC']
+    pub_prod = next(p for p in public_menu['products'] if p['id'] == prod_id)
+    assert pub_prod['subcategory'] == 'Pizzas'
+
+    # Update product subcategory
+    p_body['subcategory'] = 'Empanadas'
+    r_up = c.put('/api/menu-management/products/' + prod_id, json=p_body)
+    assert r_up.status_code == 200
+    with SessionLocal() as db:
+        assert db.get(Product, prod_id).subcategory == 'Empanadas'
+
+

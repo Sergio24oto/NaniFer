@@ -32,7 +32,10 @@ def ensure_schema():
         from alembic.config import Config
         from alembic import command
         from pathlib import Path
+        import sys
         backend_dir = Path(__file__).resolve().parent.parent
+        if str(backend_dir) not in sys.path:
+            sys.path.insert(0, str(backend_dir))
         alembic_ini = backend_dir / "alembic.ini"
         if alembic_ini.exists():
             cfg = Config(str(alembic_ini))
@@ -42,7 +45,7 @@ def ensure_schema():
     except Exception as e:
         logging.warning("Alembic auto-upgrade bypassed or failed: %s", e)
 
-    # 2. Resilient direct column verification for products.flavor_options
+    # 2. Resilient direct column verification for products and categories
     try:
         from sqlalchemy import inspect, text
         from .db import engine
@@ -57,6 +60,14 @@ def ensure_schema():
                 conn.execute(text("ALTER TABLE products ADD COLUMN in_menu BOOLEAN NOT NULL DEFAULT 1"))
                 conn.execute(text("UPDATE products SET in_menu = 1 WHERE in_menu IS NULL"))
                 logging.info("Added missing column in_menu to products table.")
+            if 'subcategory' not in cols:
+                conn.execute(text("ALTER TABLE products ADD COLUMN subcategory VARCHAR(100) NOT NULL DEFAULT ''"))
+                conn.execute(text("UPDATE products SET subcategory = '' WHERE subcategory IS NULL"))
+                logging.info("Added missing column subcategory to products table.")
+            cat_cols = [c['name'] for c in inspector.get_columns('categories')]
+            if 'subcategories' not in cat_cols:
+                conn.execute(text("ALTER TABLE categories ADD COLUMN subcategories JSON NULL"))
+                logging.info("Added missing column subcategories to categories table.")
     except Exception as e:
         logging.error("Fallback schema check failed: %s", e)
 
@@ -141,6 +152,39 @@ def ensure_schema():
             except Exception as ex:
                 logging.warning("Sin TACC auto-seed check bypassed: %s", ex)
 
+            # 5. Default subcategories for Comidas
+            try:
+                cat_comidas = db.scalar(select(Category).where(Category.name == "Comidas"))
+                if cat_comidas:
+                    if not cat_comidas.subcategories:
+                        cat_comidas.subcategories = [
+                            "Pizzas",
+                            "Empanadas",
+                            "Cazuelas",
+                            "Picadas y Papas",
+                            "Sin TACC",
+                            "Tostados y Minutas",
+                        ]
+                        db.flush()
+                    for p in db.scalars(select(Product).where(Product.category_id == cat_comidas.id)):
+                        if not p.subcategory:
+                            pn = p.name.lower()
+                            if "pizza" in pn:
+                                p.subcategory = "Pizzas"
+                            elif "empanad" in pn:
+                                p.subcategory = "Empanadas"
+                            elif "cazuela" in pn:
+                                p.subcategory = "Cazuelas"
+                            elif "picada" in pn or "papa" in pn:
+                                p.subcategory = "Picadas y Papas"
+                            elif "tacc" in pn:
+                                p.subcategory = "Sin TACC"
+                            elif "tostad" in pn:
+                                p.subcategory = "Tostados y Minutas"
+                    db.commit()
+            except Exception as ex:
+                logging.warning("Comidas subcategories seed bypassed: %s", ex)
+
             from .services import ensure_recarga_virtual
             ensure_recarga_virtual(db)
     except Exception as e:
@@ -207,6 +251,7 @@ def catalog(db=Depends(get_db), auth=Depends(current_session)):
                 "name": p.name,
                 "description": p.description,
                 "category": names[p.category_id],
+                "subcategory": p.subcategory or "",
                 "price": float(p.price),
                 "pricePending": p.price_pending,
                 "publicCategories": p.public_categories,
