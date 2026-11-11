@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { request } from "../store";
+import { request, useStore } from "../store";
 import { money, itemInput, operationId, tableLabel } from "../domain";
 import { Modal } from "../components";
 
@@ -12,19 +12,49 @@ export function publicDevice() {
   return id;
 }
 
+function getProductForCartItem(item, catalogProducts = []) {
+  if (!catalogProducts?.length || !item) return null;
+  const targetId = item.productId || item.product;
+  return (
+    catalogProducts.find((p) => p.id === targetId) ||
+    catalogProducts.find(
+      (p) =>
+        (p.name || "").trim().toLowerCase() ===
+        (item.name || "").trim().toLowerCase()
+    ) ||
+    null
+  );
+}
+
+function getAvailableVarieties(product) {
+  if (!product) return [];
+  if (Array.isArray(product.flavorOptions) && product.flavorOptions.length > 0) {
+    return product.flavorOptions;
+  }
+  if (Array.isArray(product.sizes) && product.sizes.length > 1) {
+    return product.sizes.map((s) => s.name);
+  }
+  return [];
+}
+
 export default function PublicCart({ table, cart, setCart, onClose }) {
+  const s = useStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [orderSent, setOrderSent] = useState(false);
   const [alternative, setAlternative] = useState(false);
+  const [editingVarietyIndex, setEditingVarietyIndex] = useState(null);
 
   const scope = "nf.public.pending." + table;
   const [pending, setPending] = useState(() =>
     JSON.parse(localStorage.getItem(scope) || "null")
   );
   const lock = useRef(false);
-  const total = cart.reduce((n, i) => n + i.unitPrice * i.quantity, 0);
+  const total = cart.reduce(
+    (n, i) => n + (i.unitPrice || 0) * (Number(i.quantity) || 1),
+    0
+  );
 
   function confirmed(result, kind) {
     localStorage.removeItem(scope);
@@ -69,10 +99,14 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
     setBusy(true);
     setError("");
     try {
+      const sanitizedCart = cart.map((item) => ({
+        ...item,
+        quantity: Math.max(1, Math.min(99, Number(item.quantity) || 1)),
+      }));
       const p = pending || {
         kind,
         key: operationId(),
-        body: kind === "orders" ? { items: cart.map(itemInput) } : {},
+        body: kind === "orders" ? { items: sanitizedCart.map(itemInput) } : {},
       };
       localStorage.setItem(scope, JSON.stringify(p));
       setPending(p);
@@ -93,6 +127,60 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
       lock.current = false;
       setBusy(false);
     }
+  }
+
+  function handleSelectVariety(itemIndex, newVariety, origProduct) {
+    const item = cart[itemIndex];
+    if (!item) return;
+
+    const isFlavor = (origProduct?.flavorOptions || []).includes(newVariety);
+    const isSize = (origProduct?.sizes || []).some((sz) => sz.name === newVariety);
+
+    let updatedItem = { ...item };
+    if (isFlavor) {
+      updatedItem.flavors = [newVariety];
+      updatedItem.notes = newVariety;
+    } else if (isSize) {
+      const sizeObj = origProduct.sizes.find((sz) => sz.name === newVariety);
+      updatedItem.size = newVariety;
+      if (sizeObj && sizeObj.salePrice != null) {
+        updatedItem.unitPrice = Number(sizeObj.salePrice);
+      } else if (sizeObj && sizeObj.price != null) {
+        updatedItem.unitPrice = Number(sizeObj.price);
+      }
+    } else {
+      updatedItem.flavors = [newVariety];
+      updatedItem.notes = newVariety;
+    }
+
+    // Comprobar si ya existe otro renglón idéntico en el carrito con esta nueva variedad
+    const duplicateIndex = cart.findIndex(
+      (x, idx) =>
+        idx !== itemIndex &&
+        (x.productId === updatedItem.productId || x.product === updatedItem.productId) &&
+        (x.size || "") === (updatedItem.size || "") &&
+        JSON.stringify(x.flavors || []) === JSON.stringify(updatedItem.flavors || []) &&
+        JSON.stringify(x.extras || []) === JSON.stringify(updatedItem.extras || [])
+    );
+
+    if (duplicateIndex >= 0) {
+      const mergedQty =
+        (Number(cart[duplicateIndex].quantity) || 1) +
+        (Number(updatedItem.quantity) || 1);
+      setCart(
+        cart
+          .map((x, idx) =>
+            idx === duplicateIndex
+              ? { ...x, quantity: Math.min(99, mergedQty) }
+              : x
+          )
+          .filter((_, idx) => idx !== itemIndex)
+      );
+    } else {
+      setCart(cart.map((x, idx) => (idx === itemIndex ? updatedItem : x)));
+    }
+
+    setEditingVarietyIndex(null);
   }
 
   return (
@@ -194,43 +282,177 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
         </div>
       ) : null}
 
-      {cart.map((i, n) => (
-        <div className="quick-line" key={n}>
-          <div>
-            <strong>{i.name}</strong>
-            <small>
-              {[i.size, ...(i.flavors || []), ...(i.extras || [])]
-                .filter(Boolean)
-                .join(" · ")}
-            </small>
-            <small>{money(i.unitPrice * i.quantity)}</small>
+      {cart.map((i, n) => {
+        const origProduct = getProductForCartItem(i, s.catalog?.products);
+        const availableVarieties = getAvailableVarieties(origProduct);
+        const hasVarieties = availableVarieties.length > 0;
+        const currentQty = i.quantity;
+        const safeQty = Number(i.quantity) || 1;
+        const isEditingThis = editingVarietyIndex === n;
+
+        return (
+          <div className="cart-item-row-wrapper" key={n}>
+            <div className="quick-line">
+              <div className="cart-item-info">
+                <strong className="cart-item-name">{i.name}</strong>
+                <small className="cart-item-sub">
+                  {[i.size, ...(i.flavors || []), ...(i.extras || [])]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </small>
+                <small className="cart-item-price">
+                  {money((i.unitPrice || 0) * safeQty)}
+                </small>
+                {hasVarieties && (
+                  <button
+                    type="button"
+                    className="cart-change-variety-btn"
+                    disabled={busy || !!pending}
+                    onClick={() =>
+                      setEditingVarietyIndex(isEditingThis ? null : n)
+                    }
+                    title="Cambiar variedad o presentación"
+                  >
+                    ✏️ {isEditingThis ? "Cerrar opciones" : "Cambiar variedad"}
+                  </button>
+                )}
+              </div>
+
+              <div className="cart-item-stepper-wrap">
+                <span className="cart-item-stepper-label">Cantidad</span>
+                <div className="cart-item-stepper">
+                  <button
+                    type="button"
+                    className="cart-stepper-btn cart-stepper-minus"
+                    aria-label={"Restar una unidad de " + i.name}
+                    disabled={busy || !!pending || safeQty <= 1}
+                    onClick={() => {
+                      if (safeQty > 1) {
+                        setCart(
+                          cart.map((x, j) =>
+                            j === n ? { ...x, quantity: safeQty - 1 } : x
+                          )
+                        );
+                      }
+                    }}
+                  >
+                    −
+                  </button>
+                  <input
+                    aria-label={"Cantidad de " + i.name}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    className="cart-stepper-input"
+                    disabled={busy || !!pending}
+                    value={currentQty ?? 1}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, "");
+                      if (val === "") {
+                        setCart(
+                          cart.map((x, j) =>
+                            j === n ? { ...x, quantity: "" } : x
+                          )
+                        );
+                        return;
+                      }
+                      const parsed = parseInt(val, 10);
+                      if (!isNaN(parsed)) {
+                        setCart(
+                          cart.map((x, j) =>
+                            j === n
+                              ? {
+                                  ...x,
+                                  quantity: Math.min(99, Math.max(1, parsed)),
+                                }
+                              : x
+                          )
+                        );
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const cur = Number(e.target.value);
+                      const valid =
+                        !isNaN(cur) && cur >= 1 ? Math.min(99, cur) : 1;
+                      setCart(
+                        cart.map((x, j) =>
+                          j === n ? { ...x, quantity: valid } : x
+                        )
+                      );
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="cart-stepper-btn cart-stepper-plus"
+                    aria-label={"Sumar una unidad de " + i.name}
+                    disabled={busy || !!pending || safeQty >= 99}
+                    onClick={() => {
+                      if (safeQty < 99) {
+                        setCart(
+                          cart.map((x, j) =>
+                            j === n ? { ...x, quantity: safeQty + 1 } : x
+                          )
+                        );
+                      }
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="cart-remove-item-btn"
+                disabled={busy || !!pending}
+                onClick={() => {
+                  setCart(cart.filter((_, j) => j !== n));
+                  if (editingVarietyIndex === n) setEditingVarietyIndex(null);
+                }}
+              >
+                Quitar
+              </button>
+            </div>
+
+            {isEditingThis && (
+              <div className="cart-variety-picker-box">
+                <div className="cart-variety-picker-header">
+                  <span className="cart-variety-picker-title">
+                    Elegí otra variedad para <strong>{i.name}</strong>:
+                  </span>
+                  <button
+                    type="button"
+                    className="cart-variety-picker-close"
+                    onClick={() => setEditingVarietyIndex(null)}
+                    aria-label="Cerrar selector de variedad"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="cart-variety-chips">
+                  {availableVarieties.map((v) => {
+                    const isCurrent =
+                      (i.flavors || []).includes(v) || i.size === v;
+                    return (
+                      <button
+                        key={v}
+                        type="button"
+                        className={`cart-variety-chip ${
+                          isCurrent ? "is-current" : ""
+                        }`}
+                        onClick={() => handleSelectVariety(n, v, origProduct)}
+                      >
+                        {isCurrent ? `✓ ${v} (elegida)` : v}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
-          <label>
-            Cantidad
-            <input
-              aria-label={"Cantidad de " + i.name}
-              type="number"
-              min="1"
-              max="99"
-              disabled={busy || !!pending}
-              value={i.quantity}
-              onChange={(e) => {
-                const q = Number(e.target.value);
-                if (Number.isInteger(q) && q > 0 && q <= 99)
-                  setCart(
-                    cart.map((x, j) => (j === n ? { ...x, quantity: q } : x))
-                  );
-              }}
-            />
-          </label>
-          <button
-            disabled={busy || !!pending}
-            onClick={() => setCart(cart.filter((_, j) => j !== n))}
-          >
-            Quitar
-          </button>
-        </div>
-      ))}
+        );
+      })}
 
       {!!cart.length && (
         <>
