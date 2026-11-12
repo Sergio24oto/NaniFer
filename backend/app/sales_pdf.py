@@ -57,9 +57,13 @@ def build_pdf(data):
             ('TOPPADDING',(0,0),(-1,-1),8),('BOTTOMPADDING',(0,0),(-1,-1),8)]))
         return t
     story=[]
-    logo=Path(__file__).resolve().parents[2]/'frontend/public/brand/logo.jpg'
-    if logo.exists():
-        img=Image(str(logo),width=84,height=84);img.hAlign='LEFT';story.append(img)
+    logo_candidates = [
+        Path(__file__).resolve().parent / 'assets' / 'logo.jpg',
+        Path(__file__).resolve().parents[2] / 'frontend/public/brand/logo.jpg',
+    ]
+    logo = next((c for c in logo_candidates if c.exists()), None)
+    if logo:
+        img=Image(str(logo),width=70,height=53);img.hAlign='LEFT';story.append(img)
     story += [p('NaniFer | Ventas','Heading1'),p(data['periodTitle'],'Normal'),
               p('Generado: '+stamp(local_iso(datetime.now(UTC).replace(tzinfo=None)))+' - Buenos Aires','Muted'),
               Spacer(1,12),p('Total vendido: '+money(data['total']),'Heading2'),

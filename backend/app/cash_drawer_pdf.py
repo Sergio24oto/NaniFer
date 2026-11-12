@@ -136,6 +136,21 @@ def get_styles():
     return styles
 
 
+def get_logo_path():
+    candidates = [
+        Path(__file__).resolve().parent / "assets" / "logo.jpg",
+        Path(__file__).resolve().parent / "logo.jpg",
+        Path(__file__).resolve().parents[2] / "frontend" / "public" / "brand" / "logo.jpg",
+        Path("app/assets/logo.jpg").resolve(),
+        Path("app/logo.jpg").resolve(),
+        Path("frontend/public/brand/logo.jpg").resolve(),
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+
 def p_cell(text, style_name, styles):
     clean = escape(str(text or "")).replace("\n", "<br/>")
     return Paragraph(clean, styles[style_name])
@@ -165,11 +180,12 @@ def build_shift_pdf(summary_data):
     expenses = totals.get("expenses", {})
 
     # Top Brand / Header
-    logo_path = Path(__file__).resolve().parents[2] / "frontend/public/brand/logo.jpg"
+    logo_file = get_logo_path()
     logo_img = None
-    if logo_path.exists():
+    if logo_file:
         try:
-            logo_img = Image(str(logo_path), width=50, height=50)
+            # 448 x 341 -> ratio ~1.314
+            logo_img = Image(str(logo_file), width=66, height=50)
             logo_img.hAlign = "LEFT"
         except Exception:
             logo_img = None
@@ -180,9 +196,10 @@ def build_shift_pdf(summary_data):
     sub_p = Paragraph(f"CIERRE DE TURNO #{shift_id_short} — FECHA: {opened_date}", styles["SheetSubtitle"])
 
     if logo_img:
-        hdr_table = Table([[logo_img, [title_p, sub_p]]], colWidths=[60, 470])
+        hdr_table = Table([[logo_img, [title_p, sub_p], ""]], colWidths=[66, 398, 66])
         hdr_table.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, -1), "LEFT"),
             ("LEFTPADDING", (0, 0), (-1, -1), 0),
             ("RIGHTPADDING", (0, 0), (-1, -1), 0),
             ("TOPPADDING", (0, 0), (-1, -1), 0),
@@ -367,10 +384,12 @@ def build_shift_pdf(summary_data):
 
     # Notes & Signatures section
     sig_notes = shift.get("notes") or ""
+    esc_notes = escape(sig_notes).replace("\n", "<br/>") if sig_notes else "Sin observaciones adicionales."
+    esc_resp = escape(resp_close)
     sig_box_data = [
         [
-            p_cell(f"Observaciones del Cierre:<br/>{sig_notes if sig_notes else 'Sin observaciones adicionales.'}", "SmallNote", styles),
-            p_cell(f"Firma de la Responsable:<br/><br/>___________________________________<br/><b>{resp_close}</b>", "TdCenter", styles)
+            Paragraph(f"<b>Observaciones del Cierre:</b><br/>{esc_notes}", styles["SmallNote"]),
+            Paragraph(f"<b>Firma de la Responsable:</b><br/><br/>___________________________________<br/><b>{esc_resp}</b>", styles["TdCenter"]),
         ]
     ]
     sig_tbl = Table(sig_box_data, colWidths=[310, 220])
@@ -411,11 +430,11 @@ def build_monthly_pdf(monthly_data):
     totals = monthly_data.get("totals", {})
 
     # Top Brand / Header
-    logo_path = Path(__file__).resolve().parents[2] / "frontend/public/brand/logo.jpg"
+    logo_file = get_logo_path()
     logo_img = None
-    if logo_path.exists():
+    if logo_file:
         try:
-            logo_img = Image(str(logo_path), width=48, height=48)
+            logo_img = Image(str(logo_file), width=66, height=50)
             logo_img.hAlign = "LEFT"
         except Exception:
             logo_img = None
@@ -424,9 +443,10 @@ def build_monthly_pdf(monthly_data):
     sub_p = Paragraph(f"CAFETERÍA NANIFER &nbsp;&nbsp;|&nbsp;&nbsp; <b>MES:</b> {month_name} {year}", styles["SheetSubtitle"])
 
     if logo_img:
-        hdr_table = Table([[logo_img, [title_p, sub_p]]], colWidths=[55, 480])
+        hdr_table = Table([[logo_img, [title_p, sub_p], ""]], colWidths=[66, 403, 66])
         hdr_table.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, -1), "LEFT"),
             ("LEFTPADDING", (0, 0), (-1, -1), 0),
             ("RIGHTPADDING", (0, 0), (-1, -1), 0),
             ("TOPPADDING", (0, 0), (-1, -1), 0),
