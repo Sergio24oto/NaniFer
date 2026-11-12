@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import datetime
 from fastapi.testclient import TestClient
 from app.db import SessionLocal
 from app.models import CashShift, CashMovement, Product
@@ -102,6 +103,7 @@ def test_cash_drawer_workflow_and_auto_sales(fixture):
     # Suppose they also added personal cash or counted $0
     close_res = c.post('/api/cash-drawer/close', json={
         'countedCash': 0,
+        'responsibleName': 'Lucía Gómez',
         'notes': 'Cierre de turno verificado'
     })
     assert close_res.status_code == 200
@@ -110,10 +112,32 @@ def test_cash_drawer_workflow_and_auto_sales(fixture):
     assert closed_data['shift']['status'] == 'closed'
     assert closed_data['shift']['countedCash'] == 0
     assert closed_data['shift']['expectedCash'] == -1500
+    assert closed_data['shift']['closedByName'] == 'Lucía Gómez'
     # Difference = counted (0) - expected (-1500) = 1500
     assert closed_data['shift']['difference'] == 1500
+    assert len(closed_data['entries']) >= 4
 
     # 8. Check history endpoint
     history = c.get('/api/cash-drawer/history').json()
     assert len(history) >= 1
     assert history[0]['shift']['status'] == 'closed'
+    shift_id = history[0]['shift']['id']
+
+    # 9. Test PDF Export for Shift
+    pdf_res = c.get(f'/api/cash-drawer/shifts/{shift_id}/export.pdf')
+    assert pdf_res.status_code == 200
+    assert pdf_res.headers['content-type'] == 'application/pdf'
+    assert len(pdf_res.content) > 1000
+
+    # 10. Test Monthly Sheet and Monthly PDF Export
+    now_dt = datetime.now()
+    m_res = c.get(f'/api/cash-drawer/monthly-sheet?month={now_dt.month}&year={now_dt.year}')
+    assert m_res.status_code == 200
+    m_json = m_res.json()
+    assert m_json['month'] == now_dt.month
+    assert len(m_json['entries']) >= 1
+
+    m_pdf_res = c.get(f'/api/cash-drawer/monthly-sheet/export.pdf?month={now_dt.month}&year={now_dt.year}')
+    assert m_pdf_res.status_code == 200
+    assert m_pdf_res.headers['content-type'] == 'application/pdf'
+    assert len(m_pdf_res.content) > 1000

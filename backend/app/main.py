@@ -68,6 +68,14 @@ def ensure_schema():
             if 'subcategories' not in cat_cols:
                 conn.execute(text("ALTER TABLE categories ADD COLUMN subcategories JSON NULL"))
                 logging.info("Added missing column subcategories to categories table.")
+            mov_cols = [c['name'] for c in inspector.get_columns('cash_movements')]
+            if 'method' not in mov_cols:
+                conn.execute(text("ALTER TABLE cash_movements ADD COLUMN method VARCHAR(20) NOT NULL DEFAULT 'efectivo'"))
+                logging.info("Added missing column method to cash_movements table.")
+            shift_cols = [c['name'] for c in inspector.get_columns('cash_shifts')]
+            if 'closed_by_name' not in shift_cols:
+                conn.execute(text("ALTER TABLE cash_shifts ADD COLUMN closed_by_name VARCHAR(150) NULL"))
+                logging.info("Added missing column closed_by_name to cash_shifts table.")
     except Exception as e:
         logging.error("Fallback schema check failed: %s", e)
 
