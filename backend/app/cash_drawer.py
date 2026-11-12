@@ -12,7 +12,7 @@ from .models import CashShift, CashMovement, Payment, Sale, Visit, User, now
 from .schemas import StrictModel
 from .services import uid, fail
 from .business_day import ZONE, local_iso
-from .cash_drawer_pdf import build_shift_pdf, build_monthly_pdf
+from .cash_drawer_pdf import build_shift_pdf, build_monthly_pdf, build_day_pdf
 
 router = APIRouter(prefix="/api/cash-drawer", tags=["cash-drawer"])
 
@@ -24,6 +24,8 @@ MONTH_NAMES = [
 
 class OpenShiftIn(StrictModel):
     initialCash: Decimal = Field(default=Decimal("0.00"), ge=0, max_digits=12, decimal_places=2)
+    shiftType: str = Field(default="T. Mañana", max_length=50)
+    responsibleName: str = Field(default="", max_length=150)
     notes: str = Field(default="", max_length=500)
 
 
@@ -218,7 +220,7 @@ def build_shift_summary(db, shift: CashShift):
     entries = []
 
     # Row 1: Initial balance
-    opened_by_name = users.get(shift.opened_by, "Personal")
+    opened_by_name = getattr(shift, "opened_by_name", None) or users.get(shift.opened_by, "Personal")
     entries.append({
         "id": f"init-{shift.id}",
         "type": "initial",
@@ -301,6 +303,7 @@ def build_shift_summary(db, shift: CashShift):
     return {
         "shift": {
             "id": shift.id,
+            "shiftType": getattr(shift, "shift_type", None) or "T. Mañana",
             "status": shift.status,
             "openedBy": shift.opened_by,
             "openedByName": opened_by_name,
@@ -397,20 +400,35 @@ def build_monthly_ledger(db, month: int, year: int):
         tot_ex_ef += Decimal(str(t["expenses"]["efectivo"]))
         tot_ex_tr += Decimal(str(t["expenses"]["transferencia"]))
 
-        # Flatten entries into monthly view
-        for ent in s_summary["entries"]:
-            # Format friendly date
-            d_str = ent.get("createdAt", "")[:10]
-            try:
-                d_obj = datetime.fromisoformat(ent.get("createdAt", ""))
-                date_formatted = d_obj.strftime("%d/%m")
-            except Exception:
-                date_formatted = d_str
+        # Each row in the monthly sheet is a TURNO
+        d_str = s.opened_at.strftime("%d/%m") if s.opened_at else "-"
+        shift_name = getattr(s, "shift_type", None) or "T. Mañana"
+        ef_val = float(t["incomes"]["efectivo"])
+        tr_val = float(t["incomes"]["transferencia"] + t["incomes"]["debito"] + t["incomes"]["qr"])
+        # In administrative sheet, SALDO is the turn's total: Efectivo + Transf./Débito
+        sal_val = ef_val + tr_val
+        sig_val = s.closed_by_name or getattr(s, "opened_by_name", None) or "Personal"
 
-            ent_copy = dict(ent)
-            ent_copy["dateStr"] = date_formatted
-            all_entries.append(ent_copy)
-            running_balance = Decimal(str(ent.get("runningBalance", 0)))
+        all_entries.append({
+            "id": s.id,
+            "shiftId": s.id,
+            "dateStr": d_str,
+            "createdAt": local_iso(s.opened_at),
+            "detail": shift_name,
+            "efectivo": ef_val,
+            "transferencia": float(t["incomes"]["transferencia"]),
+            "debito": float(t["incomes"]["debito"]),
+            "qr": float(t["incomes"]["qr"]),
+            "electronicTotal": tr_val,
+            "isExpense": False,
+            "expenseMethod": None,
+            "expenseAmount": 0.0,
+            "runningBalance": sal_val,
+            "signature": sig_val,
+            "status": s.status,
+            "salesCount": t["salesCount"],
+        })
+        running_balance += Decimal(str(sal_val))
 
     tot_incomes = tot_in_ef + tot_in_tr + tot_in_db + tot_in_qr
     tot_expenses = tot_ex_ef + tot_ex_tr
@@ -437,7 +455,110 @@ def build_monthly_ledger(db, month: int, year: int):
                 "transferencia": float(tot_ex_tr),
                 "total": float(tot_expenses),
             },
-            "finalBalance": float(running_balance),
+            "finalBalance": float(tot_incomes),
+        }
+    }
+
+
+def build_day_summary(db, target_date):
+    """Aggregates all shifts of a single day into the 4-shift administrative model."""
+    if isinstance(target_date, str):
+        target_date = datetime.strptime(target_date, "%Y-%m-%d").date()
+
+    start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0)
+    end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59, 59)
+
+    shifts = list(db.scalars(
+        select(CashShift).where(
+            and_(CashShift.opened_at >= start_dt, CashShift.opened_at <= end_dt)
+        ).order_by(CashShift.opened_at)
+    ))
+
+    d_names = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    weekday_name = d_names[target_date.weekday()]
+    date_formatted = f"{weekday_name} {target_date.day:02d}/{target_date.month:02d}"
+
+    shift_rows = []
+    tot_ef = Decimal("0.00")
+    tot_tr = Decimal("0.00")
+    tot_db = Decimal("0.00")
+    tot_qr = Decimal("0.00")
+    tot_sales_count = 0
+    final_balance = Decimal("0.00")
+
+    users = {u.id: u.name for u in db.scalars(select(User))}
+
+    for s in shifts:
+        s_sum = build_shift_summary(db, s)
+        t = s_sum["totals"]
+        shift_ef = Decimal(str(t["incomes"]["efectivo"]))
+        shift_tr = Decimal(str(t["incomes"]["transferencia"]))
+        shift_db = Decimal(str(t["incomes"]["debito"]))
+        shift_qr = Decimal(str(t["incomes"]["qr"]))
+        shift_electronic = shift_tr + shift_db + shift_qr
+        # Turn's SALDO on paper sheet = Efectivo + Transf./Débito
+        shift_saldo = shift_ef + shift_electronic
+
+        tot_ef += shift_ef
+        tot_tr += shift_tr
+        tot_db += shift_db
+        tot_qr += shift_qr
+        tot_sales_count += t["salesCount"]
+
+        sig = (
+            s.closed_by_name
+            or getattr(s, "opened_by_name", None)
+            or users.get(s.closed_by)
+            or users.get(s.opened_by)
+            or "Personal"
+        )
+
+        shift_rows.append({
+            "shiftId": s.id,
+            "shiftType": getattr(s, "shift_type", None) or "T. Mañana",
+            "status": s.status,
+            "openedAt": local_iso(s.opened_at) if s.opened_at else None,
+            "closedAt": local_iso(s.closed_at) if s.closed_at else None,
+            "efectivo": float(shift_ef),
+            "transferencia": float(shift_tr),
+            "debito": float(shift_db),
+            "qr": float(shift_qr),
+            "electronicTotal": float(shift_electronic),
+            "saldo": float(shift_saldo),
+            "expectedCash": float(t["expectedCash"]),
+            "countedCash": float(s.counted_cash) if s.counted_cash is not None else None,
+            "signature": sig,
+            "difference": float(s.difference) if s.difference is not None else None,
+            "salesCount": t["salesCount"],
+            "movementsCount": t["movementsCount"],
+            "notes": s.notes or "",
+        })
+
+    tot_electronic = tot_tr + tot_db + tot_qr
+    tot_day = tot_ef + tot_electronic
+    is_complete = len(shifts) > 0 and all(s.status == "closed" for s in shifts)
+
+    return {
+        "date": target_date.strftime("%Y-%m-%d"),
+        "dateFormatted": date_formatted,
+        "year": target_date.year,
+        "shiftsCount": len(shifts),
+        "salesCount": tot_sales_count,
+        "isComplete": is_complete,
+        "shifts": shift_rows,
+        "totals": {
+            "totalEfectivo": float(tot_ef),
+            "totalElectronic": float(tot_electronic),
+            "totalDay": float(tot_day),
+            "finalBalance": float(tot_day),
+        },
+        "facturacion": {
+            "qr": float(tot_qr),
+            "debito": float(tot_db),
+            "transferencia": float(tot_tr),
+            "efectivo": float(tot_ef),
+            "totalElectronic": float(tot_electronic),
+            "total": float(tot_day),
         }
     }
 
@@ -447,6 +568,7 @@ def get_current_shift(auth=Depends(current_session), db=Depends(get_db)):
     active = db.scalar(
         select(CashShift).where(CashShift.status == "open").order_by(CashShift.opened_at.desc()).limit(1)
     )
+    today_summary = build_day_summary(db, now().date())
     if not active:
         last_closed = db.scalar(
             select(CashShift).where(CashShift.status == "closed").order_by(CashShift.closed_at.desc()).limit(1)
@@ -454,10 +576,12 @@ def get_current_shift(auth=Depends(current_session), db=Depends(get_db)):
         return {
             "active": False,
             "lastShift": build_shift_summary(db, last_closed) if last_closed else None,
+            "todaySummary": today_summary,
         }
 
     return {
         "active": True,
+        "todaySummary": today_summary,
         **build_shift_summary(db, active),
     }
 
@@ -470,10 +594,13 @@ def open_shift(data: OpenShiftIn, auth=Depends(current_session), db=Depends(get_
     if active:
         fail("Ya hay una caja abierta. Cerrá el turno actual antes de abrir uno nuevo.", 409)
 
+    responsible = (data.responsibleName or "").strip() or auth[0].name
     shift = CashShift(
         id=uid(),
         opened_by=auth[0].id,
+        opened_by_name=responsible,
         opened_at=now(),
+        shift_type=(data.shiftType or "T. Mañana").strip(),
         initial_cash=data.initialCash,
         notes=data.notes.strip(),
         status="open",
@@ -483,6 +610,7 @@ def open_shift(data: OpenShiftIn, auth=Depends(current_session), db=Depends(get_
 
     return {
         "active": True,
+        "todaySummary": build_day_summary(db, now().date()),
         **build_shift_summary(db, shift),
     }
 
@@ -554,6 +682,52 @@ def get_history(limit: int = 50, auth=Depends(current_session), db=Depends(get_d
         select(CashShift).order_by(CashShift.opened_at.desc()).limit(limit)
     ))
     return [build_shift_summary(db, s) for s in shifts]
+
+
+@router.get("/days")
+def get_days_list(limit: int = 30, auth=Depends(current_session), db=Depends(get_db)):
+    """Returns a list of day cards (descending by calendar day)."""
+    shift_dates = db.scalars(
+        select(CashShift.opened_at).order_by(CashShift.opened_at.desc())
+    ).all()
+    unique_dates = []
+    seen = set()
+    for dt in shift_dates:
+        if dt:
+            d_val = dt.date()
+            if d_val not in seen:
+                seen.add(d_val)
+                unique_dates.append(d_val)
+                if len(unique_dates) >= limit:
+                    break
+
+    return [build_day_summary(db, d) for d in unique_dates]
+
+
+@router.get("/days/{date_str}")
+def get_day_detail(date_str: str, auth=Depends(current_session), db=Depends(get_db)):
+    """Returns the 4-shift daily ledger and facturación for a specific date (YYYY-MM-DD)."""
+    try:
+        d_val = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except Exception:
+        fail("Formato de fecha inválido. Utilice AAAA-MM-DD.", 422)
+    return build_day_summary(db, d_val)
+
+
+@router.get("/days/{date_str}/export.pdf")
+def export_day_pdf(date_str: str, auth=Depends(current_session), db=Depends(get_db)):
+    """Generates the A4 daily PDF with the 4 shifts and facturación box."""
+    try:
+        d_val = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except Exception:
+        fail("Formato de fecha inválido. Utilice AAAA-MM-DD.", 422)
+    day_data = build_day_summary(db, d_val)
+    pdf_bytes = build_day_pdf(day_data)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="NaniFer-planilla-diaria-{date_str}.pdf"'}
+    )
 
 
 @router.get("/shifts/{id}")

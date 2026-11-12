@@ -76,6 +76,12 @@ def ensure_schema():
             if 'closed_by_name' not in shift_cols:
                 conn.execute(text("ALTER TABLE cash_shifts ADD COLUMN closed_by_name VARCHAR(150) NULL"))
                 logging.info("Added missing column closed_by_name to cash_shifts table.")
+            if 'opened_by_name' not in shift_cols:
+                conn.execute(text("ALTER TABLE cash_shifts ADD COLUMN opened_by_name VARCHAR(150) NULL"))
+                logging.info("Added missing column opened_by_name to cash_shifts table.")
+            if 'shift_type' not in shift_cols:
+                conn.execute(text("ALTER TABLE cash_shifts ADD COLUMN shift_type VARCHAR(50) NULL DEFAULT 'T. Mañana'"))
+                logging.info("Added missing column shift_type to cash_shifts table.")
     except Exception as e:
         logging.error("Fallback schema check failed: %s", e)
 

@@ -327,10 +327,171 @@
 }
 
 .cash-ledger-table td {
-  padding: 7px 10px;
+  padding: 12px 10px;
   border: 1px solid #cbb8aa;
   vertical-align: middle;
   color: #2b221b;
+}
+
+/* Spacious 4-Turn Daily Planilla Table UX */
+.cash-shift-row {
+  transition: background 0.15s ease;
+}
+
+.cash-shift-row:hover {
+  background: #faf4ed !important;
+}
+
+.cash-shift-row.entry-current-shift {
+  background: #fdfaf6;
+  outline: 2px solid #16a34a;
+  outline-offset: -2px;
+}
+
+.cash-date-spanned-cell {
+  background: #fcf9f5;
+  text-align: center;
+  vertical-align: middle;
+  padding: 20px 14px;
+  border-right: 1.5px solid #7a5b48 !important;
+  border-bottom: 1px solid #cbb8aa;
+}
+
+.cash-date-badge-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.cash-date-today-pill {
+  background: #624335;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 3px 12px;
+  border-radius: 14px;
+  text-transform: uppercase;
+  box-shadow: 0 1px 4px rgba(98, 67, 53, 0.2);
+}
+
+.cash-date-main-text {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #3d2314;
+}
+
+.cash-shift-detail-cell {
+  padding: 16px 14px !important;
+  vertical-align: middle;
+}
+
+.shift-cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shift-title-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.shift-name-prominent {
+  font-size: 15px;
+  font-weight: 800;
+  color: #3d2314;
+  letter-spacing: 0.6px;
+}
+
+.shift-live-pill {
+  background: #dcfce7;
+  color: #166534;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 14px;
+  border: 1px solid #86efac;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shift-time-sub {
+  font-size: 12px;
+  color: #7a5b48;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cash-num-cell {
+  padding: 16px 12px !important;
+  vertical-align: middle;
+  text-align: right;
+  font-size: 14.5px;
+}
+
+.cash-num-cell.cash-val {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.cash-num-cell.electronic-val {
+  color: #0284c7;
+  font-weight: 700;
+}
+
+.cash-num-cell.saldo-val {
+  color: #3d2314;
+  font-weight: 800;
+  font-size: 15.5px;
+  background: #faf4ed;
+}
+
+.cash-num-cell.totals {
+  font-size: 15.5px;
+  font-weight: 800;
+}
+
+.cash-signature-cell {
+  text-align: center;
+  vertical-align: middle;
+  padding: 14px 10px !important;
+}
+
+.moza-signature-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #fdfaf6;
+  border: 1.5px solid #d7c5b6;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #4a3429;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.cash-totals-row {
+  background: #eae0d5 !important;
+  font-weight: 800;
+  border-top: 2px solid #7a5b48;
+}
+
+.cash-totals-label {
+  padding: 14px 16px !important;
+  font-weight: 800;
+  color: #3d2314;
+  font-size: 13.5px;
+  text-align: left;
 }
 
 .cash-ledger-table tr.entry-initial {
@@ -548,3 +709,291 @@
   color: #92400e;
   border: 1px solid #fde68a;
 }
+
+/* Day Cards Grid (Jornadas Diarias) */
+.day-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.day-card {
+  background: #ffffff;
+  border: 1.5px solid #dfcfbf;
+  border-radius: 12px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(98, 67, 53, 0.05);
+}
+
+.day-card:hover {
+  transform: translateY(-2px);
+  border-color: #7a5b48;
+  box-shadow: 0 6px 14px rgba(98, 67, 53, 0.1);
+}
+
+.day-card.selected {
+  border: 2.5px solid #624335;
+  background: #fffcf9;
+  box-shadow: 0 6px 16px rgba(98, 67, 53, 0.14);
+}
+
+.day-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.day-card-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #3d2314;
+  margin: 0;
+}
+
+.day-card-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.day-card-badge.complete {
+  background: #e6f4ea;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.day-card-badge.in-progress {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+/* Facturación Box (Para la Dueña) */
+.facturacion-box {
+  background: #ffffff;
+  border: 1.5px solid #dcd1c6;
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-top: 22px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.facturacion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.facturacion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.facturacion-card {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.facturacion-card.cash-card {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.facturacion-card-label {
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.facturacion-card-label.cash {
+  color: #166534;
+}
+
+.facturacion-card-val {
+  font-size: 19px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 4px;
+}
+
+.facturacion-card-val.cash {
+  color: #15803d;
+}
+
+.facturacion-card-sub {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+  display: block;
+}
+
+/* Shift Type Selector in Open Modal */
+.shift-selector-pills {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 6px 0 14px 0;
+}
+
+.shift-pill {
+  padding: 10px 8px;
+  border-radius: 8px;
+  border: 1.5px solid #cbb8aa;
+  background: #ffffff;
+  color: #553c30;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.shift-pill:hover {
+  background: #fbf5ee;
+  border-color: #8c6e58;
+}
+
+.shift-pill.active {
+  background: #624335;
+  color: #ffffff;
+  border-color: #624335;
+}
+
+/* Ver ventas auditoría button */
+.btn-view-sales {
+  font-size: 11px;
+  background: #f5eee6;
+  color: #7a5b48;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid #dfcfbf;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.btn-view-sales:hover {
+  background: #faede1;
+  color: #3d2314;
+}
+
+/* Moza Selector Chips (Abrir y Cerrar Turno) */
+.moza-selector-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 10px 0;
+}
+
+.moza-chip {
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1.5px solid #d7c5b6;
+  background: #ffffff;
+  color: #4a3429;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.moza-chip:hover {
+  background: #fbf5ee;
+  border-color: #947a6b;
+  transform: translateY(-1px);
+}
+
+.moza-chip.active {
+  background: #624335;
+  color: #ffffff;
+  border-color: #624335;
+  box-shadow: 0 2px 6px rgba(98, 67, 53, 0.25);
+}
+
+.moza-chip.add-moza-chip {
+  background: #fdf8f4;
+  border-style: dashed;
+  border-color: #bfa18e;
+  color: #7a5b48;
+}
+
+.moza-chip.add-moza-chip:hover {
+  background: #f7efe6;
+  border-color: #624335;
+  color: #3d2314;
+}
+
+.add-moza-inline-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fdfaf6;
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: 1.5px solid #8c6e58;
+}
+
+.add-moza-input {
+  border: none !important;
+  background: transparent !important;
+  padding: 4px 6px !important;
+  font-size: 13px !important;
+  font-weight: 700;
+  color: #3d2314;
+  width: 140px;
+  outline: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+
+.btn-save-moza {
+  background: #15803d;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-save-moza:hover {
+  background: #166534;
+}
+
+.btn-cancel-moza {
+  background: transparent;
+  color: #8c6e58;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-cancel-moza:hover {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+

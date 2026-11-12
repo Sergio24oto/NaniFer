@@ -151,6 +151,21 @@ def get_logo_path():
     return None
 
 
+def format_shift_title(raw_type):
+    if not raw_type:
+        return "TURNO MAÑANA"
+    u = str(raw_type).upper().strip()
+    if "MAÑANA" in u:
+        return "TURNO MAÑANA"
+    if "SIESTA" in u:
+        return "TURNO SIESTA"
+    if "TARDE" in u:
+        return "TURNO TARDE"
+    if "NOCHE" in u:
+        return "TURNO NOCHE"
+    return u if u.startswith("TURNO") else f"TURNO {u}"
+
+
 def p_cell(text, style_name, styles):
     clean = escape(str(text or "")).replace("\n", "<br/>")
     return Paragraph(clean, styles[style_name])
@@ -407,6 +422,210 @@ def build_shift_pdf(summary_data):
     return out.getvalue()
 
 
+def build_day_pdf(day_data):
+    """Builds a single-sheet A4 daily ledger representing the 4 shifts of a full day."""
+    out = BytesIO()
+    doc = SimpleDocTemplate(
+        out,
+        pagesize=A4,
+        leftMargin=30,
+        rightMargin=30,
+        topMargin=30,
+        bottomMargin=30,
+        title=f"NaniFer - Planilla Diaria - {day_data.get('date', '')}",
+        author="NaniFer POS"
+    )
+
+    styles = get_styles()
+    story = []
+
+    date_fmt = day_data.get("dateFormatted", "").upper()
+    year = day_data.get("year", "")
+    shifts = day_data.get("shifts", [])
+    totals = day_data.get("totals", {})
+    facturacion = day_data.get("facturacion", {})
+
+    # Top Brand / Header with Logo
+    logo_file = get_logo_path()
+    logo_img = None
+    if logo_file:
+        try:
+            logo_img = Image(str(logo_file), width=66, height=50)
+            logo_img.hAlign = "LEFT"
+        except Exception:
+            logo_img = None
+
+    title_p = Paragraph("CAFETERÍA NANIFER · PLANILLA CAJA DIARIA", styles["SheetTitle"])
+    sub_p = Paragraph(f"JORNADA: <b>{date_fmt} {year}</b> &nbsp;|&nbsp; RENDICIÓN POR TURNOS", styles["SheetSubtitle"])
+
+    if logo_img:
+        hdr_table = Table([[logo_img, [title_p, sub_p], ""]], colWidths=[66, 403, 66])
+        hdr_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, -1), "LEFT"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.append(hdr_table)
+    else:
+        story.extend([title_p, sub_p])
+
+    story.append(Spacer(1, 14))
+
+    # Administrative Table (4 Shifts of the Day)
+    # FECHA | DETALLE | INGRESOS (EFECTIVO | TRANF. / DÉBITO) | SALDO | FIRMA
+    col_w = [90, 150, 75, 80, 75, 65]  # total = 535 pt
+
+    table_data = [
+        [
+            p_cell("FECHA", "Th", styles),
+            p_cell("DETALLE (TURNO)", "Th", styles),
+            p_cell("INGRESOS", "Th", styles),
+            "",
+            p_cell("SALDO", "Th", styles),
+            p_cell("FIRMA", "Th", styles),
+        ],
+        [
+            "",
+            "",
+            p_cell("EFECTIVO", "Th", styles),
+            p_cell("TRANF. / DÉBITO", "Th", styles),
+            "",
+            "",
+        ],
+    ]
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    is_today = day_data.get("date") == today_str
+    raw_date_fmt = day_data.get("dateFormatted", "")
+    date_badge_html = f"<b>HOY</b><br/>{escape(raw_date_fmt)}" if is_today else f"<b>{escape(raw_date_fmt)}</b>"
+    date_display_cell = Paragraph(date_badge_html, styles["TdCenter"])
+
+    for idx, item in enumerate(shifts):
+        det_str = format_shift_title(item.get("shiftType", "Turno"))
+        ef_val = item.get("efectivo", 0)
+        tr_val = item.get("electronicTotal", 0)
+        ef_str = money(ef_val) if ef_val > 0 else "$ 0,00"
+        tr_str = money(tr_val) if tr_val > 0 else "$ 0,00"
+        sal_str = money(item.get("saldo", 0))
+        sig_str = item.get("signature", "")
+
+        table_data.append([
+            date_display_cell if idx == 0 else "",
+            p_cell(det_str, "TdBold", styles),
+            p_cell(ef_str, "TdBoldRight", styles),
+            p_cell(tr_str, "TdRight", styles),
+            p_cell(sal_str, "TdBoldRight", styles),
+            p_cell(sig_str, "TdCenter", styles),
+        ])
+
+    # Totals Row at the bottom
+    tot_ef = totals.get("totalEfectivo", 0)
+    tot_tr = totals.get("totalElectronic", 0)
+    tot_sal = totals.get("totalDay", totals.get("finalBalance", 0))
+
+    table_data.append([
+        p_cell("TOTAL DÍA", "Th", styles),
+        p_cell(f"Resumen de la jornada ({len(shifts)} turnos)", "TdBold", styles),
+        p_cell(money(tot_ef), "TdBoldRight", styles),
+        p_cell(money(tot_tr), "TdBoldRight", styles),
+        p_cell(money(tot_sal), "TdBoldRight", styles),
+        p_cell("NaniFer", "TdCenter", styles),
+    ])
+
+    tbl_styles = [
+        ("SPAN", (0, 0), (0, 1)),
+        ("SPAN", (1, 0), (1, 1)),
+        ("SPAN", (2, 0), (3, 0)),
+        ("SPAN", (4, 0), (4, 1)),
+        ("SPAN", (5, 0), (5, 1)),
+        ("BACKGROUND", (0, 0), (-1, 1), colors.HexColor("#dfcfc2")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#7a5b48")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, 1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, 1), 6),
+        ("TOPPADDING", (0, 2), (-1, -2), 10),
+        ("BOTTOMPADDING", (0, 2), (-1, -2), 10),
+        ("TOPPADDING", (0, -1), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 7),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("ROWBACKGROUNDS", (0, 2), (-1, -2), [colors.white, colors.HexColor("#fbf9f6")]),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eae0d5")),
+    ]
+
+    if len(shifts) > 1:
+        tbl_styles.append(("SPAN", (0, 2), (0, 1 + len(shifts))))
+
+    day_tbl = Table(table_data, colWidths=col_w, repeatRows=2)
+    day_tbl.setStyle(TableStyle(tbl_styles))
+    story.append(day_tbl)
+    story.append(Spacer(1, 18))
+
+    # Cuadro Exclusivo de Facturación (Para la dueña)
+    fact_title = Paragraph("<b>DESGLOSE DE MEDIOS DE PAGO PARA FACTURACIÓN (DUEÑA)</b>", styles["MetaLabel"])
+    story.append(fact_title)
+    story.append(Spacer(1, 6))
+
+    fact_box_data = [
+        [
+            p_cell("QR / MERCADO PAGO", "MetaLabel", styles),
+            p_cell(money(facturacion.get("qr", 0)), "TdBoldRight", styles),
+            p_cell("DÉBITO / TARJETAS (POSNET)", "MetaLabel", styles),
+            p_cell(money(facturacion.get("debito", 0)), "TdBoldRight", styles),
+        ],
+        [
+            p_cell("TRANSFERENCIAS BANCARIAS", "MetaLabel", styles),
+            p_cell(money(facturacion.get("transferencia", 0)), "TdBoldRight", styles),
+            p_cell("TOTAL FACTURACIÓN DIGITAL", "MetaLabel", styles),
+            p_cell(money(facturacion.get("totalElectronic", 0)), "TdBoldRight", styles),
+        ],
+        [
+            p_cell("EFECTIVO FÍSICO RECAUDADO", "MetaLabel", styles),
+            p_cell(money(facturacion.get("efectivo", 0)), "TdBoldRight", styles),
+            p_cell("TOTAL GENERAL DE LA JORNADA", "MetaLabel", styles),
+            p_cell(money(facturacion.get("total", 0)), "TdBoldRight", styles),
+        ],
+    ]
+
+    fact_tbl = Table(fact_box_data, colWidths=[155, 110, 160, 110])
+    fact_tbl.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbb8aa")),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fbf9f6")),
+        ("BACKGROUND", (2, -1), (3, -1), colors.HexColor("#fef3c7")),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(KeepTogether(fact_tbl))
+    story.append(Spacer(1, 22))
+
+    # Notes & Responsible signatures
+    sig_box_data = [
+        [
+            Paragraph("<b>Control y Auditoría:</b><br/>Planilla diaria consolidada con los turnos de atención del establecimiento.<br/>Valores conciliados para facturación y cierre contable.", styles["SmallNote"]),
+            Paragraph("<b>Firma y Conformidad General:</b><br/><br/>___________________________________<br/><b>Administración / Dueña</b>", styles["TdCenter"]),
+        ]
+    ]
+    sig_tbl = Table(sig_box_data, colWidths=[315, 220])
+    sig_tbl.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#947a6b")),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(KeepTogether(sig_tbl))
+
+    doc.build(story)
+    return out.getvalue()
+
+
 def build_monthly_pdf(monthly_data):
     """Builds a full month ledger document in A4 matching the paper spreadsheet."""
     out = BytesIO()
@@ -483,7 +702,7 @@ def build_monthly_pdf(monthly_data):
 
     for item in entries:
         t_str = item.get("dateStr") or format_time_short(item.get("createdAt"))
-        det_str = item.get("detail", "")
+        det_str = format_shift_title(item.get("detail", ""))
         if item.get("isExpense"):
             ef_str = "-"
             tr_str = f"-{money(item.get('expenseAmount'))}" if item.get("expenseMethod") != "efectivo" else "-"
@@ -500,7 +719,7 @@ def build_monthly_pdf(monthly_data):
 
         table_data.append([
             p_cell(t_str, "TdCenter", styles),
-            p_cell(det_str, "Td", styles),
+            p_cell(det_str, "TdBold", styles),
             p_cell(ef_str, "TdRight", styles),
             p_cell(tr_str, "TdRight", styles),
             p_cell(sal_str, "TdBoldRight", styles),

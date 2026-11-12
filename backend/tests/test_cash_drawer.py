@@ -1,5 +1,6 @@
 from decimal import Decimal
 from datetime import datetime
+from sqlalchemy import select
 from fastapi.testclient import TestClient
 from app.db import SessionLocal
 from app.models import CashShift, CashMovement, Product
@@ -14,19 +15,29 @@ def test_cash_drawer_workflow_and_auto_sales(fixture):
     f = fixture
     c = f['client']
 
+    # 0. Ensure database starts with no active open shifts
+    with SessionLocal() as db:
+        for s in db.scalars(select(CashShift).where(CashShift.status == 'open')):
+            s.status = 'closed'
+            s.closed_at = datetime.now()
+        db.commit()
+
     # 1. Initially no shift is open
     res = c.get('/api/cash-drawer/current').json()
     assert res['active'] is False
 
-    # 2. Open shift with $15.000 initial cash
+    # 2. Open shift with $15.000 initial cash and responsible moza
     open_res = c.post('/api/cash-drawer/open', json={
         'initialCash': 15000,
+        'shiftType': 'T. Mañana',
+        'responsibleName': 'Sofía',
         'notes': 'Turno Mañana'
     })
     assert open_res.status_code == 200
     shift_data = open_res.json()
     assert shift_data['active'] is True
     assert shift_data['shift']['initialCash'] == 15000
+    assert shift_data['shift']['openedByName'] == 'Sofía'
     assert shift_data['totals']['expectedCash'] == 15000
 
     # Cannot open another shift while one is active
@@ -141,3 +152,24 @@ def test_cash_drawer_workflow_and_auto_sales(fixture):
     assert m_pdf_res.status_code == 200
     assert m_pdf_res.headers['content-type'] == 'application/pdf'
     assert len(m_pdf_res.content) > 1000
+
+    # 11. Test Days list, Day detail and Day PDF export
+    days_res = c.get('/api/cash-drawer/days')
+    assert days_res.status_code == 200
+    days_list = days_res.json()
+    assert len(days_list) >= 1
+    target_date = days_list[0]['date']
+    assert 'facturacion' in days_list[0]
+    assert len(days_list[0]['shifts']) >= 1
+
+    day_detail = c.get(f'/api/cash-drawer/days/{target_date}')
+    assert day_detail.status_code == 200
+    day_json = day_detail.json()
+    assert day_json['date'] == target_date
+    day_shift = day_json['shifts'][0]
+    assert day_shift['saldo'] == day_shift['efectivo'] + day_shift['electronicTotal']
+
+    day_pdf_res = c.get(f'/api/cash-drawer/days/{target_date}/export.pdf')
+    assert day_pdf_res.status_code == 200
+    assert day_pdf_res.headers['content-type'] == 'application/pdf'
+    assert len(day_pdf_res.content) > 1000

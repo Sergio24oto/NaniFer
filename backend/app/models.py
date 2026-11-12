@@ -141,8 +141,10 @@ class CashShift(Base):
     __tablename__ = "cash_shifts"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     opened_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    opened_by_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     closed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     closed_by_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    shift_type: Mapped[str | None] = mapped_column(String(50), nullable=True)  # "T. Mañana" | "T. Siesta" | "T. Tarde" | "T. Noche"
     opened_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     initial_cash: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))

@@ -12,12 +12,11 @@ import {
   Download,
   Calendar,
   CheckCircle2,
-  AlertTriangle,
-  ArrowRight,
-  UserCheck,
   FileText,
   Search,
-  Receipt
+  Receipt,
+  Eye,
+  FileSpreadsheet
 } from "lucide-react";
 import "../cash-drawer.css";
 
@@ -43,14 +42,112 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
-function formatTime(isoStr) {
-  if (!isoStr) return "-";
+const SHIFT_TYPES = ["T. Mañana", "T. Siesta", "T. Tarde", "T. Noche"];
+const DEFAULT_MOZAS = ["Ivana", "Sofía", "Johana", "Candela", "Milagros"];
+
+function loadSavedMozas() {
   try {
-    const d = new Date(isoStr);
-    return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return isoStr;
+    const raw = localStorage.getItem("nanifer_mozas_team");
+    if (!raw) return DEFAULT_MOZAS;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const set = new Set([...DEFAULT_MOZAS, ...parsed]);
+      return Array.from(set);
+    }
+  } catch {}
+  return DEFAULT_MOZAS;
+}
+
+function MozaSelector({ mozasList, selected, onSelect, onAddMoza }) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [name, setName] = useState("");
+
+  function submitAdd() {
+    const trimmed = name.trim();
+    if (trimmed) {
+      const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+      onAddMoza(formatted);
+      setName("");
+      setIsAdding(false);
+    } else {
+      setIsAdding(false);
+    }
   }
+
+  return (
+    <div className="moza-selector-chips">
+      {mozasList.map((mName) => (
+        <button
+          type="button"
+          key={mName}
+          className={`moza-chip ${selected === mName ? "active" : ""}`}
+          onClick={() => onSelect(mName)}
+        >
+          👤 {mName}
+        </button>
+      ))}
+      {!isAdding ? (
+        <button
+          type="button"
+          className="moza-chip add-moza-chip"
+          onClick={() => setIsAdding(true)}
+          title="Sumar una nueva moza al equipo"
+        >
+          ➕ Agregar moza
+        </button>
+      ) : (
+        <div className="add-moza-inline-form">
+          <input
+            type="text"
+            className="add-moza-input"
+            placeholder="Nombre de moza..."
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submitAdd();
+              } else if (e.key === "Escape") {
+                setIsAdding(false);
+              }
+            }}
+          />
+          <button type="button" className="btn-save-moza" onClick={submitAdd}>
+            ✓ Sumar
+          </button>
+          <button
+            type="button"
+            className="btn-cancel-moza"
+            onClick={() => {
+              setIsAdding(false);
+              setName("");
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function getDefaultShiftType() {
+  const hr = new Date().getHours();
+  if (hr >= 6 && hr < 13) return "T. Mañana";
+  if (hr >= 13 && hr < 17) return "T. Siesta";
+  if (hr >= 17 && hr < 21) return "T. Tarde";
+  return "T. Noche";
+}
+
+function formatShiftTitle(rawType) {
+  if (!rawType) return "TURNO MAÑANA";
+  const u = String(rawType).toUpperCase().trim();
+  if (u.includes("MAÑANA")) return "TURNO MAÑANA";
+  if (u.includes("SIESTA")) return "TURNO SIESTA";
+  if (u.includes("TARDE")) return "TURNO TARDE";
+  if (u.includes("NOCHE")) return "TURNO NOCHE";
+  return u.startsWith("TURNO") ? u : `TURNO ${u}`;
 }
 
 function formatDateTimeShort(isoStr) {
@@ -69,7 +166,7 @@ function formatDateTimeShort(isoStr) {
 
 export default function CashDrawer() {
   const s = useStore();
-  const [activeTab, setActiveTab] = useState("today"); // "today" | "history"
+  const [activeTab, setActiveTab] = useState("today"); // "today" | "days" | "monthly"
 
   // Live Shift State
   const [data, setData] = useState(null);
@@ -82,11 +179,29 @@ export default function CashDrawer() {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closedReceipt, setClosedReceipt] = useState(null);
-  const [viewingPastShift, setViewingPastShift] = useState(null);
+  const [inspectingShift, setInspectingShift] = useState(null);
+  const [loadingShiftDetail, setLoadingShiftDetail] = useState(false);
 
   // Open shift form
+  const [mozasList, setMozasList] = useState(loadSavedMozas);
   const [openInitial, setOpenInitial] = useState("10000");
+  const [openShiftType, setOpenShiftType] = useState(getDefaultShiftType());
+  const [openResponsible, setOpenResponsible] = useState(DEFAULT_MOZAS[0]);
   const [openNotes, setOpenNotes] = useState("");
+
+  function handleAddMozaToList(name) {
+    if (!name) return;
+    const formatted = name.charAt(0).toUpperCase() + name.slice(1);
+    if (!mozasList.includes(formatted)) {
+      const nextList = [...mozasList, formatted];
+      setMozasList(nextList);
+      try {
+        localStorage.setItem("nanifer_mozas_team", JSON.stringify(nextList));
+      } catch {}
+    }
+    setOpenResponsible(formatted);
+    setCloseResponsible(formatted);
+  }
 
   // Movement form
   const [moveKind, setMoveKind] = useState("egreso"); // "egreso" | "ingreso"
@@ -100,16 +215,20 @@ export default function CashDrawer() {
   const [closeResponsible, setCloseResponsible] = useState("");
   const [closeNotes, setCloseNotes] = useState("");
 
-  // History Tab State
-  const [historySubTab, setHistorySubTab] = useState("monthly"); // "monthly" | "shifts"
+  // Tab 2: Days List & Selected Day
+  const [daysList, setDaysList] = useState([]);
+  const [loadingDays, setLoadingDays] = useState(false);
+  const [selectedDayDate, setSelectedDayDate] = useState(null);
+  const [selectedDayData, setSelectedDayData] = useState(null);
+  const [loadingDayDetail, setLoadingDayDetail] = useState(false);
+  const [daysSearch, setDaysSearch] = useState("");
+
+  // Tab 3: Monthly Sheet State
   const currentDate = new Date();
   const [selMonth, setSelMonth] = useState(currentDate.getMonth() + 1);
   const [selYear, setSelYear] = useState(currentDate.getFullYear());
   const [monthlyData, setMonthlyData] = useState(null);
   const [loadingMonthly, setLoadingMonthly] = useState(false);
-  const [shiftsHistory, setShiftsHistory] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [historySearch, setHistorySearch] = useState("");
 
   async function loadCurrent() {
     try {
@@ -125,6 +244,35 @@ export default function CashDrawer() {
     }
   }
 
+  async function loadDays() {
+    try {
+      setLoadingDays(true);
+      const res = await request("/cash-drawer/days?limit=40");
+      setDaysList(res || []);
+      if (res && res.length > 0 && !selectedDayDate) {
+        setSelectedDayDate(res[0].date);
+        setSelectedDayData(res[0]);
+      }
+    } catch (e) {
+      console.error("Error al cargar días", e);
+    } finally {
+      setLoadingDays(false);
+    }
+  }
+
+  async function selectDay(dateStr) {
+    setSelectedDayDate(dateStr);
+    try {
+      setLoadingDayDetail(true);
+      const res = await request(`/cash-drawer/days/${dateStr}`);
+      setSelectedDayData(res);
+    } catch (e) {
+      alert("Error al cargar detalle del día: " + e.message);
+    } finally {
+      setLoadingDayDetail(false);
+    }
+  }
+
   async function loadMonthly() {
     try {
       setLoadingMonthly(true);
@@ -137,15 +285,15 @@ export default function CashDrawer() {
     }
   }
 
-  async function loadHistoryShifts() {
+  async function inspectShiftTickets(shiftId) {
     try {
-      setLoadingHistory(true);
-      const res = await request("/cash-drawer/history?limit=60");
-      setShiftsHistory(res);
+      setLoadingShiftDetail(true);
+      const res = await request(`/cash-drawer/shifts/${shiftId}`);
+      setInspectingShift(res);
     } catch (e) {
-      console.error("Error al cargar historial", e);
+      alert("Error al consultar ventas del turno: " + e.message);
     } finally {
-      setLoadingHistory(false);
+      setLoadingShiftDetail(false);
     }
   }
 
@@ -158,14 +306,12 @@ export default function CashDrawer() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (activeTab === "history") {
-      if (historySubTab === "monthly") {
-        loadMonthly();
-      } else {
-        loadHistoryShifts();
-      }
+    if (activeTab === "days") {
+      loadDays();
+    } else if (activeTab === "monthly") {
+      loadMonthly();
     }
-  }, [activeTab, historySubTab, selMonth, selYear]);
+  }, [activeTab, selMonth, selYear]);
 
   // Open Shift
   async function handleOpenShift(e) {
@@ -178,6 +324,8 @@ export default function CashDrawer() {
         method: "POST",
         body: {
           initialCash: Number(openInitial) || 0,
+          shiftType: openShiftType || "T. Mañana",
+          responsibleName: openResponsible.trim() || s.user?.name || "Personal",
           notes: openNotes.trim(),
         },
       });
@@ -262,13 +410,30 @@ export default function CashDrawer() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `NaniFer-cierre-caja-${shiftId.slice(0, 8)}.pdf`;
+      a.download = `NaniFer-cierre-turno-${shiftId.slice(0, 8)}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
       alert("No se pudo generar el PDF: " + err.message);
+    }
+  }
+
+  async function downloadDayPdf(dateStr) {
+    if (!dateStr) return;
+    try {
+      const blob = await request(`/cash-drawer/days/${dateStr}/export.pdf`, { asBlob: true });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `NaniFer-planilla-diaria-${dateStr}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("No se pudo generar la planilla diaria en PDF: " + err.message);
     }
   }
 
@@ -301,7 +466,7 @@ export default function CashDrawer() {
   const isOpen = Boolean(data?.active);
   const shift = data?.shift || data?.lastShift?.shift;
   const totals = data?.totals || data?.lastShift?.totals;
-  const entries = data?.entries || data?.lastShift?.entries || [];
+  const todaySummary = data?.todaySummary;
 
   const expectedCash = totals?.expectedCash || 0;
   const countedNum = Number(closeCounted || 0);
@@ -315,19 +480,19 @@ export default function CashDrawer() {
           <Banknote size={32} color="#624335" />
           <div>
             <h1>Planilla de Caja Diaria</h1>
-            <p>Control de ingresos por medio de pago, egresos, saldo físico y arqueos de turno.</p>
+            <p>Control de turnos, arqueo físico y rendición de ingresos por medios de pago.</p>
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span className={`cash-status-tag ${isOpen ? "open" : "closed"}`}>
             <span className="cash-status-dot" />
-            {isOpen ? "Caja Abierta" : "Caja Cerrada"}
+            {isOpen ? `Caja Abierta · ${shift?.shiftType || "Turno"}` : "Caja Cerrada"}
           </span>
         </div>
       </div>
 
-      {/* Main Section Navigation Tabs */}
+      {/* Main 3 Navigation Tabs */}
       <div className="cash-nav-tabs">
         <button
           type="button"
@@ -335,16 +500,25 @@ export default function CashDrawer() {
           onClick={() => setActiveTab("today")}
         >
           <Receipt size={18} />
-          Caja del Día (Turno Actual)
+          Caja del Día (Turno en Curso)
         </button>
 
         <button
           type="button"
-          className={`cash-tab-btn ${activeTab === "history" ? "active" : ""}`}
-          onClick={() => setActiveTab("history")}
+          className={`cash-tab-btn ${activeTab === "days" ? "active" : ""}`}
+          onClick={() => setActiveTab("days")}
         >
-          <History size={18} />
-          Historial de Caja y Planillas Mensuales
+          <Calendar size={18} />
+          Historial de Jornadas por Días
+        </button>
+
+        <button
+          type="button"
+          className={`cash-tab-btn ${activeTab === "monthly" ? "active" : ""}`}
+          onClick={() => setActiveTab("monthly")}
+        >
+          <FileSpreadsheet size={18} />
+          Planilla Mensual Completa
         </button>
       </div>
 
@@ -355,7 +529,7 @@ export default function CashDrawer() {
       )}
 
       {/* =========================================================================
-          TAB 1: CAJA DEL DÍA (TURNO ACTUAL)
+          TAB 1: CAJA DEL DÍA (TURNO EN CURSO)
           ========================================================================= */}
       {activeTab === "today" && (
         <>
@@ -382,6 +556,7 @@ export default function CashDrawer() {
                   ¡Cierre de Turno Guardado con Éxito!
                 </strong>
                 <p style={{ margin: "6px 0 0", color: "#14532d", fontSize: 13.5 }}>
+                  Turno: <strong>{closedReceipt.shift?.shiftType || "Turno"}</strong> ·
                   Responsable: <strong>{closedReceipt.shift?.closedByName || "Personal"}</strong> ·
                   Efectivo contado: <strong>{money(closedReceipt.shift?.countedCash)}</strong> ·
                   Diferencia: <strong>{closedReceipt.shift?.difference === 0 ? "Sin diferencia ($0)" : money(closedReceipt.shift?.difference)}</strong>
@@ -401,11 +576,12 @@ export default function CashDrawer() {
                   className="primary"
                   onClick={() => {
                     setOpenInitial(String(closedReceipt.shift?.countedCash || "10000"));
+                    setOpenShiftType(getDefaultShiftType());
                     setShowOpenModal(true);
                   }}
                 >
                   <Unlock size={16} />
-                  Abrir nuevo turno (Cambio de moza)
+                  Abrir siguiente turno (Pase de moza)
                 </button>
               </div>
             </div>
@@ -415,14 +591,15 @@ export default function CashDrawer() {
             <div className="cash-banner-closed">
               <h2>No hay ninguna caja abierta en este momento</h2>
               <p>
-                Al abrir la caja, las ventas y cobros en el salón y mostrador se registrarán automáticamente.
-                El sistema calculará el saldo físico exacto discriminando efectivo de transferencias y tarjetas.
+                Al abrir el turno, las ventas y cobros en el salón y mostrador se registrarán automáticamente.
+                El sistema calculará el saldo físico exacto discriminando efectivo de transferencias, débito y QR.
               </p>
               <button
                 type="button"
                 className="primary"
                 onClick={() => {
                   setOpenInitial(String(data?.lastShift?.shift?.countedCash || "10000"));
+                  setOpenShiftType(getDefaultShiftType());
                   setShowOpenModal(true);
                 }}
                 style={{ padding: "12px 26px", fontSize: 16, display: "inline-flex", alignItems: "center", gap: 8 }}
@@ -434,7 +611,7 @@ export default function CashDrawer() {
               {data?.lastShift && (
                 <div style={{ marginTop: 24, padding: "14px", background: "#ffffff", borderRadius: 8, display: "inline-block", border: "1px solid #e7ded5" }}>
                   <span style={{ fontSize: 13, color: "#7a5b48" }}>
-                    Último cierre registrado: <strong>{formatDateTimeShort(data.lastShift.shift.closedAt)}</strong> por <strong>{data.lastShift.shift.closedByName || "Personal"}</strong> (Efectivo en gaveta: {money(data.lastShift.shift.countedCash)})
+                    Último cierre: <strong>{data.lastShift.shift.shiftType || "Turno"}</strong> ({formatDateTimeShort(data.lastShift.shift.closedAt)}) por <strong>{data.lastShift.shift.closedByName || "Personal"}</strong> · Efectivo: {money(data.lastShift.shift.countedCash)}
                   </span>
                 </div>
               )}
@@ -478,7 +655,7 @@ export default function CashDrawer() {
                   onClick={() => downloadShiftPdf(shift?.id)}
                 >
                   <Download size={16} />
-                  Descargar Planilla Diaria (PDF)
+                  Descargar Comprobante Turno (PDF)
                 </button>
 
                 <button
@@ -486,21 +663,21 @@ export default function CashDrawer() {
                   className="cash-btn-close"
                   onClick={() => {
                     setCloseCounted(String(totals?.expectedCash || ""));
-                    setCloseResponsible(s.user?.name || "");
+                    setCloseResponsible(shift?.openedByName || s.user?.name || "Sofía");
                     setShowCloseModal(true);
                   }}
                 >
                   <Lock size={18} />
-                  FINALIZAR CIERRE DE CAJA
+                  FINALIZAR CIERRE DE TURNO
                 </button>
               </div>
 
-              {/* 3-Part Summary Block: INGRESOS, EGRESOS, RESULTADO DE CAJA FÍSICA */}
+              {/* 3-Part Summary Block for current shift */}
               <div className="cash-summary-triad">
                 {/* 1. INGRESOS */}
                 <div className="cash-summary-card incomes">
                   <div className="cash-summary-header">
-                    <span>📥 Ingresos del Turno</span>
+                    <span>📥 Ingresos del {shift?.shiftType || "Turno"}</span>
                     <span>{totals?.salesCount || 0} ventas</span>
                   </div>
                   <div className="cash-summary-row">
@@ -577,228 +754,24 @@ export default function CashDrawer() {
                 </div>
               </div>
 
-              {/* The Administrative Sheet Table matching paper form */}
-              <div className="cash-sheet-container">
-                <div className="cash-sheet-titlebar">
-                  <div>
-                    <h2>CAFETERÍA NANIFER · PLANILLA CAJA DIARIA</h2>
-                    <span className="cash-sheet-sub">
-                      Turno abierto por <strong>{shift?.openedByName}</strong> el {formatDateTimeShort(shift?.openedAt)}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 13, color: "#624335" }}>
-                    {entries.length} registro{entries.length === 1 ? "" : "s"} en la planilla
-                  </span>
-                </div>
-
-                <div className="cash-ledger-wrapper">
-                  <table className="cash-ledger-table">
-                    <thead>
-                      <tr>
-                        <th rowSpan={2} style={{ width: 110 }}>FECHA / HORA</th>
-                        <th rowSpan={2} style={{ textAlign: "left" }}>DETALLE</th>
-                        <th colSpan={2} style={{ width: 220 }}>INGRESOS</th>
-                        <th rowSpan={2} style={{ width: 120 }}>SALDO</th>
-                        <th rowSpan={2} style={{ width: 130 }}>FIRMA</th>
-                      </tr>
-                      <tr>
-                        <th className="subhead" style={{ width: 105 }}>EFECTIVO</th>
-                        <th className="subhead" style={{ width: 115 }}>TRANF. / DÉBITO</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {entries.map((item) => {
-                        const isInit = item.type === "initial";
-                        const isClose = item.type === "closure";
-                        const isSale = item.type === "sale";
-                        const isExp = item.isExpense;
-
-                        const efVal = item.efectivo || 0;
-                        const trVal = (item.transferencia || 0) + (item.debito || 0) + (item.qr || 0);
-
-                        return (
-                          <tr
-                            key={item.id}
-                            className={
-                              isInit
-                                ? "entry-initial"
-                                : isClose
-                                ? "entry-closure"
-                                : ""
-                            }
-                          >
-                            <td style={{ textAlign: "center", whiteSpace: "nowrap", fontSize: 11.5 }}>
-                              {formatDateTimeShort(item.createdAt)}
-                            </td>
-                            <td>
-                              {isSale && <span className="cash-tag-sale">VENTA</span>}
-                              {isExp && <span className="cash-tag-egreso">GASTO</span>}
-                              {item.type === "movement_in" && <span className="cash-tag-ingreso">INGRESO</span>}
-                              {item.detail}
-                            </td>
-                            <td style={{ textAlign: "right", fontWeight: isInit || efVal > 0 ? 700 : 400 }}>
-                              {isExp ? (
-                                item.expenseMethod === "efectivo" ? (
-                                  <span style={{ color: "#b91c1c" }}>-{money(item.expenseAmount)}</span>
-                                ) : (
-                                  "-"
-                                )
-                              ) : efVal > 0 ? (
-                                money(efVal)
-                              ) : (
-                                "-"
-                              )}
-                            </td>
-                            <td style={{ textAlign: "right", fontWeight: trVal > 0 ? 600 : 400 }}>
-                              {isExp ? (
-                                item.expenseMethod !== "efectivo" ? (
-                                  <span style={{ color: "#b91c1c" }}>-{money(item.expenseAmount)} ({item.expenseMethod})</span>
-                                ) : (
-                                  "-"
-                                )
-                              ) : trVal > 0 ? (
-                                money(trVal)
-                              ) : (
-                                "-"
-                              )}
-                            </td>
-                            <td style={{ textAlign: "right", fontWeight: 800, color: "#3d2314" }}>
-                              {money(item.runningBalance)}
-                            </td>
-                            <td style={{ textAlign: "center", fontWeight: 600, color: "#553c30" }}>
-                              {item.signature || "-"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-        </>
-      )}
-
-      {/* =========================================================================
-          TAB 2: HISTORIAL DE CAJA (POR DÍA Y POR MES)
-          ========================================================================= */}
-      {activeTab === "history" && (
-        <div className="cash-history-container">
-          <div className="cash-history-toolbar">
-            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button
-                  type="button"
-                  className={`category-chip ${historySubTab === "monthly" ? "selected" : ""}`}
-                  onClick={() => setHistorySubTab("monthly")}
-                >
-                  <FileText size={15} style={{ verticalAlign: "middle", marginRight: 4 }} />
-                  Planilla Mensual Completa
-                </button>
-                <button
-                  type="button"
-                  className={`category-chip ${historySubTab === "shifts" ? "selected" : ""}`}
-                  onClick={() => setHistorySubTab("shifts")}
-                >
-                  <History size={15} style={{ verticalAlign: "middle", marginRight: 4 }} />
-                  Cierres de Turno Anteriores
-                </button>
-              </div>
-
-              {historySubTab === "monthly" && (
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <label>
-                    Mes:
-                    <select
-                      value={selMonth}
-                      onChange={(e) => setSelMonth(Number(e.target.value))}
-                    >
-                      {MONTH_NAMES.map((name, idx) =>
-                        idx > 0 ? (
-                          <option key={idx} value={idx}>
-                            {name}
-                          </option>
-                        ) : null
-                      )}
-                    </select>
-                  </label>
-
-                  <label>
-                    Año:
-                    <select
-                      value={selYear}
-                      onChange={(e) => setSelYear(Number(e.target.value))}
-                    >
-                      {[2025, 2026, 2027].map((y) => (
-                        <option key={y} value={y}>
-                          {y}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <button
-                    type="button"
-                    className="cash-btn-pdf"
-                    onClick={downloadMonthlyPdf}
-                    style={{ marginLeft: 8 }}
-                  >
-                    <Download size={15} />
-                    Descargar Planilla Mensual (PDF A4)
-                  </button>
-                </div>
-              )}
-
-              {historySubTab === "shifts" && (
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <label>
-                    <Search size={15} />
-                    Buscar:
-                    <input
-                      type="text"
-                      placeholder="Fecha o responsable…"
-                      value={historySearch}
-                      onChange={(e) => setHistorySearch(e.target.value)}
-                    />
-                  </label>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* SUB-VIEW 1: PLANILLA MENSUAL COMPLETA */}
-          {historySubTab === "monthly" && (
-            <div>
-              {loadingMonthly ? (
-                <p style={{ textAlign: "center", padding: "40px", color: "#8c6e58" }}>
-                  Cargando planilla mensual…
-                </p>
-              ) : !monthlyData || monthlyData.entries.length === 0 ? (
-                <div className="cash-banner-closed">
-                  <h3>No hay movimientos registrados en {MONTH_NAMES[selMonth]} {selYear}</h3>
-                  <p>Seleccioná otro mes o año para consultar la planilla histórica.</p>
-                </div>
-              ) : (
+              {/* The Daily 4-Shift Table for TODAY */}
+              {todaySummary && (
                 <div className="cash-sheet-container">
                   <div className="cash-sheet-titlebar">
                     <div>
-                      <h2>PLANILLA CAJA DIARIA</h2>
+                      <h2>CAFETERÍA NANIFER · PLANILLA DEL DÍA (HOY)</h2>
                       <span className="cash-sheet-sub">
-                        CAFETERÍA NANIFER &nbsp;|&nbsp; <strong>MES: {monthlyData.monthName?.toUpperCase()} {monthlyData.year}</strong>
+                        Jornada: <strong>{todaySummary.dateFormatted}</strong> · Rendición acumulada de los turnos de hoy
                       </span>
                     </div>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontSize: 13, color: "#624335" }}>
-                        {monthlyData.entries.length} movimientos · {monthlyData.shiftsCount} turnos
-                      </span>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <button
                         type="button"
                         className="cash-btn-pdf"
-                        onClick={downloadMonthlyPdf}
+                        onClick={() => downloadDayPdf(todaySummary.date)}
                       >
                         <Download size={14} />
-                        Imprimir / PDF
+                        Descargar Planilla del Día (PDF)
                       </button>
                     </div>
                   </div>
@@ -807,8 +780,8 @@ export default function CashDrawer() {
                     <table className="cash-ledger-table">
                       <thead>
                         <tr>
-                          <th rowSpan={2} style={{ width: 100 }}>FECHA</th>
-                          <th rowSpan={2} style={{ textAlign: "left" }}>DETALLE</th>
+                          <th rowSpan={2} style={{ width: 120 }}>FECHA</th>
+                          <th rowSpan={2} style={{ textAlign: "left" }}>DETALLE (TURNO)</th>
                           <th colSpan={2} style={{ width: 220 }}>INGRESOS</th>
                           <th rowSpan={2} style={{ width: 120 }}>SALDO</th>
                           <th rowSpan={2} style={{ width: 130 }}>FIRMA</th>
@@ -819,168 +792,555 @@ export default function CashDrawer() {
                         </tr>
                       </thead>
                       <tbody>
-                        {monthlyData.entries.map((item, idx) => {
-                          const isInit = item.type === "initial";
-                          const isClose = item.type === "closure";
-                          const isSale = item.type === "sale";
-                          const isExp = item.isExpense;
-
-                          const efVal = item.efectivo || 0;
-                          const trVal = (item.transferencia || 0) + (item.debito || 0) + (item.qr || 0);
-
+                        {todaySummary.shifts.map((tItem, idx) => {
+                          const isCurrent = tItem.shiftId === shift?.id;
                           return (
-                            <tr
-                              key={`${item.id}-${idx}`}
-                              className={isInit ? "entry-initial" : isClose ? "entry-closure" : ""}
-                            >
-                              <td style={{ textAlign: "center", whiteSpace: "nowrap", fontSize: 11.5 }}>
-                                {item.dateStr || formatDateTimeShort(item.createdAt)}
+                            <tr key={tItem.shiftId} className={`cash-shift-row ${isCurrent ? "entry-current-shift" : ""}`}>
+                              {idx === 0 && (
+                                <td
+                                  rowSpan={todaySummary.shifts.length}
+                                  className="cash-date-spanned-cell"
+                                >
+                                  <div className="cash-date-badge-box">
+                                    <span className="cash-date-today-pill">HOY</span>
+                                    <span className="cash-date-main-text">{todaySummary.dateFormatted}</span>
+                                    <span style={{ fontSize: 11, color: "#8c6e58", fontWeight: 600 }}>
+                                      {todaySummary.shifts.length} {todaySummary.shifts.length === 1 ? "turno" : "turnos"}
+                                    </span>
+                                  </div>
+                                </td>
+                              )}
+                              <td className="cash-shift-detail-cell">
+                                <div className="shift-cell-content">
+                                  <div className="shift-title-line">
+                                    <span className="shift-name-prominent">
+                                      {formatShiftTitle(tItem.shiftType)}
+                                    </span>
+                                    {isCurrent && (
+                                      <span className="shift-live-pill">
+                                        ● En curso ahora
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="btn-view-sales"
+                                      onClick={() => inspectShiftTickets(tItem.shiftId)}
+                                      title="Ver detalle de tickets y ventas de este turno"
+                                    >
+                                      Ver ventas 🔍
+                                    </button>
+                                  </div>
+                                  <div className="shift-time-sub">
+                                    <span>Apertura: {formatDateTimeShort(tItem.openedAt)}</span>
+                                    {tItem.closedAt && <span> · Cierre: {formatDateTimeShort(tItem.closedAt)}</span>}
+                                    {tItem.salesCount > 0 && <span> · {tItem.salesCount} venta{tItem.salesCount === 1 ? "" : "s"}</span>}
+                                  </div>
+                                </div>
                               </td>
-                              <td>
-                                {isSale && <span className="cash-tag-sale">VENTA</span>}
-                                {isExp && <span className="cash-tag-egreso">GASTO</span>}
-                                {item.type === "movement_in" && <span className="cash-tag-ingreso">INGRESO</span>}
-                                {item.detail}
+                              <td className="cash-num-cell cash-val">
+                                {money(tItem.efectivo)}
                               </td>
-                              <td style={{ textAlign: "right", fontWeight: isInit || efVal > 0 ? 700 : 400 }}>
-                                {isExp ? (
-                                  item.expenseMethod === "efectivo" ? (
-                                    <span style={{ color: "#b91c1c" }}>-{money(item.expenseAmount)}</span>
-                                  ) : (
-                                    "-"
-                                  )
-                                ) : efVal > 0 ? (
-                                  money(efVal)
-                                ) : (
-                                  "-"
-                                )}
+                              <td className="cash-num-cell electronic-val">
+                                {money(tItem.electronicTotal)}
                               </td>
-                              <td style={{ textAlign: "right", fontWeight: trVal > 0 ? 600 : 400 }}>
-                                {isExp ? (
-                                  item.expenseMethod !== "efectivo" ? (
-                                    <span style={{ color: "#b91c1c" }}>-{money(item.expenseAmount)}</span>
-                                  ) : (
-                                    "-"
-                                  )
-                                ) : trVal > 0 ? (
-                                  money(trVal)
-                                ) : (
-                                  "-"
-                                )}
+                              <td className="cash-num-cell saldo-val">
+                                {money(tItem.saldo)}
                               </td>
-                              <td style={{ textAlign: "right", fontWeight: 800, color: "#3d2314" }}>
-                                {money(item.runningBalance)}
-                              </td>
-                              <td style={{ textAlign: "center", fontWeight: 600, color: "#553c30" }}>
-                                {item.signature || "-"}
+                              <td className="cash-signature-cell">
+                                <span className="moza-signature-tag">
+                                  ✍️ {tItem.signature || "-"}
+                                </span>
                               </td>
                             </tr>
                           );
                         })}
 
-                        {/* Totals Row */}
-                        <tr style={{ background: "#dfcfc2", fontWeight: 800 }}>
-                          <td style={{ textAlign: "center" }}>TOTALES</td>
-                          <td>Resumen mensual del período</td>
-                          <td style={{ textAlign: "right" }}>
-                            {money(monthlyData.totals?.incomes?.efectivo || 0)}
+                        {/* Totals row */}
+                        <tr className="cash-totals-row">
+                          <td colSpan={2} className="cash-totals-label">
+                            TOTAL HOY · Rendición Consolidada de la Jornada
                           </td>
-                          <td style={{ textAlign: "right" }}>
-                            {money(
-                              (monthlyData.totals?.incomes?.transferencia || 0) +
-                              (monthlyData.totals?.incomes?.debito || 0) +
-                              (monthlyData.totals?.incomes?.qr || 0)
-                            )}
+                          <td className="cash-num-cell cash-val totals">
+                            {money(todaySummary.totals?.totalEfectivo || 0)}
                           </td>
-                          <td style={{ textAlign: "right", color: "#3d2314" }}>
-                            {money(monthlyData.totals?.finalBalance || 0)}
+                          <td className="cash-num-cell electronic-val totals">
+                            {money(todaySummary.totals?.totalElectronic || 0)}
                           </td>
-                          <td style={{ textAlign: "center" }}>NaniFer</td>
+                          <td className="cash-num-cell saldo-val totals">
+                            {money(todaySummary.totals?.totalDay || todaySummary.totals?.finalBalance || 0)}
+                          </td>
+                          <td style={{ textAlign: "center", fontWeight: 800, color: "#624335" }}>
+                            NaniFer
+                          </td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Facturación box for today */}
+                  {todaySummary.facturacion && (
+                    <div className="facturacion-box">
+                      <div className="facturacion-header">
+                        <strong style={{ color: "#43281c", fontSize: 14 }}>
+                          🧾 Desglose para Facturación (Hoy)
+                        </strong>
+                        <span style={{ fontSize: 12, color: "#8c6e58" }}>
+                          Valores discriminados por medio electrónico
+                        </span>
+                      </div>
+                      <div className="facturacion-grid">
+                        <div className="facturacion-card">
+                          <span className="facturacion-card-label">QR / Mercado Pago</span>
+                          <div className="facturacion-card-val">{money(todaySummary.facturacion.qr)}</div>
+                          <span className="facturacion-card-sub">Facturación digital</span>
+                        </div>
+                        <div className="facturacion-card">
+                          <span className="facturacion-card-label">Débito / Tarjetas</span>
+                          <div className="facturacion-card-val">{money(todaySummary.facturacion.debito)}</div>
+                          <span className="facturacion-card-sub">Comprobantes posnet</span>
+                        </div>
+                        <div className="facturacion-card">
+                          <span className="facturacion-card-label">Transferencias</span>
+                          <div className="facturacion-card-val">{money(todaySummary.facturacion.transferencia)}</div>
+                          <span className="facturacion-card-sub">Cuentas bancarias</span>
+                        </div>
+                        <div className="facturacion-card cash-card">
+                          <span className="facturacion-card-label cash">Efectivo Físico</span>
+                          <div className="facturacion-card-val cash">{money(todaySummary.facturacion.efectivo)}</div>
+                          <span className="facturacion-card-sub" style={{ color: "#166534" }}>Recaudado en gaveta</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
+        </>
+      )}
 
-          {/* SUB-VIEW 2: CIERRES DE TURNO ANTERIORES */}
-          {historySubTab === "shifts" && (
-            <div>
-              {loadingHistory ? (
-                <p style={{ textAlign: "center", padding: "40px", color: "#8c6e58" }}>
-                  Cargando turnos pasados…
-                </p>
-              ) : (
-                <div className="cash-history-shifts-grid">
-                  {shiftsHistory
-                    .filter((sItem) => {
-                      if (!historySearch.trim()) return true;
-                      const q = historySearch.toLowerCase();
-                      const closeName = (sItem.shift?.closedByName || "").toLowerCase();
-                      const dateStr = (sItem.shift?.closedAt || sItem.shift?.openedAt || "").toLowerCase();
-                      return closeName.includes(q) || dateStr.includes(q);
-                    })
-                    .map((sItem) => {
-                      const sh = sItem.shift;
-                      const tot = sItem.totals;
-                      const isCl = sh.status === "closed";
+      {/* =========================================================================
+          TAB 2: HISTORIAL DE JORNADAS POR DÍAS (NEW CARDS VIEW)
+          ========================================================================= */}
+      {activeTab === "days" && (
+        <div>
+          {/* Toolbar */}
+          <div className="cash-history-toolbar">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontWeight: 700, color: "#553c30", fontSize: 14 }}>
+                  Seleccioná una Jornada para ver su Planilla Diaria:
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <Search size={15} color="#8c6e58" />
+                <input
+                  type="text"
+                  placeholder="Buscar fecha o moza…"
+                  value={daysSearch}
+                  onChange={(e) => setDaysSearch(e.target.value)}
+                  style={{ width: 220 }}
+                />
+              </div>
+            </div>
+          </div>
 
-                      return (
-                        <div
-                          key={sh.id}
-                          className="cash-history-card"
-                          onClick={() => setViewingPastShift(sItem)}
-                        >
-                          <div className="cash-history-card-header">
-                            <strong>{formatDateTimeShort(sh.openedAt)}</strong>
-                            <span className={`cash-status-tag ${isCl ? "closed" : "open"}`}>
-                              {isCl ? "Cerrada" : "Abierta"}
+          {loadingDays ? (
+            <p style={{ textAlign: "center", padding: "40px", color: "#8c6e58" }}>
+              Cargando jornadas…
+            </p>
+          ) : daysList.length === 0 ? (
+            <div className="cash-banner-closed">
+              <h3>No hay jornadas registradas</h3>
+              <p>Las jornadas aparecerán automáticamente a medida que se abran y cierren turnos de caja.</p>
+            </div>
+          ) : (
+            <>
+              {/* Day Cards Grid */}
+              <div className="day-cards-grid">
+                {daysList
+                  .filter((dItem) => {
+                    if (!daysSearch.trim()) return true;
+                    const q = daysSearch.toLowerCase();
+                    const dFmt = (dItem.dateFormatted || "").toLowerCase();
+                    const dRaw = (dItem.date || "").toLowerCase();
+                    const mozas = (dItem.shifts || []).map((s) => s.signature || "").join(" ").toLowerCase();
+                    return dFmt.includes(q) || dRaw.includes(q) || mozas.includes(q);
+                  })
+                  .map((dItem) => {
+                    const isSel = selectedDayDate === dItem.date;
+                    const isComp = dItem.isComplete;
+                    return (
+                      <div
+                        key={dItem.date}
+                        className={`day-card ${isSel ? "selected" : ""}`}
+                        onClick={() => selectDay(dItem.date)}
+                      >
+                        <div className="day-card-header">
+                          <div>
+                            <span style={{ fontSize: 11, textTransform: "uppercase", fontWeight: 700, color: isSel ? "#b45309" : "#8c6e58" }}>
+                              {isSel ? "JORNADA SELECCIONADA" : "DÍA REGISTRADO"}
                             </span>
+                            <h3 className="day-card-title">{dItem.dateFormatted}</h3>
                           </div>
+                          <span className={`day-card-badge ${isComp ? "complete" : "in-progress"}`}>
+                            {isComp ? `✓ ${dItem.shiftsCount} Turnos Cerrados` : `${dItem.shiftsCount} Turno(s)`}
+                          </span>
+                        </div>
 
-                          <div style={{ fontSize: 13, color: "#624335", marginBottom: 8 }}>
-                            <div>Responsable cierre: <strong>{sh.closedByName || "En curso"}</strong></div>
-                            <div>Apertura por: {sh.openedByName}</div>
+                        <div style={{ borderTop: "1px dashed #e2d7cc", paddingTop: 8, marginTop: 6, fontSize: 13 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                            <span style={{ color: "#6b4d3c" }}>Efectivo:</span>
+                            <strong style={{ color: "#15803d" }}>{money(dItem.totals.totalEfectivo)}</strong>
                           </div>
-
-                          <div style={{ borderTop: "1px dashed #e2d7cc", paddingTop: 8, fontSize: 13 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                              <span>Total Ventas:</span>
-                              <strong>{money(tot.incomes?.total || tot.totalSales || 0)}</strong>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                              <span>Efectivo contado:</span>
-                              <strong>{sh.countedCash !== null ? money(sh.countedCash) : "-"}</strong>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                              <span>Diferencia:</span>
-                              <strong style={{ color: sh.difference < 0 ? "#b91c1c" : sh.difference > 0 ? "#b45309" : "#15803d" }}>
-                                {sh.difference === 0 ? "Sin diferencia ($0)" : money(sh.difference)}
-                              </strong>
-                            </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                            <span style={{ color: "#6b4d3c" }}>Transf / Déb / QR:</span>
+                            <strong style={{ color: "#0369a1" }}>{money(dItem.totals.totalElectronic)}</strong>
                           </div>
-
-                          <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
-                            <button
-                              type="button"
-                              className="secondary"
-                              style={{ padding: "4px 10px", fontSize: 12 }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                downloadShiftPdf(sh.id);
-                              }}
-                            >
-                              <Download size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                              PDF
-                            </button>
+                          <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #f0e6dc", paddingTop: 4, marginTop: 4 }}>
+                            <span style={{ fontWeight: 800, color: "#3d2314" }}>TOTAL DÍA:</span>
+                            <strong style={{ fontSize: 14.5, color: "#3d2314" }}>{money(dItem.totals.totalDay)}</strong>
                           </div>
                         </div>
-                      );
-                    })}
+
+                        <div style={{ marginTop: 8, fontSize: 11.5, color: "#8c6e58", textAlign: "right" }}>
+                          Mozas: {(dItem.shifts || []).map((s) => s.signature).filter(Boolean).join(", ") || "-"}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* The Selected Day Planilla (4 Shifts Table) */}
+              {loadingDayDetail ? (
+                <p style={{ textAlign: "center", padding: "30px", color: "#8c6e58" }}>
+                  Cargando detalle del día…
+                </p>
+              ) : selectedDayData ? (
+                <div className="cash-sheet-container">
+                  <div className="cash-sheet-titlebar">
+                    <div>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "#b45309", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        PLANILLA DE RENDICIÓN DIARIA
+                      </span>
+                      <h2>{selectedDayData.dateFormatted} ({selectedDayData.shiftsCount} Turnos)</h2>
+                      <span className="cash-sheet-sub">
+                        Cafetería NaniFer · Rendición cerrada y firmada por cada moza
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        type="button"
+                        className="cash-btn-pdf"
+                        onClick={() => downloadDayPdf(selectedDayData.date)}
+                      >
+                        <Download size={15} />
+                        Descargar Planilla del Día (PDF A4)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="cash-ledger-wrapper">
+                    <table className="cash-ledger-table">
+                      <thead>
+                        <tr>
+                          <th rowSpan={2} style={{ width: 120 }}>FECHA</th>
+                          <th rowSpan={2} style={{ textAlign: "left" }}>DETALLE (TURNO)</th>
+                          <th colSpan={2} style={{ width: 230 }}>INGRESOS</th>
+                          <th rowSpan={2} style={{ width: 120 }}>SALDO</th>
+                          <th rowSpan={2} style={{ width: 130 }}>FIRMA</th>
+                        </tr>
+                        <tr>
+                          <th className="subhead" style={{ width: 110 }}>EFECTIVO</th>
+                          <th className="subhead" style={{ width: 120 }}>TRANF. / DÉBITO</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedDayData.shifts.map((tItem, idx) => (
+                          <tr key={tItem.shiftId} className="cash-shift-row">
+                            {idx === 0 && (
+                              <td
+                                rowSpan={selectedDayData.shifts.length}
+                                className="cash-date-spanned-cell"
+                              >
+                                <div className="cash-date-badge-box">
+                                  <span className="cash-date-main-text">{selectedDayData.dateFormatted}</span>
+                                  <span style={{ fontSize: 11, color: "#8c6e58", fontWeight: 600 }}>
+                                    {selectedDayData.shiftsCount} {selectedDayData.shiftsCount === 1 ? "turno" : "turnos"}
+                                  </span>
+                                </div>
+                              </td>
+                            )}
+                            <td className="cash-shift-detail-cell">
+                              <div className="shift-cell-content">
+                                <div className="shift-title-line">
+                                  <span className="shift-name-prominent">
+                                    {formatShiftTitle(tItem.shiftType)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="btn-view-sales"
+                                    onClick={() => inspectShiftTickets(tItem.shiftId)}
+                                    title="Ver detalle de tickets y ventas de este turno"
+                                  >
+                                    Ver ventas 🔍
+                                  </button>
+                                </div>
+                                <div className="shift-time-sub">
+                                  <span>Apertura: {formatDateTimeShort(tItem.openedAt)}</span>
+                                  {tItem.closedAt && <span> · Cierre: {formatDateTimeShort(tItem.closedAt)}</span>}
+                                  {tItem.salesCount > 0 && <span> · {tItem.salesCount} venta{tItem.salesCount === 1 ? "" : "s"}</span>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="cash-num-cell cash-val">
+                              {money(tItem.efectivo)}
+                            </td>
+                            <td className="cash-num-cell electronic-val">
+                              {money(tItem.electronicTotal)}
+                            </td>
+                            <td className="cash-num-cell saldo-val">
+                              {money(tItem.saldo)}
+                            </td>
+                            <td className="cash-signature-cell">
+                              <span className="moza-signature-tag">
+                                ✍️ {tItem.signature || "-"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+
+                        {/* Totals row */}
+                        <tr className="cash-totals-row">
+                          <td colSpan={2} className="cash-totals-label">
+                            TOTAL DÍA · {selectedDayData.shiftsCount} Turnos Completados
+                          </td>
+                          <td className="cash-num-cell cash-val totals">
+                            {money(selectedDayData.totals.totalEfectivo)}
+                          </td>
+                          <td className="cash-num-cell electronic-val totals">
+                            {money(selectedDayData.totals.totalElectronic)}
+                          </td>
+                          <td className="cash-num-cell saldo-val totals">
+                            {money(selectedDayData.totals.totalDay || selectedDayData.totals.finalBalance || 0)}
+                          </td>
+                          <td style={{ textAlign: "center", fontWeight: 800, color: "#624335" }}>
+                            NaniFer
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Facturación box for selected day */}
+                  {selectedDayData.facturacion && (
+                    <div className="facturacion-box">
+                      <div className="facturacion-header">
+                        <strong style={{ color: "#43281c", fontSize: 14.5 }}>
+                          🧾 Desglose para Facturación de la Dueña ({selectedDayData.dateFormatted})
+                        </strong>
+                        <span style={{ fontSize: 12, color: "#8c6e58" }}>
+                          Valores discriminados listos para emitir comprobantes fiscales
+                        </span>
+                      </div>
+                      <div className="facturacion-grid">
+                        <div className="facturacion-card">
+                          <span className="facturacion-card-label">QR / Mercado Pago</span>
+                          <div className="facturacion-card-val">{money(selectedDayData.facturacion.qr)}</div>
+                          <span className="facturacion-card-sub">Facturación directa digital</span>
+                        </div>
+                        <div className="facturacion-card">
+                          <span className="facturacion-card-label">Débito / Tarjetas</span>
+                          <div className="facturacion-card-val">{money(selectedDayData.facturacion.debito)}</div>
+                          <span className="facturacion-card-sub">Comprobantes posnet</span>
+                        </div>
+                        <div className="facturacion-card">
+                          <span className="facturacion-card-label">Transferencias</span>
+                          <div className="facturacion-card-val">{money(selectedDayData.facturacion.transferencia)}</div>
+                          <span className="facturacion-card-sub">Acreditaciones bancarias</span>
+                        </div>
+                        <div className="facturacion-card cash-card">
+                          <span className="facturacion-card-label cash">Efectivo Físico</span>
+                          <div className="facturacion-card-val cash">{money(selectedDayData.facturacion.efectivo)}</div>
+                          <span className="facturacion-card-sub" style={{ color: "#166534" }}>Recaudado en gaveta</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              ) : null}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 3: PLANILLA MENSUAL COMPLETA
+          ========================================================================= */}
+      {activeTab === "monthly" && (
+        <div>
+          <div className="cash-history-toolbar">
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <label>
+                Mes:
+                <select
+                  value={selMonth}
+                  onChange={(e) => setSelMonth(Number(e.target.value))}
+                >
+                  {MONTH_NAMES.map((name, idx) =>
+                    idx > 0 ? (
+                      <option key={idx} value={idx}>
+                        {name}
+                      </option>
+                    ) : null
+                  )}
+                </select>
+              </label>
+
+              <label>
+                Año:
+                <select
+                  value={selYear}
+                  onChange={(e) => setSelYear(Number(e.target.value))}
+                >
+                  {[2025, 2026, 2027].map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <button
+                type="button"
+                className="cash-btn-pdf"
+                onClick={downloadMonthlyPdf}
+                style={{ marginLeft: 8 }}
+              >
+                <Download size={15} />
+                Descargar Planilla Mensual (PDF A4)
+              </button>
+            </div>
+          </div>
+
+          {loadingMonthly ? (
+            <p style={{ textAlign: "center", padding: "40px", color: "#8c6e58" }}>
+              Cargando planilla mensual…
+            </p>
+          ) : !monthlyData || monthlyData.entries.length === 0 ? (
+            <div className="cash-banner-closed">
+              <h3>No hay movimientos registrados en {MONTH_NAMES[selMonth]} {selYear}</h3>
+              <p>Seleccioná otro mes o año para consultar la planilla histórica.</p>
+            </div>
+          ) : (
+            <div className="cash-sheet-container">
+              <div className="cash-sheet-titlebar">
+                <div>
+                  <h2>PLANILLA CAJA DIARIA</h2>
+                  <span className="cash-sheet-sub">
+                    CAFETERÍA NANIFER &nbsp;|&nbsp; <strong>MES: {monthlyData.monthName?.toUpperCase()} {monthlyData.year}</strong>
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <span style={{ fontSize: 13, color: "#624335" }}>
+                    {monthlyData.entries.length} turnos registrados · {monthlyData.salesCount} ventas
+                  </span>
+                  <button
+                    type="button"
+                    className="cash-btn-pdf"
+                    onClick={downloadMonthlyPdf}
+                  >
+                    <Download size={14} />
+                    Imprimir / PDF
+                  </button>
+                </div>
+              </div>
+
+              <div className="cash-ledger-wrapper">
+                <table className="cash-ledger-table">
+                  <thead>
+                    <tr>
+                      <th rowSpan={2} style={{ width: 100 }}>FECHA</th>
+                      <th rowSpan={2} style={{ textAlign: "left" }}>DETALLE</th>
+                      <th colSpan={2} style={{ width: 220 }}>INGRESOS</th>
+                      <th rowSpan={2} style={{ width: 120 }}>SALDO</th>
+                      <th rowSpan={2} style={{ width: 130 }}>FIRMA</th>
+                    </tr>
+                    <tr>
+                      <th className="subhead" style={{ width: 105 }}>EFECTIVO</th>
+                      <th className="subhead" style={{ width: 115 }}>TRANF. / DÉBITO</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyData.entries.map((item, idx) => (
+                      <tr key={`${item.id}-${idx}`} className="cash-shift-row">
+                        <td style={{ textAlign: "center", whiteSpace: "nowrap", fontSize: 13, fontWeight: 700, color: "#4a3429" }}>
+                          {item.dateStr}
+                        </td>
+                        <td className="cash-shift-detail-cell">
+                          <div className="shift-cell-content">
+                            <div className="shift-title-line">
+                              <span className="shift-name-prominent">
+                                {formatShiftTitle(item.detail)}
+                              </span>
+                              {item.shiftId && (
+                                <button
+                                  type="button"
+                                  className="btn-view-sales"
+                                  onClick={() => inspectShiftTickets(item.shiftId)}
+                                  title="Ver detalle de ventas y tickets de este turno"
+                                >
+                                  Ver ventas 🔍
+                                </button>
+                              )}
+                            </div>
+                            {item.salesCount > 0 && (
+                              <div className="shift-time-sub">
+                                <span>{item.salesCount} ventas registradas</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="cash-num-cell cash-val">
+                          {money(item.efectivo)}
+                        </td>
+                        <td className="cash-num-cell electronic-val">
+                          {money(item.electronicTotal)}
+                        </td>
+                        <td className="cash-num-cell saldo-val">
+                          {money(item.runningBalance)}
+                        </td>
+                        <td className="cash-signature-cell">
+                          <span className="moza-signature-tag">
+                            ✍️ {item.signature || "-"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {/* Totals Row */}
+                    <tr style={{ background: "#dfcfc2", fontWeight: 800 }}>
+                      <td style={{ textAlign: "center" }}>TOTALES</td>
+                      <td>Resumen mensual del período</td>
+                      <td style={{ textAlign: "right", color: "#15803d" }}>
+                        {money(monthlyData.totals?.incomes?.efectivo || 0)}
+                      </td>
+                      <td style={{ textAlign: "right", color: "#0369a1" }}>
+                        {money(
+                          (monthlyData.totals?.incomes?.transferencia || 0) +
+                          (monthlyData.totals?.incomes?.debito || 0) +
+                          (monthlyData.totals?.incomes?.qr || 0)
+                        )}
+                      </td>
+                      <td style={{ textAlign: "right", color: "#3d2314" }}>
+                        {money(monthlyData.totals?.finalBalance || 0)}
+                      </td>
+                      <td style={{ textAlign: "center" }}>NaniFer</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -995,10 +1355,43 @@ export default function CashDrawer() {
         <Modal title="🔓 Abrir Turno de Caja" onClose={() => !busy && setShowOpenModal(false)}>
           <form onSubmit={handleOpenShift}>
             <p>
-              Ingresá el fondo inicial de cambio en efectivo físico para arrancar el turno.
+              Seleccioná qué turno abrís e ingresá el fondo inicial de cambio en efectivo físico.
             </p>
 
             <label>
+              Turno que abrís:
+              <div className="shift-selector-pills">
+                {SHIFT_TYPES.map((tName) => (
+                  <button
+                    type="button"
+                    key={tName}
+                    className={`shift-pill ${openShiftType === tName ? "active" : ""}`}
+                    onClick={() => setOpenShiftType(tName)}
+                  >
+                    {tName}
+                  </button>
+                ))}
+              </div>
+            </label>
+
+            <label style={{ marginTop: 8 }}>
+              Moza / Responsable que abre la caja:
+              <MozaSelector
+                mozasList={mozasList}
+                selected={openResponsible}
+                onSelect={setOpenResponsible}
+                onAddMoza={handleAddMozaToList}
+              />
+              <input
+                type="text"
+                placeholder="O escribí el nombre si es otra persona..."
+                value={openResponsible}
+                onChange={(e) => setOpenResponsible(e.target.value)}
+                required
+              />
+            </label>
+
+            <label style={{ marginTop: 8 }}>
               Saldo Inicial de Efectivo en Gaveta ($)
               <input
                 type="number"
@@ -1029,7 +1422,7 @@ export default function CashDrawer() {
               Observación inicial (opcional)
               <input
                 type="text"
-                placeholder="Ej: Turno Mañana / Fondo entregado por Lucía"
+                placeholder="Ej: Fondo entregado por Lucía / Turno sin novedades"
                 value={openNotes}
                 onChange={(e) => setOpenNotes(e.target.value)}
                 maxLength={200}
@@ -1197,10 +1590,10 @@ export default function CashDrawer() {
         </Modal>
       )}
 
-      {/* 3. MODAL: FINALIZAR CIERRE DE CAJA (ARQUEO Y FIRMA) */}
+      {/* 3. MODAL: FINALIZAR CIERRE DE TURNO (ARQUEO Y FIRMA) */}
       {showCloseModal && (
         <Modal
-          title="🔒 Finalizar Cierre de Caja"
+          title={`🔒 Finalizar Cierre de ${shift?.shiftType || "Turno"}`}
           onClose={() => !busy && setShowCloseModal(false)}
         >
           <form onSubmit={handleCloseShift}>
@@ -1233,14 +1626,19 @@ export default function CashDrawer() {
 
             {/* Inputs */}
             <label>
-              Nombre y Apellido de la Moza Responsable (Firma) *
+              Nombre de la Moza Responsable (Firma) *
+              <MozaSelector
+                mozasList={mozasList}
+                selected={closeResponsible}
+                onSelect={setCloseResponsible}
+                onAddMoza={handleAddMozaToList}
+              />
               <input
                 type="text"
-                placeholder="Ej: Lucía Romero"
+                placeholder="O escribí el nombre si es otra persona..."
                 value={closeResponsible}
                 onChange={(e) => setCloseResponsible(e.target.value)}
                 required
-                autoFocus
               />
             </label>
 
@@ -1321,88 +1719,53 @@ export default function CashDrawer() {
         </Modal>
       )}
 
-      {/* 4. MODAL: VER DETALLE DE TURNO PASADO */}
-      {viewingPastShift && (
+      {/* 4. MODAL: AUDITORÍA DE TICKETS Y VENTAS DE UN TURNO */}
+      {inspectingShift && (
         <Modal
-          title={`📋 Cierre de Turno · ${formatDateTimeShort(viewingPastShift.shift.closedAt || viewingPastShift.shift.openedAt)}`}
-          onClose={() => setViewingPastShift(null)}
+          title={`🔍 Auditoría de Ventas · ${inspectingShift.shift?.shiftType || "Turno"} (${formatDateTimeShort(inspectingShift.shift?.openedAt)})`}
+          onClose={() => setInspectingShift(null)}
           className="combo-modal-fullscreen"
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div>
-              <p style={{ margin: 0, fontSize: 13.5, color: "#553c30" }}>
-                Responsable del cierre: <strong>{viewingPastShift.shift.closedByName || "Personal"}</strong> ·
-                Apertura: {formatDateTimeShort(viewingPastShift.shift.openedAt)} ({viewingPastShift.shift.openedByName})
-              </p>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#8c6e58" }}>
-                Fondo inicial: {money(viewingPastShift.totals.initialCash)} ·
-                Esperado: {money(viewingPastShift.totals.expectedCash)} ·
-                Contado: {money(viewingPastShift.shift.countedCash)} ·
-                Diferencia: <strong>{viewingPastShift.shift.difference === 0 ? "Sin diferencia ($0)" : money(viewingPastShift.shift.difference)}</strong>
-              </p>
-            </div>
-            <button
-              type="button"
-              className="cash-btn-pdf"
-              onClick={() => downloadShiftPdf(viewingPastShift.shift.id)}
-            >
-              <Download size={15} />
-              Descargar PDF A4
-            </button>
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ margin: 0, fontSize: 13.5, color: "#553c30" }}>
+              Responsable: <strong>{inspectingShift.shift?.closedByName || inspectingShift.shift?.openedByName || "Personal"}</strong> ·
+              Total Ventas: <strong>{money(inspectingShift.totals?.incomes?.total || inspectingShift.totals?.totalSales || 0)}</strong> ·
+              Efectivo: <strong>{money(inspectingShift.totals?.incomes?.efectivo || 0)}</strong> ·
+              Electrónico: <strong>{money((inspectingShift.totals?.incomes?.total || 0) - (inspectingShift.totals?.incomes?.efectivo || 0))}</strong>
+            </p>
           </div>
 
-          <div className="cash-ledger-wrapper">
+          <div className="cash-ledger-wrapper" style={{ maxHeight: 420, overflowY: "auto" }}>
             <table className="cash-ledger-table">
               <thead>
                 <tr>
-                  <th rowSpan={2} style={{ width: 100 }}>FECHA / HORA</th>
-                  <th rowSpan={2} style={{ textAlign: "left" }}>DETALLE</th>
-                  <th colSpan={2} style={{ width: 220 }}>INGRESOS</th>
-                  <th rowSpan={2} style={{ width: 120 }}>SALDO</th>
-                  <th rowSpan={2} style={{ width: 130 }}>FIRMA</th>
-                </tr>
-                <tr>
-                  <th className="subhead" style={{ width: 105 }}>EFECTIVO</th>
-                  <th className="subhead" style={{ width: 115 }}>TRANF. / DÉBITO</th>
+                  <th style={{ width: 110 }}>HORA</th>
+                  <th style={{ textAlign: "left" }}>DETALLE VENTA / MOVIMIENTO</th>
+                  <th style={{ width: 110 }}>EFECTIVO</th>
+                  <th style={{ width: 130 }}>TRANF. / DÉBITO</th>
+                  <th style={{ width: 110 }}>SALDO</th>
                 </tr>
               </thead>
               <tbody>
-                {(viewingPastShift.entries || []).map((item, idx) => (
-                  <tr key={`${item.id}-${idx}`}>
+                {(inspectingShift.entries || []).map((it, idx) => (
+                  <tr key={`${it.id}-${idx}`}>
                     <td style={{ textAlign: "center", fontSize: 11.5 }}>
-                      {formatDateTimeShort(item.createdAt)}
+                      {formatDateTimeShort(it.createdAt)}
                     </td>
-                    <td>{item.detail}</td>
-                    <td style={{ textAlign: "right" }}>
-                      {item.isExpense ? (
-                        item.expenseMethod === "efectivo" ? (
-                          <span style={{ color: "#b91c1c" }}>-{money(item.expenseAmount)}</span>
-                        ) : (
-                          "-"
-                        )
-                      ) : item.efectivo > 0 ? (
-                        money(item.efectivo)
-                      ) : (
-                        "-"
-                      )}
+                    <td>{it.detail}</td>
+                    <td style={{ textAlign: "right", color: it.efectivo > 0 ? "#15803d" : "#2b221b" }}>
+                      {it.isExpense ? (
+                        it.expenseMethod === "efectivo" ? `-${money(it.expenseAmount)}` : "-"
+                      ) : it.efectivo > 0 ? money(it.efectivo) : "-"}
                     </td>
-                    <td style={{ textAlign: "right" }}>
-                      {item.isExpense ? (
-                        item.expenseMethod !== "efectivo" ? (
-                          <span style={{ color: "#b91c1c" }}>-{money(item.expenseAmount)}</span>
-                        ) : (
-                          "-"
-                        )
-                      ) : (item.transferencia + item.debito + item.qr) > 0 ? (
-                        money(item.transferencia + item.debito + item.qr)
-                      ) : (
-                        "-"
-                      )}
+                    <td style={{ textAlign: "right", color: "#0369a1" }}>
+                      {it.isExpense ? (
+                        it.expenseMethod !== "efectivo" ? `-${money(it.expenseAmount)}` : "-"
+                      ) : (it.transferencia + it.debito + it.qr) > 0 ? money(it.transferencia + it.debito + it.qr) : "-"}
                     </td>
                     <td style={{ textAlign: "right", fontWeight: 700 }}>
-                      {money(item.runningBalance)}
+                      {money(it.runningBalance)}
                     </td>
-                    <td style={{ textAlign: "center" }}>{item.signature || "-"}</td>
                   </tr>
                 ))}
               </tbody>
