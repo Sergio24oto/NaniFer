@@ -205,7 +205,7 @@ def build_shift_pdf(summary_data):
         except Exception:
             logo_img = None
 
-    title_p = Paragraph("CAFETERÍA NANIFER · PLANILLA CAJA DIARIA", styles["SheetTitle"])
+    title_p = Paragraph("NANIFER · PLANILLA CAJA DIARIA", styles["SheetTitle"])
     shift_id_short = (shift.get("id") or "")[:8].upper()
     opened_date = format_date_only(shift.get("openedAt"))
     sub_p = Paragraph(f"CIERRE DE TURNO #{shift_id_short} — FECHA: {opened_date}", styles["SheetSubtitle"])
@@ -240,7 +240,7 @@ def build_shift_pdf(summary_data):
     meta_right = [
         [p_cell("Saldo Inicial de Caja:", "MetaLabel", styles), p_cell(money(totals.get("initialCash", 0)), "TdBoldRight", styles)],
         [p_cell("Total Ingresos (Todos los medios):", "MetaLabel", styles), p_cell(money(incomes.get("total", 0)), "TdBoldRight", styles)],
-        [p_cell("Efectivo Esperado en Gaveta:", "MetaLabel", styles), p_cell(money(totals.get("expectedCash", 0)), "TdBoldRight", styles)],
+        [p_cell("Efectivo Esperado en Caja:", "MetaLabel", styles), p_cell(money(totals.get("expectedCash", 0)), "TdBoldRight", styles)],
         [p_cell("Efectivo Contado Físicamente:", "MetaLabel", styles), p_cell(money(shift.get("countedCash")) if shift.get("countedCash") is not None else "Pendiente", "TdBoldRight", styles)],
     ]
 
@@ -455,7 +455,7 @@ def build_day_pdf(day_data):
         except Exception:
             logo_img = None
 
-    title_p = Paragraph("CAFETERÍA NANIFER · PLANILLA CAJA DIARIA", styles["SheetTitle"])
+    title_p = Paragraph("NANIFER · PLANILLA CAJA DIARIA", styles["SheetTitle"])
     sub_p = Paragraph(f"JORNADA: <b>{date_fmt} {year}</b> &nbsp;|&nbsp; RENDICIÓN POR TURNOS", styles["SheetSubtitle"])
 
     if logo_img:
@@ -659,7 +659,7 @@ def build_monthly_pdf(monthly_data):
             logo_img = None
 
     title_p = Paragraph("PLANILLA CAJA DIARIA", styles["SheetTitle"])
-    sub_p = Paragraph(f"CAFETERÍA NANIFER &nbsp;&nbsp;|&nbsp;&nbsp; <b>MES:</b> {month_name} {year}", styles["SheetSubtitle"])
+    sub_p = Paragraph(f"NANIFER &nbsp;&nbsp;|&nbsp;&nbsp; <b>MES:</b> {month_name} {year}", styles["SheetSubtitle"])
 
     if logo_img:
         hdr_table = Table([[logo_img, [title_p, sub_p], ""]], colWidths=[66, 403, 66])

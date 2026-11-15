@@ -745,7 +745,7 @@ export default function CashDrawer() {
                     <strong style={{ color: "#b91c1c" }}>-{money(totals?.expenses?.efectivo || 0)}</strong>
                   </div>
                   <div className="cash-summary-row highlight-cash">
-                    <span>SALDO ESPERADO GAVETA:</span>
+                    <span>SALDO ESPERADO EN EFECTIVO:</span>
                     <span>{money(totals?.expectedCash || 0)}</span>
                   </div>
                   <small style={{ fontSize: 11, color: "#8c6e58", marginTop: 4, display: "block" }}>
@@ -759,7 +759,7 @@ export default function CashDrawer() {
                 <div className="cash-sheet-container">
                   <div className="cash-sheet-titlebar">
                     <div>
-                      <h2>CAFETERÍA NANIFER · PLANILLA DEL DÍA (HOY)</h2>
+                      <h2>NANIFER · PLANILLA DEL DÍA (HOY)</h2>
                       <span className="cash-sheet-sub">
                         Jornada: <strong>{todaySummary.dateFormatted}</strong> · Rendición acumulada de los turnos de hoy
                       </span>
@@ -858,7 +858,7 @@ export default function CashDrawer() {
                         {/* Totals row */}
                         <tr className="cash-totals-row">
                           <td colSpan={2} className="cash-totals-label">
-                            TOTAL HOY · Rendición Consolidada de la Jornada
+                            TOTAL HOY · Rendición de hoy
                           </td>
                           <td className="cash-num-cell cash-val totals">
                             {money(todaySummary.totals?.totalEfectivo || 0)}
@@ -884,9 +884,6 @@ export default function CashDrawer() {
                         <strong style={{ color: "#43281c", fontSize: 14 }}>
                           🧾 Desglose para Facturación (Hoy)
                         </strong>
-                        <span style={{ fontSize: 12, color: "#8c6e58" }}>
-                          Valores discriminados por medio electrónico
-                        </span>
                       </div>
                       <div className="facturacion-grid">
                         <div className="facturacion-card">
@@ -907,7 +904,7 @@ export default function CashDrawer() {
                         <div className="facturacion-card cash-card">
                           <span className="facturacion-card-label cash">Efectivo Físico</span>
                           <div className="facturacion-card-val cash">{money(todaySummary.facturacion.efectivo)}</div>
-                          <span className="facturacion-card-sub" style={{ color: "#166534" }}>Recaudado en gaveta</span>
+                          <span className="facturacion-card-sub" style={{ color: "#166534" }}>Recaudado en efectivo</span>
                         </div>
                       </div>
                     </div>
@@ -1025,7 +1022,7 @@ export default function CashDrawer() {
                       </span>
                       <h2>{selectedDayData.dateFormatted} ({selectedDayData.shiftsCount} Turnos)</h2>
                       <span className="cash-sheet-sub">
-                        Cafetería NaniFer · Rendición cerrada y firmada por cada moza
+                        NaniFer · Rendición del día
                       </span>
                     </div>
 
@@ -1140,9 +1137,6 @@ export default function CashDrawer() {
                         <strong style={{ color: "#43281c", fontSize: 14.5 }}>
                           🧾 Desglose para Facturación de la Dueña ({selectedDayData.dateFormatted})
                         </strong>
-                        <span style={{ fontSize: 12, color: "#8c6e58" }}>
-                          Valores discriminados listos para emitir comprobantes fiscales
-                        </span>
                       </div>
                       <div className="facturacion-grid">
                         <div className="facturacion-card">
@@ -1163,7 +1157,7 @@ export default function CashDrawer() {
                         <div className="facturacion-card cash-card">
                           <span className="facturacion-card-label cash">Efectivo Físico</span>
                           <div className="facturacion-card-val cash">{money(selectedDayData.facturacion.efectivo)}</div>
-                          <span className="facturacion-card-sub" style={{ color: "#166534" }}>Recaudado en gaveta</span>
+                          <span className="facturacion-card-sub" style={{ color: "#166534" }}>Recaudado en efectivo</span>
                         </div>
                       </div>
                     </div>
@@ -1239,7 +1233,7 @@ export default function CashDrawer() {
                 <div>
                   <h2>PLANILLA CAJA DIARIA</h2>
                   <span className="cash-sheet-sub">
-                    CAFETERÍA NANIFER &nbsp;|&nbsp; <strong>MES: {monthlyData.monthName?.toUpperCase()} {monthlyData.year}</strong>
+                    NANIFER &nbsp;|&nbsp; <strong>MES: {monthlyData.monthName?.toUpperCase()} {monthlyData.year}</strong>
                   </span>
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -1392,7 +1386,7 @@ export default function CashDrawer() {
             </label>
 
             <label style={{ marginTop: 8 }}>
-              Saldo Inicial de Efectivo en Gaveta ($)
+              Saldo Inicial de Efectivo en Caja ($)
               <input
                 type="number"
                 min="0"
@@ -1537,7 +1531,7 @@ export default function CashDrawer() {
             </label>
             {moveMethod !== "efectivo" && (
               <small style={{ color: "#8c6e58", display: "block", marginBottom: 10 }}>
-                ℹ️ Al ser {moveMethod}, no descuenta el efectivo físico de la gaveta.
+                ℹ️ Al ser {moveMethod}, no descuenta el efectivo físico de la caja.
               </small>
             )}
 
@@ -1598,7 +1592,7 @@ export default function CashDrawer() {
         >
           <form onSubmit={handleCloseShift}>
             <p>
-              Revisá los importes acumulados y contá físicamente el dinero de la gaveta antes de cerrar.
+              Revisá los importes acumulados y contá físicamente el dinero en efectivo antes de cerrar.
             </p>
 
             {/* Arqueo breakdown card */}
