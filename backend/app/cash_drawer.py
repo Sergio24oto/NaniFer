@@ -407,7 +407,7 @@ def build_monthly_ledger(db, month: int, year: int):
         tr_val = float(t["incomes"]["transferencia"] + t["incomes"]["debito"] + t["incomes"]["qr"])
         # In administrative sheet, SALDO is the turn's total: Efectivo + Transf./Débito
         sal_val = ef_val + tr_val
-        sig_val = s.closed_by_name or getattr(s, "opened_by_name", None) or "Personal"
+        sig_val = getattr(s, "opened_by_name", None) or s.closed_by_name or "Personal"
 
         all_entries.append({
             "id": s.id,
@@ -506,10 +506,10 @@ def build_day_summary(db, target_date):
         tot_sales_count += t["salesCount"]
 
         sig = (
-            s.closed_by_name
-            or getattr(s, "opened_by_name", None)
-            or users.get(s.closed_by)
+            getattr(s, "opened_by_name", None)
+            or s.closed_by_name
             or users.get(s.opened_by)
+            or users.get(s.closed_by)
             or "Personal"
         )
 

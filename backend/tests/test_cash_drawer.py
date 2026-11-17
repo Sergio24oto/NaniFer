@@ -147,6 +147,10 @@ def test_cash_drawer_workflow_and_auto_sales(fixture):
     m_json = m_res.json()
     assert m_json['month'] == now_dt.month
     assert len(m_json['entries']) >= 1
+    # Signature in spreadsheet entries must preserve the moza who opened the shift ('Sofía')
+    target_entry = next((e for e in m_json['entries'] if e.get('shiftId') == shift_id), None)
+    assert target_entry is not None
+    assert target_entry['signature'] == 'Sofía'
 
     m_pdf_res = c.get(f'/api/cash-drawer/monthly-sheet/export.pdf?month={now_dt.month}&year={now_dt.year}')
     assert m_pdf_res.status_code == 200
@@ -166,8 +170,11 @@ def test_cash_drawer_workflow_and_auto_sales(fixture):
     assert day_detail.status_code == 200
     day_json = day_detail.json()
     assert day_json['date'] == target_date
-    day_shift = day_json['shifts'][0]
+    day_shift = next((sh for sh in day_json['shifts'] if sh['shiftId'] == shift_id), None)
+    assert day_shift is not None
     assert day_shift['saldo'] == day_shift['efectivo'] + day_shift['electronicTotal']
+    # Signature in day sheet must preserve the moza who opened the shift ('Sofía')
+    assert day_shift['signature'] == 'Sofía'
 
     day_pdf_res = c.get(f'/api/cash-drawer/days/{target_date}/export.pdf')
     assert day_pdf_res.status_code == 200

@@ -234,8 +234,8 @@ export default function CashDrawer() {
     try {
       const res = await request("/cash-drawer/current");
       setData(res);
-      if (res?.active && !closeResponsible) {
-        setCloseResponsible(s.user?.name || "");
+      if (res?.active) {
+        setCloseResponsible(res?.shift?.openedByName || "");
       }
     } catch (e) {
       setError(e.message || "Error al consultar estado de caja");
@@ -378,7 +378,7 @@ export default function CashDrawer() {
   async function handleCloseShift(e) {
     e.preventDefault();
     if (busy) return;
-    const respName = closeResponsible.trim() || s.user?.name || "Personal";
+    const respName = closeResponsible.trim() || shift?.openedByName || "Personal";
     setBusy(true);
     setError("");
     try {
@@ -663,7 +663,7 @@ export default function CashDrawer() {
                   className="cash-btn-close"
                   onClick={() => {
                     setCloseCounted(String(totals?.expectedCash || ""));
-                    setCloseResponsible(shift?.openedByName || s.user?.name || "Sofía");
+                    setCloseResponsible(shift?.openedByName || "");
                     setShowCloseModal(true);
                   }}
                 >
