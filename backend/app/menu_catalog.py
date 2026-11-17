@@ -115,6 +115,7 @@ def management(db=Depends(get_db), auth=Depends(admin)):
                 manageStock=p.stock_mode == 'unit',
                 sizes=p.sizes or [],
                 flavorOptions=p.flavor_options or [],
+                preparationOptions=getattr(p, "preparation_options", None) or [],
                 comboConfig=p.combo_config or {},
                 extras=p.extras or [],
             )
@@ -392,6 +393,7 @@ class ProductIn(StrictModel):
     manageStock: bool | None = None
     sizes: list = Field(default_factory=list)
     flavorOptions: list[str] = Field(default_factory=list)
+    preparationOptions: list[str] = Field(default_factory=list)
     comboConfig: dict | None = None
     extras: list = Field(default_factory=list)
 
@@ -418,6 +420,7 @@ def apply_product(db, p, data: ProductIn):
     p.sort_order = data.order
     p.sizes = data.sizes
     p.flavor_options = [opt.strip() for opt in data.flavorOptions if opt.strip()]
+    p.preparation_options = [opt.strip() for opt in data.preparationOptions if opt.strip()]
     if data.comboConfig is not None:
         p.combo_config = data.comboConfig
     if data.extras is not None:
@@ -439,7 +442,7 @@ def create_product(data: ProductIn, key: str = Header(alias='Idempotency-Key'), 
     def save():
         if db.scalar(select(Product.id).where(Product.name == data.name, Product.category_id == data.categoryId, Product.archived == False)):
             fail('Ya existe este producto en la categoría. Editalo desde la lista.', 409)
-        p = Product(id=uid(), public_categories=[], sizes=[], extras=[], cone_links={}, in_menu=data.inMenu, combo_config={})
+        p = Product(id=uid(), public_categories=[], sizes=[], extras=[], cone_links={}, in_menu=data.inMenu, combo_config={}, preparation_options=[])
         apply_product(db, p, data)
         db.add(p)
         db.flush()

@@ -56,6 +56,10 @@ def ensure_schema():
                 conn.execute(text("ALTER TABLE products ADD COLUMN flavor_options JSON NULL"))
                 conn.execute(text("UPDATE products SET flavor_options = '[]' WHERE flavor_options IS NULL"))
                 logging.info("Added missing column flavor_options to products table.")
+            if 'preparation_options' not in cols:
+                conn.execute(text("ALTER TABLE products ADD COLUMN preparation_options JSON NULL"))
+                conn.execute(text("UPDATE products SET preparation_options = '[]' WHERE preparation_options IS NULL"))
+                logging.info("Added missing column preparation_options to products table.")
             if 'in_menu' not in cols:
                 conn.execute(text("ALTER TABLE products ADD COLUMN in_menu BOOLEAN NOT NULL DEFAULT 1"))
                 conn.execute(text("UPDATE products SET in_menu = 1 WHERE in_menu IS NULL"))
@@ -201,6 +205,17 @@ def ensure_schema():
 
             from .services import ensure_recarga_virtual
             ensure_recarga_virtual(db)
+
+            # Licuados preparation & flavor options seed check
+            try:
+                for lic in db.scalars(select(Product).where(Product.name.ilike("%licuado%"))):
+                    if not lic.flavor_options:
+                        lic.flavor_options = ["Banana", "Frutilla", "Durazno", "Mixto"]
+                    if not getattr(lic, "preparation_options", None):
+                        lic.preparation_options = ["Con leche", "Con agua"]
+                db.commit()
+            except Exception as ex:
+                logging.warning("Licuado seed bypassed: %s", ex)
     except Exception as e:
         logging.error("Initial seed/user check failed: %s", e)
 
@@ -276,6 +291,7 @@ def catalog(db=Depends(get_db), auth=Depends(current_session)):
                 "sizes": catalog_availability(p, stock)[1],
                 "extras": p.extras,
                 "flavorOptions": p.flavor_options or [],
+                "preparationOptions": getattr(p, "preparation_options", None) or [],
                 "comboConfig": p.combo_config or {},
                 "inMenu": p.in_menu,
                 "order": p.sort_order,

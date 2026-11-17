@@ -320,4 +320,105 @@ def test_combo_product_extras_and_coffee_upgrade(fixture):
         assert item.unit_price == Decimal('5700')
 
 
+def test_product_preparation_options_and_licuado_order(fixture):
+    f = fixture
+    c = f['client']
+    with SessionLocal() as db:
+        db.get(User, f['user_id']).role = 'admin'
+        db.commit()
+        cat = db.get(Product, f['product']).category_id
+
+    # Create product with preparationOptions
+    prod_body = dict(
+        name='Licuado Especial ' + key(),
+        description='Fruta fresca',
+        categoryId=cat,
+        price='6500',
+        available=True,
+        flavorOptions=['Banana', 'Frutilla', 'Durazno'],
+        preparationOptions=['Con leche', 'Con agua'],
+    )
+    r = c.post('/api/menu-management/products', json=prod_body, headers={'Idempotency-Key': key()})
+    assert r.status_code == 200
+    pid = r.json()['id']
+    f['product_ids'].append(pid)
+
+    # Check catalog response
+    cat_prods = c.get('/api/catalog').json()['products']
+    found = next((p for p in cat_prods if p['id'] == pid), None)
+    assert found is not None
+    assert found['preparationOptions'] == ['Con leche', 'Con agua']
+    assert found['flavorOptions'] == ['Banana', 'Frutilla', 'Durazno']
+
+    # Order this licuado with flavor Banana and preparation Con leche
+    v = open_visit(f)
+    order_body = {
+        'expectedAccount': v,
+        'items': [
+            {
+                'productId': pid,
+                'size': '',
+                'flavors': ['Banana'],
+                'extras': [],
+                'preparation': 'Con leche',
+                'notes': 'Bien frío',
+                'quantity': 1,
+            }
+        ]
+    }
+    r_order = c.post('/api/visits/' + v + '/orders', json=order_body, headers={'Idempotency-Key': key()})
+    assert r_order.status_code == 200
+    order_id = r_order.json()['id']
+    with SessionLocal() as db:
+        item = db.scalar(select(OrderItem).where(OrderItem.order_id == order_id))
+        assert item.unit_price == Decimal('6500')
+        assert item.snapshot.get('preparation') == 'Con leche'
+        assert 'Con leche' in item.snapshot.get('notes', '')
+
+
+def test_ice_cream_bano_chocolate_addon(fixture):
+    f = fixture
+    c = f['client']
+    with SessionLocal() as db:
+        # Set price for BAÑO DE CHOCOLATE
+        bano = db.scalar(select(Product).where(Product.name.ilike('%baño de chocolate%'), Product.archived == False))
+        if not bano:
+            bano = db.get(Product, 'hel-bano-chocolate')
+        if bano:
+            bano.price = Decimal('800')
+            db.commit()
+
+        # Find or create a bocha ice cream product
+        hel = db.scalar(select(Product).where(Product.name.ilike('%1 bocha%'), Product.archived == False))
+        if not hel:
+            hel = db.get(Product, 'hel-1-bocha')
+        assert hel is not None
+        hel_id = hel.id
+        hel_base_price = hel.price
+
+    v = open_visit(f)
+    order_body = {
+        'expectedAccount': v,
+        'items': [
+            {
+                'productId': hel_id,
+                'size': '',
+                'flavors': [],
+                'extras': ['Baño de chocolate'],
+                'notes': '',
+                'quantity': 2,
+            }
+        ]
+    }
+    r_order = c.post('/api/visits/' + v + '/orders', json=order_body, headers={'Idempotency-Key': key()})
+    assert r_order.status_code == 200
+    order_id = r_order.json()['id']
+    with SessionLocal() as db:
+        item = db.scalar(select(OrderItem).where(OrderItem.order_id == order_id))
+        expected_unit = hel_base_price + Decimal('800')
+        assert item.unit_price == expected_unit
+        assert 'Baño de chocolate' in item.snapshot.get('extras', [])
+
+
+
 

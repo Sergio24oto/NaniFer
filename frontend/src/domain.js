@@ -27,6 +27,7 @@ export function itemInput(i) {
     size: i.size || "",
     flavors: i.flavors || [],
     extras: i.extras || [],
+    preparation: i.preparation || "",
     notes: i.notes || "",
     quantity: i.quantity,
   };
@@ -35,14 +36,48 @@ export function itemInput(i) {
   }
   return obj;
 }
-export function estimate(p, size, extras) {
+export function isIceCreamProduct(p) {
+  if (!p) return false;
+  const name = (p.name || "").toLowerCase();
+  const id = (p.id || "").toLowerCase();
+  const cat = (p.category || "").toLowerCase();
   return (
-    (p.sizes?.find((s) => s.name === size)?.salePrice != null ? Number(p.sizes.find(s=>s.name===size).salePrice) : p.price + (p.sizes?.find((s) => s.name === size)?.price || 0)) +
-    (extras || []).reduce(
-      (n, e) => n + (p.extras?.find((x) => x.name === e)?.price || 0),
-      0,
-    )
+    cat.includes("helado") ||
+    id.startsWith("hel-") ||
+    name.includes("bocha") ||
+    name.includes("capelina") ||
+    name.includes("cucurucho") ||
+    name.includes("sundae") ||
+    name.includes("lanchita")
   );
+}
+export function getIceCreamMaxFlavors(p) {
+  if (!p) return 0;
+  const name = (p.name || "").toLowerCase();
+  const id = (p.id || "").toLowerCase();
+  if (name.includes("1 bocha") || id === "hel-1-bocha") return 1;
+  if (name.includes("2 bochas") || id === "hel-2-bochas") return 2;
+  if (name.includes("3 bochas") || id === "hel-3-bochas") return 3;
+  if (name.includes("capelina") || id.includes("capelina")) return 2;
+  if (name.includes("1kg") || id === "hel-1kg") return 4;
+  if (name.includes("1/2kg") || id === "hel-medio-kg") return 3;
+  if (name.includes("1/4kg") || id === "hel-cuarto-kg") return 2;
+  if (name.includes("lanchita") || id === "hel-lanchita") return 3;
+  if (name.includes("sundae") || id === "hel-sundae") return 2;
+  return 0;
+}
+export function estimate(p, size, extras, extraPrices = {}) {
+  const base =
+    p.sizes?.find((s) => s.name === size)?.salePrice != null
+      ? Number(p.sizes.find((s) => s.name === size).salePrice)
+      : (p.price || 0) + (p.sizes?.find((s) => s.name === size)?.price || 0);
+  const extrasCost = (extras || []).reduce((n, e) => {
+    const known = p.extras?.find((x) => x.name === e)?.price;
+    if (known != null) return n + Number(known);
+    if (extraPrices && extraPrices[e] != null) return n + Number(extraPrices[e]);
+    return n;
+  }, 0);
+  return base + extrasCost;
 }
 // crypto.getRandomValues also works on a LAN HTTP origin (randomUUID may not).
 export function operationId() {

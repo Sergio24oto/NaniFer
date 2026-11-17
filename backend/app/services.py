@@ -196,6 +196,31 @@ def priced_item(db, item, *, require_flavors=True):
             if any(f not in available for f in item.flavors):
                 fail("Sabor agotado.", 422)
     extras = {e["name"]: e for e in p.extras}
+
+    # Support Baño de Chocolate extra for helados / capelinas / bochas
+    p_name_lower = (p.name or "").lower()
+    p_id_lower = (p.id or "").lower()
+    is_ice_cream = (
+        "bocha" in p_name_lower
+        or "capelina" in p_name_lower
+        or "cucurucho" in p_name_lower
+        or "hel-" in p_id_lower
+    )
+    if is_ice_cream:
+        bano_prod = db.scalar(
+            select(Product).where(
+                (Product.name.ilike("%baño de chocolate%") | Product.name.ilike("%bano de chocolate%") | (Product.id == "hel-bano-chocolate")),
+                Product.archived == False
+            ).limit(1)
+        )
+        bano_price = bano_prod.price if bano_prod and bano_prod.price is not None else Decimal(0)
+        for extra_item in item.extras:
+            clean_extra = extra_item.strip().lower()
+            if "baño de chocolate" in clean_extra or "bano de chocolate" in clean_extra:
+                extras[extra_item] = {"name": extra_item, "price": bano_price}
+        extras.setdefault("Baño de chocolate", {"name": "Baño de chocolate", "price": bano_price})
+        extras.setdefault("BAÑO DE CHOCOLATE", {"name": "BAÑO DE CHOCOLATE", "price": bano_price})
+
     if is_combo:
         upgrade_coffee = (p.combo_config or {}).get("upgradeCoffee", {})
         if upgrade_coffee.get("enabled", True):
@@ -221,6 +246,11 @@ def priced_item(db, item, *, require_flavors=True):
         Decimal(str(size['salePrice'])) if size and size.get('salePrice') is not None else p.price + Decimal(str((size or {}).get("price", 0)))
     ) + sum((Decimal(str(extras[e]["price"])) for e in item.extras), Decimal(0))
     snapshot = item.model_dump(mode="json")
+    if getattr(item, "preparation", None):
+        prep_text = str(item.preparation).strip()
+        if prep_text and prep_text not in (snapshot.get("notes") or ""):
+            existing_notes = (snapshot.get("notes") or "").strip()
+            snapshot["notes"] = f"{prep_text} | {existing_notes}" if existing_notes else prep_text
     snapshot.update(name=p.name)
     return snapshot, price
 

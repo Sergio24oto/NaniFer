@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Modal } from "../components";
-import { money, estimate } from "../domain";
+import { money, estimate, isIceCreamProduct, getIceCreamMaxFlavors } from "../domain";
 import { useStore } from "../store";
 
 export function isCoffeeOption(optionName) {
@@ -46,6 +46,23 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   const [quantity, setQuantity] = useState(1);
   const [flavorCounts, setFlavorCounts] = useState({});
 
+  const isIceCream = isIceCreamProduct(p);
+  const selectedSizeObj = p.sizes?.find((s) => s.name === size);
+  const max = selectedSizeObj?.max;
+  const iceCreamMax = max || getIceCreamMaxFlavors(p);
+
+  const banoChocolateProduct = (catalog.products || []).find(
+    (item) =>
+      item.id === "hel-bano-chocolate" ||
+      (item.name || "").toLowerCase().includes("baño de chocolate") ||
+      (item.name || "").toLowerCase().includes("bano de chocolate")
+  );
+  const banoChocolatePrice = banoChocolateProduct?.price != null ? Number(banoChocolateProduct.price) : 0;
+  const [chocolateDip, setChocolateDip] = useState(false);
+
+  const prepOptions = p.preparationOptions || [];
+  const [selectedPrep, setSelectedPrep] = useState(prepOptions.length === 1 ? prepOptions[0] : "");
+
   const isCombo = Boolean(p.comboConfig?.is_combo && p.comboConfig.steps?.length > 0);
   const comboSteps = isCombo ? p.comboConfig.steps : [];
 
@@ -60,10 +77,10 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
 
   const [upgradeCoffee, setUpgradeCoffee] = useState(false);
 
-  const selectedSizeObj = p.sizes?.find((s) => s.name === size);
-  const max = selectedSizeObj?.max;
+  const effectiveExtras = chocolateDip ? [...extras, "Baño de chocolate"] : extras;
+  const extraPricesMap = { "Baño de chocolate": banoChocolatePrice };
   const comboCoffeeExtra = (isCombo && upgradeCoffee && isCoffeeUpgradeEnabled) ? coffeeUpgradePrice : 0;
-  const unit = estimate(p, size, extras) + comboCoffeeExtra;
+  const unit = estimate(p, size, effectiveExtras, extraPricesMap) + comboCoffeeExtra;
   const toggle = (v, list, set) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
@@ -105,8 +122,9 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   const missingFlavorOption =
     requiresFlavorOption && totalSelectedFlavors < totalUnitsNeeded;
 
-  const requiresIceCreamFlavors = !manual && !productFlavors.length && max;
+  const requiresIceCreamFlavors = !manual && !productFlavors.length && iceCreamMax;
   const missingIceCreamFlavors = requiresIceCreamFlavors && !chosen.length;
+  const missingPreparation = prepOptions.length > 0 && !selectedPrep;
 
   const updateQuantity = (newQty) => {
     const q = Math.max(1, Math.min(99, newQty));
@@ -121,6 +139,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
     p.sizes &&
     p.sizes.length > 1 &&
     !isCombo &&
+    !isIceCream &&
     !requiresFlavorOption &&
     !Boolean(!manual && !productFlavors.length && p.sizes.some(s => s.max && s.max > 0))
   );
@@ -234,6 +253,9 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
       const pluralWord = isEmpanada ? "empanadas" : "unidades";
       return `Faltan ${remaining} ${remaining === 1 ? unitWord : pluralWord} · ${money(unit * quantity)}`;
     }
+    if (missingPreparation) {
+      return `Elegí si es con agua o con leche · ${money(unit * quantity)}`;
+    }
     if (missingIceCreamFlavors) {
       return `Elegí los sabores · ${money(unit * quantity)}`;
     }
@@ -241,6 +263,11 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   };
 
   const handleAdd = () => {
+    let finalNotes = notes.trim();
+    if (selectedPrep) {
+      finalNotes = finalNotes ? `${selectedPrep} | ${finalNotes}` : selectedPrep;
+    }
+
     if (isCombo) {
       const summaryParts = [];
       for (const step of comboSteps) {
@@ -259,7 +286,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
         }
       }
       const comboSummary = summaryParts.join(' · ');
-      const finalNotes = [comboSummary, notes.trim()].filter(Boolean).join(' | ');
+      const comboFinalNotes = [comboSummary, finalNotes].filter(Boolean).join(' | ');
 
       const comboExtras = (upgradeCoffee && isCoffeeUpgradeEnabled)
         ? [`${coffeeUpgradeLabel} (+${money(coffeeUpgradePrice)})`]
@@ -271,9 +298,10 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
         size: defaultSize || p.sizes?.[0]?.name || "",
         flavors: [],
         extras: comboExtras,
+        preparation: selectedPrep,
         comboSelections,
         upgradeCoffee: upgradeCoffee && isCoffeeUpgradeEnabled,
-        notes: finalNotes,
+        notes: comboFinalNotes,
         quantity,
         unitPrice: unit,
       });
@@ -288,10 +316,11 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           name: p.name,
           size: szName,
           flavors: chosen,
-          extras,
-          notes,
+          extras: effectiveExtras,
+          preparation: selectedPrep,
+          notes: finalNotes,
           quantity: count,
-          unitPrice: estimate(p, szName, extras),
+          unitPrice: estimate(p, szName, effectiveExtras, extraPricesMap),
         }));
       if (items.length === 1) {
         onAdd(items[0]);
@@ -312,8 +341,9 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           name: p.name,
           size: selectedSizeObj?.name || size,
           flavors: flavorBreakdown,
-          extras,
-          notes,
+          extras: effectiveExtras,
+          preparation: selectedPrep,
+          notes: finalNotes,
           quantity,
           unitPrice: unit,
         });
@@ -325,8 +355,9 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
             name: p.name,
             size,
             flavors: [fl],
-            extras,
-            notes,
+            extras: effectiveExtras,
+            preparation: selectedPrep,
+            notes: finalNotes,
             quantity: count,
             unitPrice: unit,
           }));
@@ -345,8 +376,9 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
       name: p.name,
       size,
       flavors: chosen,
-      extras,
-      notes,
+      extras: effectiveExtras,
+      preparation: selectedPrep,
+      notes: finalNotes,
       quantity,
       unitPrice: unit,
     });
@@ -689,9 +721,52 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
             )
           )}
 
-          {!manual && !productFlavors.length && Boolean(max && max > 0) && (
+          {prepOptions.length > 0 && (
+            <fieldset className="product-flavor-fieldset" style={{ borderLeft: '4px solid #0284c7', background: '#f0f9ff' }}>
+              <legend style={{ color: '#0369a1', fontWeight: 'bold' }}>
+                🥛 Elaboración / Base {selectedPrep ? `(✓ ${selectedPrep})` : '· Elegí 1 opción (Requerido)'}
+              </legend>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                {prepOptions.map((opt) => {
+                  const isSelected = selectedPrep === opt;
+                  return (
+                    <button
+                      type="button"
+                      key={opt}
+                      onClick={() => setSelectedPrep(opt)}
+                      style={{
+                        flex: '1 1 45%',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        border: isSelected ? '2px solid #0284c7' : '1.5px solid #bae6fd',
+                        background: isSelected ? '#0284c7' : '#ffffff',
+                        color: isSelected ? '#ffffff' : '#0369a1',
+                        fontWeight: 700,
+                        fontSize: '15px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease',
+                        boxShadow: isSelected ? '0 2px 6px rgba(2, 132, 199, 0.25)' : 'none'
+                      }}
+                    >
+                      {isSelected ? '✓ ' : ''}{opt}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
+
+          {/* Sabores de heladería */}
+          {(isIceCream || (!manual && !productFlavors.length && Boolean(max && max > 0))) && Boolean(iceCreamMax && iceCreamMax > 0) && (
             <fieldset>
-              <legend>Sabores · elegí de 1 a {max}</legend>
+              <legend>
+                Sabores de helado {manual ? `(opcional · hasta ${iceCreamMax})` : `· elegí de 1 a ${iceCreamMax}`}
+                {chosen.length > 0 && ` (${chosen.length}/${iceCreamMax})`}
+              </legend>
               {catalog.flavors.map((f) => (
                 <label
                   className={"option " + (!f.available ? "unavailable" : "")}
@@ -702,7 +777,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
                     checked={chosen.includes(f.name)}
                     disabled={
                       !f.available ||
-                      (!chosen.includes(f.name) && chosen.length >= max)
+                      (!chosen.includes(f.name) && chosen.length >= iceCreamMax)
                     }
                     onChange={() => toggle(f.name, chosen, setChosen)}
                   />
@@ -713,6 +788,54 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
             </fieldset>
           )}
 
+          {/* Adicional Baño de Chocolate para helados */}
+          {isIceCream && (
+            <div
+              className="chocolate-addon-card"
+              style={{
+                marginTop: '12px',
+                marginBottom: '10px',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: chocolateDip ? '#fef3c7' : '#fffbeb',
+                border: chocolateDip ? '2px solid #b45309' : '1.5px solid #fde68a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={() => setChocolateDip(!chocolateDip)}
+            >
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  margin: 0,
+                  width: '100%',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input
+                    type="checkbox"
+                    checked={chocolateDip}
+                    onChange={(e) => setChocolateDip(e.target.checked)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ width: '18px', height: '18px', accentColor: '#b45309', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#78350f' }}>
+                    🍫 ¿Agregar Baño de Chocolate?
+                  </span>
+                </div>
+                <strong style={{ fontSize: '14px', color: '#b45309' }}>
+                  {banoChocolatePrice > 0 ? `+${money(banoChocolatePrice)}` : '(Incluido)'}
+                </strong>
+              </label>
+            </div>
+          )}
 
         </>
       )}
@@ -731,6 +854,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
         className="primary full"
         disabled={
           !p.available ||
+          missingPreparation ||
           (isCombo && Boolean(missingComboStep)) ||
           (isMultiSize && totalMultiUnits < 1) ||
           (!isCombo && !isMultiSize && p.sizes?.length > 0 && !p.sizes.some(z => z.name === size && z.available !== false)) ||

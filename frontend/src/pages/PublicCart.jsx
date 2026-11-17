@@ -296,7 +296,7 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
               <div className="cart-item-info">
                 <strong className="cart-item-name">{i.name}</strong>
                 <small className="cart-item-sub">
-                  {[i.size, ...(i.flavors || []), ...(i.extras || [])]
+                  {[i.size, ...(i.flavors || []), ...(i.extras || []), i.preparation]
                     .filter(Boolean)
                     .join(" · ")}
                 </small>

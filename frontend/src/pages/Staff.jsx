@@ -1079,9 +1079,9 @@ export function Kitchen() {
                           <span className="kds-item-qty">{item.quantity}x</span>
                           <div className="kds-item-detail">
                             <strong className="kds-item-name">{item.name}</strong>
-                            {(item.size || item.flavors?.length > 0 || item.extras?.length > 0) && (
+                            {(item.size || item.flavors?.length > 0 || item.extras?.length > 0 || item.preparation) && (
                               <small className="kds-item-options">
-                                {[item.size, ...(item.flavors || []), ...(item.extras || [])].filter(Boolean).join(" · ")}
+                                {[item.size, ...(item.flavors || []), ...(item.extras || []), item.preparation].filter(Boolean).join(" · ")}
                               </small>
                             )}
                             {item.notes && (
@@ -1154,6 +1154,7 @@ export function EditOrderModal({ order, tableLabel, catalog, onClose, onSuccess 
       quantity: i.quantity || 1,
       flavors: i.flavors || [],
       extras: i.extras || [],
+      preparation: i.preparation || "",
       notes: i.notes || "",
     }))
   );
@@ -1225,6 +1226,7 @@ export function EditOrderModal({ order, tableLabel, catalog, onClose, onSuccess 
             size: i.size || "",
             flavors: i.flavors || [],
             extras: i.extras || [],
+            preparation: i.preparation || "",
             notes: i.notes || "",
             quantity: i.quantity,
             customPrice: i.customPrice || null,
@@ -1276,9 +1278,9 @@ export function EditOrderModal({ order, tableLabel, catalog, onClose, onSuccess 
               <div key={i.id || idx} className="edit-order-item-row">
                 <div className="edit-order-item-info">
                   <strong className="item-name">{i.name}</strong>
-                  {(i.size || (i.flavors && i.flavors.length > 0) || (i.extras && i.extras.length > 0)) && (
+                  {(i.size || (i.flavors && i.flavors.length > 0) || (i.extras && i.extras.length > 0) || i.preparation) && (
                     <small className="item-details">
-                      {[i.size, ...(i.flavors || []), ...(i.extras || [])].filter(Boolean).join(" · ")}
+                      {[i.size, ...(i.flavors || []), ...(i.extras || []), i.preparation].filter(Boolean).join(" · ")}
                     </small>
                   )}
                   {i.notes && <p className="item-note">"{i.notes}"</p>}

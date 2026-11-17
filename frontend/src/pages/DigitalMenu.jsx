@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useStore, request } from "../store";
-import { money, estimate, operationId, tableLabel } from "../domain";
+import { money, estimate, operationId, tableLabel, isIceCreamProduct } from "../domain";
 import Product from "./Product";
 import PublicCart, { publicDevice } from "./PublicCart";
 import SmartUpsellSheet from "./SmartUpsellSheet";
@@ -487,7 +487,14 @@ export default function DigitalMenu({ table }) {
   };
 
   const handleQuickAdd = (p) => {
-    if ((p.flavorOptions || []).length > 0 || (p.sizes || []).length > 0 || (p.extras || []).length > 0 || p.comboConfig?.is_combo) {
+    if (
+      (p.flavorOptions || []).length > 0 ||
+      (p.preparationOptions || []).length > 0 ||
+      isIceCreamProduct(p) ||
+      (p.sizes || []).length > 0 ||
+      (p.extras || []).length > 0 ||
+      p.comboConfig?.is_combo
+    ) {
       setProduct(p);
       return;
     }
@@ -728,7 +735,13 @@ export default function DigitalMenu({ table }) {
             {(() => {
               const isBebidas = (cat.name || "").toLowerCase().includes("bebid");
               const renderProductRow = (p) => {
-                const hasOptions = (p.sizes?.length > 0) || (p.extras?.length > 0) || (p.flavorOptions?.length > 0) || (p.comboConfig?.is_combo);
+                const hasOptions =
+                  (p.sizes?.length > 0) ||
+                  (p.extras?.length > 0) ||
+                  (p.flavorOptions?.length > 0) ||
+                  (p.preparationOptions?.length > 0) ||
+                  isIceCreamProduct(p) ||
+                  (p.comboConfig?.is_combo);
                 const prodImg = getProductImage(p, cat.name);
                 return (
                   <div
@@ -803,6 +816,14 @@ export default function DigitalMenu({ table }) {
                         <div className="editorial-sizes-pills">
                           <span className="editorial-size-tag" style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
                             Sabores: {p.flavorOptions.join(" · ")}
+                          </span>
+                        </div>
+                      )}
+
+                      {p.preparationOptions?.length > 0 && (
+                        <div className="editorial-sizes-pills">
+                          <span className="editorial-size-tag" style={{ background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}>
+                            Base: {p.preparationOptions.join(" · ")}
                           </span>
                         </div>
                       )}
@@ -1008,7 +1029,8 @@ export default function DigitalMenu({ table }) {
                   item.size === i.size &&
                   JSON.stringify(item.flavors || []) === JSON.stringify(i.flavors || []) &&
                   JSON.stringify(item.extras || []) === JSON.stringify(i.extras || []) &&
-                  (item.notes || "") === (i.notes || "")
+                  (item.notes || "") === (i.notes || "") &&
+                  (item.preparation || "") === (i.preparation || "")
               );
               if (existingIndex >= 0) {
                 updated[existingIndex].quantity += i.quantity;

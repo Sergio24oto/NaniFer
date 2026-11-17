@@ -3,7 +3,7 @@ import { Search, Plus, Minus } from "lucide-react";
 import Product from "./Product";
 import { Modal } from "../components";
 import { useStore, submitOnce, refresh } from "../store";
-import { money, estimate, getProductStation, operationId } from "../domain";
+import { money, estimate, getProductStation, operationId, isIceCreamProduct } from "../domain";
 const CATEGORY_ORDER = [
   "cafeteria",
   "cafe",
@@ -60,7 +60,7 @@ function getProductOperationalScore(p, normalize) {
 }
 
 export function addLine(cart, item) {
-  const signature = x => JSON.stringify([x.productId, x.size, x.flavors, x.extras, x.notes, x.customPrice || x.unitPrice]);
+  const signature = x => JSON.stringify([x.productId, x.size, x.flavors, x.extras, x.preparation, x.notes, x.customPrice || x.unitPrice]);
   const index = cart.findIndex(x => signature(x) === signature(item) && x.quantity + item.quantity <= 99);
   return index < 0 ? [...cart, item] : cart.map((x, i) => i === index ? {
     ...x,
@@ -184,7 +184,14 @@ export default function QuickEntry({
       return getProductOperationalScore(b, normalize) - getProductOperationalScore(a, normalize);
     });
   function choose(p) {
-    if (p.sizes?.length > 1 || p.extras?.length || p.flavorOptions?.length || (p.comboConfig?.is_combo && p.comboConfig.steps?.length > 0)) {
+    if (
+      p.sizes?.length > 1 ||
+      p.extras?.length ||
+      p.flavorOptions?.length ||
+      (p.preparationOptions?.length > 0) ||
+      isIceCreamProduct(p) ||
+      (p.comboConfig?.is_combo && p.comboConfig.steps?.length > 0)
+    ) {
       setProduct(p);
       return;
     }
@@ -261,7 +268,7 @@ export default function QuickEntry({
       <h2>{counter ? "Productos de esta compra" : "Consumos por guardar"}</h2>
       {!cart.length && <p>Elegí productos para agregarlos. Todavía no se registró ningún consumo.</p>}
       {cart.map((item, index) => <div className="quick-line" key={index}>
-        <div><strong>{item.name}</strong><small>{[item.size, ...item.flavors, ...item.extras].filter(Boolean).join(" · ")}</small>
+        <div><strong>{item.name}</strong><small>{[item.size, ...(item.flavors || []), ...(item.extras || []), item.preparation].filter(Boolean).join(" · ")}</small>
           <details><summary>Observación opcional</summary><textarea aria-label={"Observación de " + item.name} maxLength={300} value={item.notes} disabled={disabled} onChange={e => {
               const value = e.target.value;
               setCart(old => old.map((x, i) => i === index ? {

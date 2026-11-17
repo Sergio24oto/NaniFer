@@ -17,6 +17,11 @@ function Editor({ item, kind, data, onClose, onSaved }) {
     Array.isArray(initialFlavors) ? initialFlavors.join(', ') : (initialFlavors || '')
   );
 
+  const initialPrep = item?.preparationOptions || pending?.body?.preparationOptions || [];
+  const [prepInput, setPrepInput] = useState(
+    Array.isArray(initialPrep) ? initialPrep.join(', ') : (initialPrep || '')
+  );
+
   const initialSizes = (pending?.body?.sizes || item?.sizes || []).map((z, idx) => ({
     ...z,
     salePrice: z.salePrice != null ? z.salePrice : (item?.price != null && z.price ? Number(item.price) + Number(z.price) : (z.price || '')),
@@ -37,6 +42,7 @@ function Editor({ item, kind, data, onClose, onSaved }) {
       subcategory: pending?.body?.subcategory ?? item?.subcategory ?? '',
       sizes: initialSizes,
       flavorOptions: Array.isArray(initialFlavors) ? initialFlavors : [],
+      preparationOptions: Array.isArray(initialPrep) ? initialPrep : [],
       comboConfig: pending?.body?.comboConfig ?? item?.comboConfig ?? null
     } : {
       name: '',
@@ -55,7 +61,8 @@ function Editor({ item, kind, data, onClose, onSaved }) {
       stockArea: 'other',
       manageStock: false,
       sizes: [],
-      flavorOptions: []
+      flavorOptions: [],
+      preparationOptions: []
     }
   );
 
@@ -238,6 +245,9 @@ function Editor({ item, kind, data, onClose, onSaved }) {
         ...(!item?.id || Boolean(value.manageStock) !== Boolean(item.manageStock) ? { manageStock: Boolean(value.manageStock) } : {}),
         sizes: finalSizes,
         flavorOptions: parsedFlavors,
+        preparationOptions: Array.isArray(value.preparationOptions)
+          ? value.preparationOptions
+          : (prepInput || '').split(',').map(s => s.trim()).filter(Boolean),
         comboConfig: value.comboConfig || null
       };
     }
@@ -1103,6 +1113,71 @@ function Editor({ item, kind, data, onClose, onSaved }) {
                 )}
               </div>
 
+              {/* Opciones de preparación / elaboración (ej: Con agua / Con leche) */}
+              <div className="editor-card" style={{ borderLeft: '4px solid #0284c7' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontWeight: 'bold', color: '#0369a1', margin: 0, fontSize: '13.5px' }}>
+                    🥛 Opciones de preparación / elaboración (opcional)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const defaults = ['Con leche', 'Con agua'];
+                      change('preparationOptions', defaults);
+                      setPrepInput(defaults.join(', '));
+                    }}
+                    style={{
+                      fontSize: '11.5px',
+                      padding: '3px 8px',
+                      background: '#e0f2fe',
+                      color: '#0369a1',
+                      border: '1px solid #7dd3fc',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: 600
+                    }}
+                  >
+                    + Cargar "Con leche / Con agua"
+                  </button>
+                </div>
+                <input
+                  value={prepInput}
+                  onChange={e => {
+                    const text = e.target.value;
+                    setPrepInput(text);
+                    change(
+                      'preparationOptions',
+                      text.split(',').map(s => s.trim()).filter(Boolean)
+                    );
+                  }}
+                  placeholder="Ej: Con leche, Con agua"
+                  style={{ width: '100%', background: '#fff' }}
+                />
+                <small style={{ display: 'block', color: '#075985', marginTop: '6px', lineHeight: '1.4' }}>
+                  Ideal para <strong>Licuados</strong> o bebidas elaboradas. Si cargás opciones acá, el sistema obligará a elegir una base (ej: <em>Con leche</em> o <em>Con agua</em>) luego de elegir el sabor frutal.
+                </small>
+                {value.preparationOptions?.length > 0 && (
+                  <div className="flavor-chips-wrap">
+                    {value.preparationOptions.map((pr, idx) => (
+                      <span key={idx} className="flavor-chip" style={{ background: '#e0f2fe', borderColor: '#38bdf8', color: '#0369a1' }}>
+                        🥛 {pr}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = value.preparationOptions.filter((_, n) => n !== idx);
+                            change('preparationOptions', updated);
+                            setPrepInput(updated.join(', '));
+                          }}
+                          title="Quitar opción"
+                        >
+                          <X size={13} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Habilitar venta */}
               <div className="editor-card" style={{ marginBottom: '10px' }}>
                 <div className="stock-toggle-row">
@@ -1539,6 +1614,11 @@ export default function MenuManagement() {
                       {item.flavorOptions?.length > 0 && (
                         <p style={{ color: '#0369a1', fontSize: '0.85rem', marginTop: '0.25rem' }}>
                           <strong>Sabores:</strong> {item.flavorOptions.join(' · ')}
+                        </p>
+                      )}
+                      {item.preparationOptions?.length > 0 && (
+                        <p style={{ color: '#0284c7', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                          <strong>Elaboración:</strong> {item.preparationOptions.join(' · ')}
                         </p>
                       )}
                       {item.comboConfig?.is_combo && (

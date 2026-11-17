@@ -77,6 +77,7 @@ class Product(Base):
     extras: Mapped[list] = mapped_column(JSON, default=list)
     flavor_options: Mapped[list] = mapped_column(JSON, default=list)
     combo_config: Mapped[dict] = mapped_column(JSON, default=dict)
+    preparation_options: Mapped[list] = mapped_column(JSON, default=list)
 
 
 class Flavor(Base):
