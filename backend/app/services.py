@@ -186,7 +186,9 @@ def priced_item(db, item, *, require_flavors=True):
                     fail("Sabor no disponible para este producto.", 422)
         else:
             maximum = (size or {}).get("max", 0)
-            if (maximum and not (1 if require_flavors else 0) <= len(item.flavors) <= maximum) or (
+            # Para helados generales (Flavor), permitimos 0 sabores cuando no se controlan gustos
+            min_flavors = 0
+            if (maximum and not min_flavors <= len(item.flavors) <= maximum) or (
                 not maximum and item.flavors
             ):
                 fail("Cantidad de sabores inválida.", 422)

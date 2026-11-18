@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useStore, request } from "../store";
-import { money, estimate, operationId, tableLabel, isIceCreamProduct } from "../domain";
+import { money, estimate, operationId, tableLabel, isIceCreamProduct, isIceCreamDipEligible, ASK_ICE_CREAM_FLAVORS } from "../domain";
 import Product from "./Product";
 import PublicCart, { publicDevice } from "./PublicCart";
 import SmartUpsellSheet from "./SmartUpsellSheet";
@@ -490,7 +490,8 @@ export default function DigitalMenu({ table }) {
     if (
       (p.flavorOptions || []).length > 0 ||
       (p.preparationOptions || []).length > 0 ||
-      isIceCreamProduct(p) ||
+      isIceCreamDipEligible(p) ||
+      (ASK_ICE_CREAM_FLAVORS && isIceCreamProduct(p)) ||
       (p.sizes || []).length > 0 ||
       (p.extras || []).length > 0 ||
       p.comboConfig?.is_combo
@@ -740,7 +741,8 @@ export default function DigitalMenu({ table }) {
                   (p.extras?.length > 0) ||
                   (p.flavorOptions?.length > 0) ||
                   (p.preparationOptions?.length > 0) ||
-                  isIceCreamProduct(p) ||
+                  isIceCreamDipEligible(p) ||
+      (ASK_ICE_CREAM_FLAVORS && isIceCreamProduct(p)) ||
                   (p.comboConfig?.is_combo);
                 const prodImg = getProductImage(p, cat.name);
                 return (

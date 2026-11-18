@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Modal } from "../components";
-import { money, estimate, isIceCreamProduct, getIceCreamMaxFlavors } from "../domain";
+import { money, estimate, isIceCreamProduct, getIceCreamMaxFlavors, ASK_ICE_CREAM_FLAVORS, isIceCreamDipEligible } from "../domain";
 import { useStore } from "../store";
 
 export function isCoffeeOption(optionName) {
@@ -122,7 +122,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
   const missingFlavorOption =
     requiresFlavorOption && totalSelectedFlavors < totalUnitsNeeded;
 
-  const requiresIceCreamFlavors = !manual && !productFlavors.length && iceCreamMax;
+  const requiresIceCreamFlavors = ASK_ICE_CREAM_FLAVORS && !manual && !productFlavors.length && iceCreamMax;
   const missingIceCreamFlavors = requiresIceCreamFlavors && !chosen.length;
   const missingPreparation = prepOptions.length > 0 && !selectedPrep;
 
@@ -761,7 +761,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           )}
 
           {/* Sabores de heladería */}
-          {(isIceCream || (!manual && !productFlavors.length && Boolean(max && max > 0))) && Boolean(iceCreamMax && iceCreamMax > 0) && (
+          {ASK_ICE_CREAM_FLAVORS && (isIceCream || (!manual && !productFlavors.length && Boolean(max && max > 0))) && Boolean(iceCreamMax && iceCreamMax > 0) && (
             <fieldset>
               <legend>
                 Sabores de helado {manual ? `(opcional · hasta ${iceCreamMax})` : `· elegí de 1 a ${iceCreamMax}`}
@@ -789,7 +789,7 @@ export default function Product({ product: initialProduct, onClose, onAdd, manua
           )}
 
           {/* Adicional Baño de Chocolate para helados */}
-          {isIceCream && (
+          {(isIceCreamDipEligible(p) || isIceCream) && (
             <div
               className="chocolate-addon-card"
               style={{

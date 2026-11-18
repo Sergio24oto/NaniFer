@@ -3,7 +3,7 @@ import { Search, Plus, Minus } from "lucide-react";
 import Product from "./Product";
 import { Modal } from "../components";
 import { useStore, submitOnce, refresh } from "../store";
-import { money, estimate, getProductStation, operationId, isIceCreamProduct } from "../domain";
+import { money, estimate, getProductStation, operationId, isIceCreamProduct, isIceCreamDipEligible, ASK_ICE_CREAM_FLAVORS } from "../domain";
 const CATEGORY_ORDER = [
   "cafeteria",
   "cafe",
@@ -189,7 +189,8 @@ export default function QuickEntry({
       p.extras?.length ||
       p.flavorOptions?.length ||
       (p.preparationOptions?.length > 0) ||
-      isIceCreamProduct(p) ||
+      isIceCreamDipEligible(p) ||
+      (ASK_ICE_CREAM_FLAVORS && isIceCreamProduct(p)) ||
       (p.comboConfig?.is_combo && p.comboConfig.steps?.length > 0)
     ) {
       setProduct(p);

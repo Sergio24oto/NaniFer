@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { activeAccount, totalAccount, itemInput, estimate } from "./domain.js";
+import { activeAccount, totalAccount, itemInput, estimate, ASK_ICE_CREAM_FLAVORS, isIceCreamDipEligible } from "./domain.js";
 test("muestra el total del servidor y separa visitas históricas", () => {
   const s = {
     accounts: [
@@ -44,6 +44,7 @@ test("la estimación visual suma tamaño y extras", () => {
     4000,
   );
 });
+
 test("la estimación visual prioriza el precio propio (salePrice) de la presentación", () => {
   assert.equal(
     estimate(
@@ -57,4 +58,21 @@ test("la estimación visual prioriza el precio propio (salePrice) de la presenta
     ),
     4000,
   );
+});
+
+test("ASK_ICE_CREAM_FLAVORS se encuentra desactivado para agilizar mostrador sin control de stock", () => {
+  assert.equal(ASK_ICE_CREAM_FLAVORS, false);
+});
+
+test("isIceCreamDipEligible detecta bochas, cucuruchos y capelinas para el baño de chocolate", () => {
+  assert.equal(isIceCreamDipEligible({ id: "hel-1-bocha", name: "1 Bocha" }), true);
+  assert.equal(isIceCreamDipEligible({ id: "hel-2-bochas", name: "2 Bochas" }), true);
+  assert.equal(isIceCreamDipEligible({ id: "hel-3-bochas", name: "3 Bochas" }), true);
+  assert.equal(isIceCreamDipEligible({ id: "hel-cucurucho", name: "Cucurucho" }), true);
+  assert.equal(isIceCreamDipEligible({ id: "hel-capelina", name: "Capelina" }), true);
+
+  // No elegibles para baño directo
+  assert.equal(isIceCreamDipEligible({ id: "hel-palito", name: "Palito Bombón" }), false);
+  assert.equal(isIceCreamDipEligible({ id: "caf-expreso", name: "Café Expreso" }), false);
+  assert.equal(isIceCreamDipEligible(null), false);
 });

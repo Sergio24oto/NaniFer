@@ -36,6 +36,26 @@ export function itemInput(i) {
   }
   return obj;
 }
+// Flag para activar o desactivar la selección obligatoria de sabores de heladería en ventas.
+// Por el momento se desactiva (false) para agilizar las ventas en mostrador.
+// La lógica interna y modelos de la base de datos se conservan al 100%.
+export const ASK_ICE_CREAM_FLAVORS = false;
+
+export function isIceCreamDipEligible(p) {
+  if (!p) return false;
+  const name = (p.name || "").toLowerCase();
+  const id = (p.id || "").toLowerCase();
+  return (
+    name.includes("bocha") ||
+    name.includes("capelina") ||
+    name.includes("cucurucho") ||
+    id.includes("hel-1-bocha") ||
+    id.includes("hel-2-bochas") ||
+    id.includes("hel-3-bochas") ||
+    id.includes("capelina")
+  );
+}
+
 export function isIceCreamProduct(p) {
   if (!p) return false;
   const name = (p.name || "").toLowerCase();
