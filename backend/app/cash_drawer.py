@@ -1,6 +1,6 @@
 from decimal import Decimal
 from typing import Literal
-from datetime import datetime, UTC
+from datetime import datetime, date, time, timedelta, UTC
 import calendar
 from fastapi import APIRouter, Depends, Response
 from pydantic import Field
@@ -11,10 +11,12 @@ from .db import get_db
 from .models import CashShift, CashMovement, Payment, Sale, Visit, User, now
 from .schemas import StrictModel
 from .services import uid, fail
-from .business_day import ZONE, local_iso
+from .business_day import ZONE, local_iso, business_day
 from .cash_drawer_pdf import build_shift_pdf, build_monthly_pdf, build_day_pdf
 
 router = APIRouter(prefix="/api/cash-drawer", tags=["cash-drawer"])
+
+CASH_CUTOFF_HOUR = 3  # Corte de caja a las 03:00 AM (hora Argentina) al finalizar el turno noche
 
 MONTH_NAMES = [
     "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -367,13 +369,15 @@ def build_shift_summary(db, shift: CashShift):
 
 def build_monthly_ledger(db, month: int, year: int):
     """Builds a month-wide ledger data matching the paper sheet format."""
-    _, last_day = calendar.monthrange(year, month)
-    start_dt = datetime(year, month, 1, 0, 0, 0)
-    end_dt = datetime(year, month, last_day, 23, 59, 59)
+    # Jornada operativa: de 03:00 AM del primer día a 03:00 AM del 1ro del mes siguiente (hora Argentina)
+    start_dt_utc = datetime.combine(date(year, month, 1), time(CASH_CUTOFF_HOUR), ZONE).astimezone(UTC).replace(tzinfo=None)
+    next_year = year if month < 12 else year + 1
+    next_month = month + 1 if month < 12 else 1
+    end_dt_utc = datetime.combine(date(next_year, next_month, 1), time(CASH_CUTOFF_HOUR), ZONE).astimezone(UTC).replace(tzinfo=None)
 
     shifts = list(db.scalars(
         select(CashShift).where(
-            and_(CashShift.opened_at >= start_dt, CashShift.opened_at <= end_dt)
+            and_(CashShift.opened_at >= start_dt_utc, CashShift.opened_at < end_dt_utc)
         ).order_by(CashShift.opened_at)
     ))
 
@@ -461,16 +465,18 @@ def build_monthly_ledger(db, month: int, year: int):
 
 
 def build_day_summary(db, target_date):
-    """Aggregates all shifts of a single day into the 4-shift administrative model."""
+    """Aggregates all shifts of a single business day into the 4-shift administrative model."""
     if isinstance(target_date, str):
         target_date = datetime.strptime(target_date, "%Y-%m-%d").date()
 
-    start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0)
-    end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59, 59)
+    # Jornada operativa: desde las 03:00 AM de target_date hasta las 03:00 AM del día siguiente (hora Argentina).
+    # Se convierte a UTC naive para consultar opened_at almacenado en la base de datos.
+    start_dt_utc = datetime.combine(target_date, time(CASH_CUTOFF_HOUR), ZONE).astimezone(UTC).replace(tzinfo=None)
+    end_dt_utc = datetime.combine(target_date + timedelta(days=1), time(CASH_CUTOFF_HOUR), ZONE).astimezone(UTC).replace(tzinfo=None)
 
     shifts = list(db.scalars(
         select(CashShift).where(
-            and_(CashShift.opened_at >= start_dt, CashShift.opened_at <= end_dt)
+            and_(CashShift.opened_at >= start_dt_utc, CashShift.opened_at < end_dt_utc)
         ).order_by(CashShift.opened_at)
     ))
 
@@ -568,7 +574,10 @@ def get_current_shift(auth=Depends(current_session), db=Depends(get_db)):
     active = db.scalar(
         select(CashShift).where(CashShift.status == "open").order_by(CashShift.opened_at.desc()).limit(1)
     )
-    today_summary = build_day_summary(db, now().date())
+    # Si hay un turno abierto actualmente, la jornada que se muestra es la del turno en curso.
+    # Si no hay turno abierto, se muestra la jornada actual según el corte operativo a las 03:00 AM.
+    target_date = business_day(active.opened_at, cutoff_hour=CASH_CUTOFF_HOUR) if active else business_day(cutoff_hour=CASH_CUTOFF_HOUR)
+    today_summary = build_day_summary(db, target_date)
     if not active:
         last_closed = db.scalar(
             select(CashShift).where(CashShift.status == "closed").order_by(CashShift.closed_at.desc()).limit(1)
@@ -610,7 +619,7 @@ def open_shift(data: OpenShiftIn, auth=Depends(current_session), db=Depends(get_
 
     return {
         "active": True,
-        "todaySummary": build_day_summary(db, now().date()),
+        "todaySummary": build_day_summary(db, business_day(shift.opened_at, cutoff_hour=CASH_CUTOFF_HOUR)),
         **build_shift_summary(db, shift),
     }
 
@@ -694,7 +703,7 @@ def get_days_list(limit: int = 30, auth=Depends(current_session), db=Depends(get
     seen = set()
     for dt in shift_dates:
         if dt:
-            d_val = dt.date()
+            d_val = business_day(dt, cutoff_hour=CASH_CUTOFF_HOUR)
             if d_val not in seen:
                 seen.add(d_val)
                 unique_dates.append(d_val)

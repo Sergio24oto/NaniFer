@@ -180,3 +180,73 @@ def test_cash_drawer_workflow_and_auto_sales(fixture):
     assert day_pdf_res.status_code == 200
     assert day_pdf_res.headers['content-type'] == 'application/pdf'
     assert len(day_pdf_res.content) > 1000
+
+
+def test_night_shift_after_midnight_preserves_daily_sheet(fixture):
+    """
+    Verifies that shifts opened after midnight (e.g. 23:30 / 01:00 AM) remain
+    consolidated in the same business day sheet alongside Turno Mañana/Siesta/Tarde
+    until the 03:00 AM operational cutoff.
+    """
+    from datetime import date, time, timedelta
+    from app.business_day import ZONE, business_day
+    from app.cash_drawer import build_day_summary
+    from app.models import CashShift, User
+    from app.services import uid
+
+    f = fixture
+    test_day = date(2026, 11, 20)
+
+    # 1. Turno Mañana: opened at 09:00 AM Argentina time on test_day (12:00 UTC)
+    dt_morning_utc = datetime.combine(test_day, time(12, 0, 0))
+
+    # 2. Turno Noche: opened at 22:30 PM Argentina time on test_day (01:30 UTC of next calendar day)
+    dt_night_utc = datetime.combine(test_day + timedelta(days=1), time(1, 30, 0))
+
+    with SessionLocal() as db:
+        user_id = db.scalar(select(User.id).limit(1))
+        shift_m = CashShift(
+            id=uid(),
+            opened_by=user_id,
+            opened_by_name="Lucía",
+            opened_at=dt_morning_utc,
+            closed_at=datetime.combine(test_day, time(18, 0, 0)),
+            shift_type="T. Mañana",
+            initial_cash=Decimal("10000.00"),
+            counted_cash=Decimal("10000.00"),
+            status="closed"
+        )
+        shift_n = CashShift(
+            id=uid(),
+            opened_by=user_id,
+            opened_by_name="Milagros",
+            opened_at=dt_night_utc,
+            closed_at=None,
+            shift_type="T. Noche",
+            initial_cash=Decimal("20000.00"),
+            status="open"
+        )
+        db.add_all([shift_m, shift_n])
+        db.commit()
+
+        try:
+            # Both shifts must belong to test_day according to business_day(cutoff_hour=3)
+            assert business_day(dt_morning_utc, cutoff_hour=3) == test_day
+            assert business_day(dt_night_utc, cutoff_hour=3) == test_day
+
+            # When aggregating test_day's summary, BOTH shifts must be present!
+            day_sum = build_day_summary(db, test_day)
+            assert day_sum["shiftsCount"] >= 2
+            shift_ids = [s["shiftId"] for s in day_sum["shifts"]]
+            assert shift_m.id in shift_ids
+            assert shift_n.id in shift_ids
+
+            # Next day (test_day + 1) must NOT contain these shifts
+            next_day_sum = build_day_summary(db, test_day + timedelta(days=1))
+            next_shift_ids = [s["shiftId"] for s in next_day_sum["shifts"]]
+            assert shift_m.id not in next_shift_ids
+            assert shift_n.id not in next_shift_ids
+        finally:
+            db.delete(shift_m)
+            db.delete(shift_n)
+            db.commit()

@@ -3,13 +3,14 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 
 ZONE = ZoneInfo("America/Argentina/Buenos_Aires")
+DEFAULT_CUTOFF_HOUR = 4
 
 
-def business_day(moment=None):
+def business_day(moment=None, cutoff_hour=DEFAULT_CUTOFF_HOUR):
     moment = moment or datetime.now(UTC)
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=UTC)
-    return (moment.astimezone(ZONE) - timedelta(hours=4)).date()
+    return (moment.astimezone(ZONE) - timedelta(hours=cutoff_hour)).date()
 
 
 def period(start, end, role, last=None):
@@ -32,6 +33,8 @@ def period(start, end, role, last=None):
 
 
 def local_iso(moment):
+    if moment is None:
+        return None
     return moment.replace(tzinfo=UTC).astimezone(ZONE).isoformat()
 
 
