@@ -41,7 +41,7 @@ def test_range_limits():
 def test_server_permissions_and_empty(fixture):
     f=fixture;c=f['client']
     assert TestClient(app).get('/api/sales').status_code==401
-    assert c.get('/api/sales').status_code==200
+    assert c.get('/api/sales').status_code==403
     assert c.get('/api/sales?start=2001-01-01&end=2001-01-01').status_code==403
     assert c.get('/api/sales/export.pdf').status_code==403
     id,v=historical_payment(f,datetime(2001,1,1,12))
@@ -183,7 +183,7 @@ def test_quick_filters_at_midnight_and_cutoff(fixture,monkeypatch,moment,expecte
     f=fixture;c=f['client']
     assert c.get('/api/sales?last=7').status_code==403
     assert c.get('/api/sales?last=31').status_code==403
-    assert c.get('/api/sales?last=1').status_code==200
+    assert c.get('/api/sales?last=1').status_code==403
     assert c.get('/api/sales/export.pdf?last=1').status_code==403
     promote(f)
     for last in [1,7,31]:
@@ -217,7 +217,7 @@ def test_corrections_that_cancel_still_visible(fixture):
 
 
 def test_sale_numbers_are_unique_under_concurrent_payments(fixture):
-    f=fixture;c=f['client'];visits=[]
+    f=fixture;promote(f);c=f['client'];visits=[]
     # Each visit has its own table slot freed only for this isolated test setup.
     from app.models import Visit
     for _ in range(4):
@@ -236,3 +236,52 @@ def test_sale_numbers_are_unique_under_concurrent_payments(fixture):
     assert repeated==list(reversed(first))
     all_sales=c.get('/api/sales').json()['sales']
     assert {s['id']:s['number'] for s in all_sales if s['id'] in ids}==dict(zip(ids,first))
+
+
+def test_user_management_and_password_revocation(fixture):
+    f=fixture;c=f['client']
+    # Staff cannot list or create users
+    assert c.get('/api/users').status_code==403
+    assert c.post('/api/users',json={'username':'test_moza_'+key()[:6],'name':'Moza Test','role':'staff','password':'1234'}).status_code==403
+
+    # Promote to admin
+    promote(f)
+    assert c.get('/api/users').status_code==200
+
+    # Create a new staff user
+    uname = 'moza_' + key()[:8]
+    r = c.post('/api/users', json={'username': uname, 'name': 'Mozas Turno', 'role': 'staff', 'password': 'clave123'})
+    assert r.status_code == 200
+    created_uid = r.json()['id']
+
+    try:
+        # Login with the new staff user (case-insensitive check)
+        staff_client = TestClient(app, headers=dict(HEADERS))
+        login_res = staff_client.post('/api/auth/login', json={'username': uname.upper(), 'password': 'clave123'})
+        assert login_res.status_code == 200
+        staff_client.headers['X-CSRF-Token'] = login_res.json()['csrf']
+
+        # Staff user can access state/cash-drawer, but CANNOT access sales or users
+        assert staff_client.get('/api/state').status_code == 200
+        assert staff_client.get('/api/sales').status_code == 403
+        assert staff_client.get('/api/users').status_code == 403
+
+        # Admin changes the staff user's password -> existing staff session must be invalidated immediately
+        upd = c.put('/api/users/' + created_uid, json={'password': 'nueva5678'})
+        assert upd.status_code == 200
+
+        # Old staff session is now 401
+        assert staff_client.get('/api/state').status_code == 401
+
+        # Re-login with new password succeeds
+        login_res2 = staff_client.post('/api/auth/login', json={'username': uname, 'password': 'nueva5678'})
+        assert login_res2.status_code == 200
+    finally:
+        from app.models import Session
+        from sqlalchemy import delete
+        with SessionLocal() as db:
+            db.execute(delete(Session).where(Session.user_id == created_uid))
+            u_obj = db.get(User, created_uid)
+            if u_obj:
+                db.delete(u_obj)
+            db.commit()

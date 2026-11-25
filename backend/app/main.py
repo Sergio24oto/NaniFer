@@ -113,6 +113,23 @@ def ensure_schema():
                 db.commit()
                 logging.info("Default admin user '%s' created.", admin_user)
 
+            from sqlalchemy import func
+            staff_user = os.environ.get("STAFF_DEFAULT_USER", "mozas").strip()
+            staff_pass = os.environ.get("STAFF_DEFAULT_PASSWORD", "mozas123").strip()
+            if staff_user and staff_pass and not db.scalar(select(User).where(func.lower(User.username) == staff_user.lower())):
+                db.add(
+                    User(
+                        id=uid(),
+                        username=staff_user,
+                        name="Mozas",
+                        role="staff",
+                        active=True,
+                        password_hash=password_hash(staff_pass),
+                    )
+                )
+                db.commit()
+                logging.info("Default staff user '%s' created.", staff_user)
+
             # 4. Ensure Sin TACC category and initial offerings
             try:
                 cat_sintacc = db.scalar(select(Category).where(Category.name == "Sin TACC"))
@@ -316,7 +333,9 @@ def login(data: LoginIn, request: Request, response: Response, db=Depends(get_db
     if len(login_attempts[ip]) >= 10:
         fail("Demasiados intentos. Esperá un minuto.", 429)
     login_attempts[ip].append(time.monotonic())
-    user = db.scalar(select(User).where(User.username == data.username))
+    from sqlalchemy import func
+    clean_username = data.username.strip().lower()
+    user = db.scalar(select(User).where(func.lower(User.username) == clean_username))
     valid = verify(data.password, user.password_hash if user else DUMMY_HASH)
     if not valid or not user or not user.active or user.role not in ("staff", "admin"):
         fail("Usuario o contraseña incorrectos.", 401)
@@ -340,14 +359,14 @@ def login(data: LoginIn, request: Request, response: Response, db=Depends(get_db
         path="/api",
         max_age=settings.session_hours * 3600,
     )
-    return {"user": {"id": user.id, "name": user.name, "role": user.role, "permissions": permissions(user)}, "csrf": csrf}
+    return {"user": {"id": user.id, "username": user.username, "name": user.name, "role": user.role, "permissions": permissions(user)}, "csrf": csrf}
 
 
 @app.get("/api/auth/me")
 def me(auth=Depends(current_session)):
     user, session = auth
     return {
-        "user": {"id": user.id, "name": user.name, "role": user.role, "permissions": permissions(user)},
+        "user": {"id": user.id, "username": user.username, "name": user.name, "role": user.role, "permissions": permissions(user)},
         "csrf": session.csrf,
     }
 
@@ -696,6 +715,9 @@ app.include_router(menu_router)
 
 from .cash_drawer import router as cash_drawer_router
 app.include_router(cash_drawer_router)
+
+from .users import router as users_router
+app.include_router(users_router)
 
 @app.get("/menu/{filename}")
 def serve_root_menu_image(filename: str):

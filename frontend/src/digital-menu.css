@@ -38,7 +38,7 @@ body.public-menu-page > div > header {
 .digital-menu {
   max-width: 1060px;
   margin: auto;
-  padding: 24px 20px 120px;
+  padding: 12px 14px 110px;
   box-sizing: border-box;
   overflow-x: hidden;
 }
@@ -49,8 +49,8 @@ body.public-menu-page > div > header {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 @media (max-width: 600px) {
@@ -161,7 +161,7 @@ body.public-menu-page > div > header {
 .digital-brand-center {
   display: flex;
   justify-content: center;
-  margin: 14px 0 22px;
+  margin: 4px 0 6px;
   position: relative;
 }
 
@@ -171,8 +171,8 @@ body.public-menu-page > div > header {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(260px, 65vw);
-  height: min(220px, 55vw);
+  width: 140px;
+  height: 75px;
   background: radial-gradient(circle, rgba(217, 169, 75, 0.28) 0%, rgba(255, 248, 235, 0.16) 45%, transparent 70%);
   border-radius: 50%;
   pointer-events: none;
@@ -182,7 +182,9 @@ body.public-menu-page > div > header {
 .digital-hero-logo {
   position: relative;
   z-index: 1;
-  width: min(220px, 55vw);
+  width: auto;
+  max-width: min(145px, 42vw);
+  max-height: 54px;
   height: auto;
   filter: drop-shadow(-2px -2px 0 rgba(255, 255, 255, 0.95))
           drop-shadow(2px -2px 0 rgba(255, 255, 255, 0.95))
@@ -196,7 +198,7 @@ body.public-menu-page > div > header {
 /* Bienvenida / Intro */
 .digital-intro {
   text-align: center;
-  padding: 10px 12px 36px;
+  padding: 2px 10px 10px;
   color: #fffaf3;
   max-width: 740px;
   margin: 0 auto;
@@ -215,10 +217,10 @@ body.public-menu-page > div > header {
 .digital-intro h1 {
   font-family: 'Playfair Display', Georgia, serif;
   color: #fffaf3;
-  font-size: clamp(40px, 7vw, 68px);
-  line-height: 1.06;
-  letter-spacing: -1px;
-  margin: 10px 0 16px;
+  font-size: clamp(20px, 4.5vw, 28px);
+  line-height: 1.15;
+  letter-spacing: -0.3px;
+  margin: 2px 0 6px;
 }
 
 .digital-intro h1 em {
@@ -2417,4 +2419,33 @@ body.public-menu-page > div > header {
   font-size: 13px;
   font-weight: 600;
   color: #475569;
+}
+
+.digital-order-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(59, 36, 23, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(217, 169, 75, 0.55);
+  color: #fffaf3 !important;
+  font-size: clamp(12px, 3.2vw, 13.5px) !important;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  margin: 0 auto !important;
+  line-height: 1.3 !important;
+}
+.section-title-badge {
+  display: inline-block;
+  margin-top: 6px;
+  background: rgba(217, 169, 75, 0.2);
+  color: var(--brand-primary);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(217, 169, 75, 0.35);
 }

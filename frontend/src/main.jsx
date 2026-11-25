@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { LayoutGrid, ClipboardList, Coffee, ReceiptText, Banknote, ChefHat } from "lucide-react";
+import { LayoutGrid, ClipboardList, Coffee, ReceiptText, Banknote, ChefHat, Users } from "lucide-react";
 import { useStore, configure, refresh, login, logout } from "./store";
 import Menu from "./pages/DigitalMenu";
 import MenuManagement from "./pages/MenuManagement";
+import UsersManagement from "./pages/UsersManagement";
 import "./digital-menu.css";
 import Sales from "./pages/Sales";
 import CashDrawer from "./pages/CashDrawer";
@@ -16,8 +17,9 @@ import "./style.css";
 import "./brand.css";
 import "./attention.css";
 import Brand from "./Brand";
+
 function Login() {
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState("mozas");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -41,7 +43,68 @@ function Login() {
         <Brand />
         <span className="eyebrow">ESPACIO DEL PERSONAL</span>
         <h1>Iniciar sesión</h1>
-        <p>Acceso a mesas, pedidos y cobros.</p>
+        <p>Elegí tu perfil o ingresá tu usuario y contraseña.</p>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 8,
+            marginBottom: 14,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setUsername("mozas");
+              setError("");
+            }}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border:
+                username.trim().toLowerCase() === "mozas"
+                  ? "2px solid #3b2417"
+                  : "1px solid #d6cec2",
+              background:
+                username.trim().toLowerCase() === "mozas"
+                  ? "#f5efe6"
+                  : "#ffffff",
+              color: "#2b1b10",
+              fontWeight: 700,
+              fontSize: 13.5,
+              cursor: "pointer",
+            }}
+          >
+            👤 Mozas
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setUsername("administrador");
+              setError("");
+            }}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border:
+                username.trim().toLowerCase() === "administrador"
+                  ? "2px solid #d9a94b"
+                  : "1px solid #d6cec2",
+              background:
+                username.trim().toLowerCase() === "administrador"
+                  ? "#fffaf0"
+                  : "#ffffff",
+              color: "#4a2c11",
+              fontWeight: 700,
+              fontSize: 13.5,
+              cursor: "pointer",
+            }}
+          >
+            👑 Dueña / Admin
+          </button>
+        </div>
+
         <form
           onSubmit={async (e) => {
             e.preventDefault();
@@ -90,6 +153,7 @@ function Login() {
     </main>
   );
 }
+
 function App() {
   const s = useStore();
   const [path, setPath] = useState(location.pathname);
@@ -124,6 +188,7 @@ function App() {
   const ready = s.orders.filter(
     (o) => o.status === "listo para entregar",
   ).length;
+  const isAdmin = s.user?.role === "admin";
   return (
     <>
       <header>
@@ -143,10 +208,15 @@ function App() {
               ["/atencion", "Salón", LayoutGrid],
               ["/atencion/comandera", "Cocina", ChefHat],
               ["/atencion/caja", "Caja", Banknote],
-              ["/atencion/ventas", "Ventas", ReceiptText],
+              ...(isAdmin ? [["/atencion/ventas", "Ventas", ReceiptText]] : []),
               ["/atencion/stock", "Stock", LayoutGrid],
               ["/mesa/1", "Carta", Coffee],
-              ...(s.user?.role === "admin" ? [["/atencion/carta", "Gestionar carta", Coffee]] : []),
+              ...(isAdmin
+                ? [
+                    ["/atencion/carta", "Gestionar carta", Coffee],
+                    ["/atencion/usuarios", "Usuarios", Users],
+                  ]
+                : []),
             ].map(([p, label, Icon]) => (
               <button
                 key={p}
@@ -171,8 +241,10 @@ function App() {
                 setError(e.message);
               }
             }}
+            title="Cerrar sesión actual o cambiar de usuario (Mozas / Administrador)"
           >
-            {s.user.name} · Salir
+            {isAdmin ? "👑 " : "👤 "}
+            {s.user.name} · Cambiar usuario / Salir
           </button>
         )}
       </header>
@@ -202,7 +274,11 @@ function App() {
         <Login />
       ) : path === "/atencion/caja" ? (
         <CashDrawer />
-      ) : path === "/atencion/carta" && s.user.role === "admin" ? (<MenuManagement />) : path === "/atencion/ventas" ? (
+      ) : path === "/atencion/carta" && isAdmin ? (
+        <MenuManagement />
+      ) : path === "/atencion/usuarios" && isAdmin ? (
+        <UsersManagement />
+      ) : path === "/atencion/ventas" && isAdmin ? (
         <Sales />
       ) : path === "/atencion/stock" ? (
         <Stock />

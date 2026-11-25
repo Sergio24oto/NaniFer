@@ -84,6 +84,7 @@ def report(db, user, start=None, end=None, sale_id=None, last=None):
 
 @router.get('')
 def list_sales(start: date | None=None,end: date | None=None,last: int | None=None,auth=Depends(current_session),db=Depends(get_db)):
+    admin(auth)
     return report(db,auth[0],start,end,last=last)
 
 
@@ -98,6 +99,7 @@ def export(start: date | None=None,end: date | None=None,last: int | None=None,a
 
 @router.get('/{id}')
 def detail(id: str,auth=Depends(current_session),db=Depends(get_db)):
+    admin(auth)
     return report(db,auth[0],sale_id=id)
 
 

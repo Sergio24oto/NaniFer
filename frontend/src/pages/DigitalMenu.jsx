@@ -636,35 +636,32 @@ export default function DigitalMenu({ table }) {
 
       {!cat ? (
         <>
-          <div className="digital-brand-center">
-            <img
-              src="/brand/logo.png"
-              alt="NaniFer Café Bar - Heladería"
-              className="digital-hero-logo"
-            />
-          </div>
+          <div className="digital-hero-compact">
+            <div className="digital-brand-center">
+              <img
+                src="/brand/logo.png"
+                alt="NaniFer Café Bar - Heladería"
+                className="digital-hero-logo"
+              />
+            </div>
 
-          <div className="digital-intro">
-            <span className="eyebrow">CARTA DIGITAL · BIENVENIDOS</span>
-            <h1>
-              Un ratito para<br />
-              <em>disfrutar.</em>
-            </h1>
-            <blockquote className="digital-quote">
-              «Los mejores momentos se viven, se sienten y se comparten ♡»
-            </blockquote>
-            <span className="digital-subtitle">
-              CAFETERÍA DE ESPECIALIDAD · HELADERÍA ARTESANAL · DELICIAS
-            </span>
-            <p>
-              Elegí una categoría para explorar nuestra carta.<br />
-              Armá tu pedido a tu gusto o llamá a la moza.
-            </p>
+            <div className="digital-intro">
+              <span className="eyebrow">CARTA DIGITAL</span>
+              <h1>Hacé tu pedido desde tu mesa</h1>
+              <p className="digital-order-hint">
+                <span>📱</span> Elegí lo que quieras y pedí directo · La moza te lo lleva
+              </p>
+            </div>
           </div>
 
           <div className="menu-section-title">
-            <span>NUESTRA CARTA</span>
-            <h2>¿Qué te gustaría disfrutar hoy?</h2>
+            <div className="section-title-left">
+              <span>NUESTRA CARTA</span>
+              <h2>¿Qué te gustaría disfrutar hoy?</h2>
+            </div>
+            <span className="section-title-badge">
+              👇 Tocá una categoría para pedir
+            </span>
           </div>
 
           <div className="digital-categories">
