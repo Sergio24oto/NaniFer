@@ -128,7 +128,18 @@ def test_cash_drawer_workflow_and_auto_sales(fixture):
     assert closed_data['shift']['difference'] == 1500
     assert len(closed_data['entries']) >= 4
 
-    # 8. Check history endpoint
+    # 8. Staff cannot access history, days list, or monthly sheet
+    assert c.get('/api/cash-drawer/history').status_code == 403
+    assert c.get('/api/cash-drawer/days').status_code == 403
+    now_dt = datetime.now()
+    assert c.get(f'/api/cash-drawer/monthly-sheet?month={now_dt.month}&year={now_dt.year}').status_code == 403
+
+    # Promote to admin to check history, days list, and monthly sheet
+    from app.models import User
+    with SessionLocal() as db:
+        db.get(User, f['user_id']).role = 'admin'
+        db.commit()
+
     history = c.get('/api/cash-drawer/history').json()
     assert len(history) >= 1
     assert history[0]['shift']['status'] == 'closed'

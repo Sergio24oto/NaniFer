@@ -305,13 +305,22 @@ export default function CashDrawer() {
     return () => clearInterval(timer);
   }, [activeTab]);
 
+  const isAdmin = s.user?.role === "admin";
+
   useEffect(() => {
+    if (!isAdmin && activeTab !== "today") {
+      setActiveTab("today");
+    }
+  }, [isAdmin, activeTab]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
     if (activeTab === "days") {
       loadDays();
     } else if (activeTab === "monthly") {
       loadMonthly();
     }
-  }, [activeTab, selMonth, selYear]);
+  }, [activeTab, selMonth, selYear, isAdmin]);
 
   // Open Shift
   async function handleOpenShift(e) {
@@ -492,7 +501,7 @@ export default function CashDrawer() {
         </div>
       </div>
 
-      {/* Main 3 Navigation Tabs */}
+      {/* Main Navigation Tabs */}
       <div className="cash-nav-tabs">
         <button
           type="button"
@@ -503,23 +512,27 @@ export default function CashDrawer() {
           Caja del Día (Turno en Curso)
         </button>
 
-        <button
-          type="button"
-          className={`cash-tab-btn ${activeTab === "days" ? "active" : ""}`}
-          onClick={() => setActiveTab("days")}
-        >
-          <Calendar size={18} />
-          Historial de Jornadas por Días
-        </button>
+        {isAdmin && (
+          <>
+            <button
+              type="button"
+              className={`cash-tab-btn ${activeTab === "days" ? "active" : ""}`}
+              onClick={() => setActiveTab("days")}
+            >
+              <Calendar size={18} />
+              Historial de Jornadas por Días
+            </button>
 
-        <button
-          type="button"
-          className={`cash-tab-btn ${activeTab === "monthly" ? "active" : ""}`}
-          onClick={() => setActiveTab("monthly")}
-        >
-          <FileSpreadsheet size={18} />
-          Planilla Mensual Completa
-        </button>
+            <button
+              type="button"
+              className={`cash-tab-btn ${activeTab === "monthly" ? "active" : ""}`}
+              onClick={() => setActiveTab("monthly")}
+            >
+              <FileSpreadsheet size={18} />
+              Planilla Mensual Completa
+            </button>
+          </>
+        )}
       </div>
 
       {error && (
@@ -919,7 +932,7 @@ export default function CashDrawer() {
       {/* =========================================================================
           TAB 2: HISTORIAL DE JORNADAS POR DÍAS (NEW CARDS VIEW)
           ========================================================================= */}
-      {activeTab === "days" && (
+      {activeTab === "days" && isAdmin && (
         <div>
           {/* Toolbar */}
           <div className="cash-history-toolbar">
@@ -1172,7 +1185,7 @@ export default function CashDrawer() {
       {/* =========================================================================
           TAB 3: PLANILLA MENSUAL COMPLETA
           ========================================================================= */}
-      {activeTab === "monthly" && (
+      {activeTab === "monthly" && isAdmin && (
         <div>
           <div className="cash-history-toolbar">
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>

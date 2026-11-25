@@ -685,8 +685,14 @@ def close_shift(data: CloseShiftIn, auth=Depends(current_session), db=Depends(ge
     }
 
 
+def require_admin(auth):
+    if auth[0].role != "admin":
+        fail("Solo la dueña o administrador puede consultar el historial de jornadas y la planilla mensual.", 403)
+
+
 @router.get("/history")
 def get_history(limit: int = 50, auth=Depends(current_session), db=Depends(get_db)):
+    require_admin(auth)
     shifts = list(db.scalars(
         select(CashShift).order_by(CashShift.opened_at.desc()).limit(limit)
     ))
@@ -696,6 +702,7 @@ def get_history(limit: int = 50, auth=Depends(current_session), db=Depends(get_d
 @router.get("/days")
 def get_days_list(limit: int = 30, auth=Depends(current_session), db=Depends(get_db)):
     """Returns a list of day cards (descending by calendar day)."""
+    require_admin(auth)
     shift_dates = db.scalars(
         select(CashShift.opened_at).order_by(CashShift.opened_at.desc())
     ).all()
@@ -716,6 +723,7 @@ def get_days_list(limit: int = 30, auth=Depends(current_session), db=Depends(get
 @router.get("/days/{date_str}")
 def get_day_detail(date_str: str, auth=Depends(current_session), db=Depends(get_db)):
     """Returns the 4-shift daily ledger and facturación for a specific date (YYYY-MM-DD)."""
+    require_admin(auth)
     try:
         d_val = datetime.strptime(date_str, "%Y-%m-%d").date()
     except Exception:
@@ -749,6 +757,7 @@ def get_shift_detail(id: str, auth=Depends(current_session), db=Depends(get_db))
 
 @router.get("/monthly-sheet")
 def get_monthly_sheet(month: int, year: int, auth=Depends(current_session), db=Depends(get_db)):
+    require_admin(auth)
     if not 1 <= month <= 12 or not 2000 <= year <= 2100:
         fail("Mes o año inválido.", 422)
     return build_monthly_ledger(db, month, year)
@@ -771,6 +780,7 @@ def export_shift_pdf(id: str, auth=Depends(current_session), db=Depends(get_db))
 
 @router.get("/monthly-sheet/export.pdf")
 def export_monthly_sheet_pdf(month: int, year: int, auth=Depends(current_session), db=Depends(get_db)):
+    require_admin(auth)
     if not 1 <= month <= 12 or not 2000 <= year <= 2100:
         fail("Mes o año inválido.", 422)
     monthly_data = build_monthly_ledger(db, month, year)
