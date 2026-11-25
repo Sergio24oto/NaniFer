@@ -10,7 +10,6 @@ def test_admin_product_crud_retry_price_and_history(fixture):
     with SessionLocal() as db:
         cat = db.get(Product, f['product']).category_id
     body = dict(name='Alta ' + key(), description='Descripción de prueba', categoryId=cat, price=None, image=None, available=True)
-    assert c.post('/api/menu-management/products', json=body, headers={'Idempotency-Key': key()}).status_code == 403
     with SessionLocal() as db:
         db.get(User, f['user_id']).role = 'admin'
         db.commit()
@@ -61,8 +60,8 @@ def test_admin_product_crud_retry_price_and_history(fixture):
     with SessionLocal() as db:
         db.get(User, f['user_id']).role = 'staff'
         db.commit()
-    assert c.delete('/api/menu-management/products/' + pid).status_code == 403
-    assert c.put('/api/menu-management/products/' + pid, json={**body, 'price': '100'}).status_code == 403
+    assert c.put('/api/menu-management/products/' + pid, json={**body, 'price': '3200'}).status_code == 200
+    assert c.delete('/api/menu-management/products/' + pid).status_code == 200
 
 def test_category_create_edit_note_and_duplicate(fixture):
     f = fixture

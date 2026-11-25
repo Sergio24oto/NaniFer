@@ -13,8 +13,8 @@ from .services import fail, once, uid
 router = APIRouter(prefix="/api")
 
 def admin(auth=Depends(current_session)):
-    if auth[0].role != 'admin':
-        fail('Solo el administrador puede gestionar la carta.', 403)
+    if auth[0].role not in ('admin', 'staff'):
+        fail('Solo el personal autorizado puede gestionar la carta.', 403)
     return auth
 
 def categories(db):

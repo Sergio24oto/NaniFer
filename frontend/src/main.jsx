@@ -211,12 +211,8 @@ function App() {
               ...(isAdmin ? [["/atencion/ventas", "Ventas", ReceiptText]] : []),
               ["/atencion/stock", "Stock", LayoutGrid],
               ["/mesa/1", "Carta", Coffee],
-              ...(isAdmin
-                ? [
-                    ["/atencion/carta", "Gestionar carta", Coffee],
-                    ["/atencion/usuarios", "Usuarios", Users],
-                  ]
-                : []),
+              ["/atencion/carta", "Gestionar carta", Coffee],
+              ...(isAdmin ? [["/atencion/usuarios", "Usuarios", Users]] : []),
             ].map(([p, label, Icon]) => (
               <button
                 key={p}
@@ -274,7 +270,7 @@ function App() {
         <Login />
       ) : path === "/atencion/caja" ? (
         <CashDrawer />
-      ) : path === "/atencion/carta" && isAdmin ? (
+      ) : path === "/atencion/carta" ? (
         <MenuManagement />
       ) : path === "/atencion/usuarios" && isAdmin ? (
         <UsersManagement />

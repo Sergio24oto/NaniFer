@@ -24,7 +24,8 @@ def test_read_only_menu_and_internal_orders(fixture):
 
 def test_menu_category_visibility_and_permissions(fixture):
  f=fixture;c=f['client']
- assert c.get('/api/menu-management').status_code==403
+ assert TestClient(app,headers=HEADERS).get('/api/menu-management').status_code==401
+ assert c.get('/api/menu-management').status_code==200
  with SessionLocal() as db:
   db.get(User,f['user_id']).role='admin';pid=db.get(Product,f['product']).category_id;db.commit()
  data=c.get('/api/menu-management').json();cat=next(x for x in data['categories'] if x['id']==pid)

@@ -141,7 +141,7 @@ export default function UsersManagement() {
           <p style={{ margin: 0, color: "#5c4938", maxWidth: 620 }}>
             Administrá las cuentas del local. Solo los usuarios con rol{" "}
             <strong>Dueña / Administrador</strong> pueden ver el módulo de{" "}
-            <strong>Ventas</strong>, <strong>Gestionar carta</strong> y esta pantalla.
+            <strong>Ventas</strong> y esta pantalla de <strong>Usuarios</strong>.
           </p>
         </div>
         <button
@@ -179,7 +179,7 @@ export default function UsersManagement() {
             👑 Rol Dueña / Administrador
           </div>
           <p style={{ margin: 0, fontSize: 13.5, color: "#5c4938", lineHeight: 1.45 }}>
-            Acceso total al sistema: <strong>Ventas y movimiento de dinero</strong>, reportes históricos, corrección de tickets, <strong>Gestionar carta</strong> y administración de contraseñas.
+            Acceso total al sistema: <strong>Ventas y movimiento de dinero</strong>, reportes históricos, corrección de tickets y administración de usuarios y contraseñas.
           </p>
         </div>
         <div
@@ -194,7 +194,7 @@ export default function UsersManagement() {
             👤 Rol Personal / Mozas
           </div>
           <p style={{ margin: 0, fontSize: 13.5, color: "#475569", lineHeight: 1.45 }}>
-            Acceso de trabajo diario: <strong>Salón, Cocina, Caja del turno, Stock y Carta</strong>.{" "}
+            Acceso operativo completo: <strong>Salón, Cocina, Caja del turno, Stock, Carta y Gestionar carta</strong>.{" "}
             <strong style={{ color: "#b91c1c" }}>Sin acceso al módulo de Ventas.</strong>
           </p>
         </div>
