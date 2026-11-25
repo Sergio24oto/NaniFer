@@ -123,6 +123,12 @@ const BEVERAGE_SECTIONS = [
 ];
 
 function getBeverageSectionId(p) {
+  const pSub = (p.subcategory || "").toLowerCase();
+  if (pSub.includes("litro")) return "cervezas-litro";
+  if (pSub.includes("cerveza") || pSub.includes("aperitivo") || pSub.includes("alcohol")) return "cervezas";
+  if (pSub.includes("jugo") || pSub.includes("licuado") || pSub.includes("batido") || pSub.includes("frutal")) return "jugos";
+  if (pSub.includes("gaseosa") || pSub.includes("agua") || pSub.includes("saborizada") || pSub.includes("refresco")) return "gaseosas";
+
   const id = (p.id || "").toLowerCase();
   const text = `${p.name || ""} ${p.description || ""}`.toLowerCase();
 
@@ -174,34 +180,47 @@ const DESAYUNO_SECTIONS = [
 ];
 
 function getDesayunoSectionId(p) {
+  // 0. Respetar siempre la subcategoría elegida explícitamente en Gestionar Carta
+  const pSub = (p.subcategory || "").toLowerCase();
+  if (pSub.includes("combo") || pSub.includes("promo")) return "combos";
+  if (pSub.includes("acompan") || pSub.includes("acompañ") || pSub.includes("panad") || pSub.includes("salad") || pSub.includes("tostad") || pSub.includes("minuta")) return "acompanar";
+  if (pSub.includes("dulce") || pSub.includes("torta") || pSub.includes("postre") || pSub.includes("pastel")) return "dulce";
+  if (pSub.includes("infus") || pSub.includes("caf")) return "infusiones";
+
   const cat = (p.category || "").toLowerCase();
+  const nameText = (p.name || "").toLowerCase();
   const text = `${p.name || ""} ${p.description || ""} ${p.id || ""}`.toLowerCase();
 
-  // 0. Combos
-  if (p.comboConfig?.is_combo || /combo/i.test(text)) {
+  // 1. Combos
+  if (p.comboConfig?.is_combo || /\bcombo\b/i.test(text)) {
     return "combos";
   }
 
-  // 1. Infusiones: cafés y bebidas
-  if (
-    cat.includes("caf") ||
-    cat.includes("bebid") ||
-    /café|cafe|cortado|lagrima|lágrima|espresso|latte|submarino|capuchino|cappuccino|infusion|infusión|té|te|chocolatada|mate cocido|jugo|licuado/.test(text)
-  ) {
-    return "infusiones";
+  // 2. Para acompañar (panadería, tostadas, tostados, criollos, medialunas)
+  if (/tostad|medialuna|criollo|canela|palta|sandwich|sándwich|chipá|chipa|pan de campo|arabe|árabe/.test(nameText)) {
+    return "acompanar";
   }
 
-  // 2. Algo dulce: tortas, tartas, cheesecake, brownies, postres
+  // 3. Algo dulce: tortas, tartas, cheesecake, brownies, postres, alfajores
   if (
     cat.includes("torta") ||
     cat.includes("postre") ||
     cat.includes("chocolat") ||
-    /torta|cheesecake|brownie|budin|budín|tarta|lemon pie|chocotorta|mousse|panqueque|alfajor|dulce/.test(text)
+    /torta|cheesecake|brownie|budin|budín|tarta|lemon pie|chocotorta|mousse|panqueque|alfajor|dulce|cookie|pepa/.test(text)
   ) {
     return "dulce";
   }
 
-  // 3. Para acompañar: criollos, medialunas, rol de canela, tostadas con huevo y palta, tostados
+  // 4. Infusiones: cafés, té (con límite de palabra \b para no confundir con "inTEgral" o "chocolaTE") y bebidas
+  if (
+    cat.includes("caf") ||
+    cat.includes("bebid") ||
+    /\b(café|cafe|cortado|lagrima|lágrima|espresso|latte|submarino|capuchino|cappuccino|infusion|infusión|té|te|chocolatada|mate cocido|jugo|licuado|batido)\b/.test(text)
+  ) {
+    return "infusiones";
+  }
+
+  // 5. Por defecto en Meriendas/Desayunos: Para acompañar
   return "acompanar";
 }
 
@@ -883,6 +902,34 @@ export default function DigitalMenu({ table }) {
                     );
                     if (match) return match.id;
                   }
+
+                  let fallbackId = null;
+                  if (isComidas) fallbackId = getComidaSectionId(p);
+                  else if (isBebidas) fallbackId = getBeverageSectionId(p);
+                  else if (isMeriendas) fallbackId = getDesayunoSectionId(p);
+
+                  if (fallbackId) {
+                    const direct = sectionsConfig.find((sec) => sec.id === fallbackId);
+                    if (direct) return direct.id;
+                    const ALIASES = {
+                      picadas: ["picada", "papa"],
+                      otros: ["tostad", "minuta", "otro", "sandwich"],
+                      combos: ["combo", "promo"],
+                      acompanar: ["acompan", "panad", "salad"],
+                      dulce: ["dulce", "torta", "postre"],
+                      infusiones: ["infus", "caf"],
+                      gaseosas: ["gaseosa", "agua"],
+                      jugos: ["jugo", "licuado"],
+                      cervezas: ["cerveza"],
+                      "cervezas-litro": ["litro"],
+                    };
+                    const hints = ALIASES[fallbackId] || [fallbackId];
+                    const aliased = sectionsConfig.find((sec) =>
+                      hints.some((h) => sec.id.includes(h) || sec.rawName.toLowerCase().includes(h))
+                    );
+                    if (aliased) return aliased.id;
+                  }
+
                   const text = `${p.name || ""} ${p.description || ""} ${p.category || ""}`.toLowerCase();
                   for (const sec of sectionsConfig) {
                     const sName = sec.rawName.toLowerCase();
@@ -891,10 +938,7 @@ export default function DigitalMenu({ table }) {
                       return sec.id;
                     }
                   }
-                  if (isComidas) return getComidaSectionId(p);
-                  if (isBebidas) return getBeverageSectionId(p);
-                  if (isMeriendas) return getDesayunoSectionId(p);
-                  return sectionsConfig[0]?.id || "otros";
+                  return sectionsConfig[sectionsConfig.length - 1]?.id || sectionsConfig[0]?.id || "otros";
                 };
               } else if (isBebidas) {
                 sectionsConfig = BEVERAGE_SECTIONS;
