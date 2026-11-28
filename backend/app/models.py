@@ -124,6 +124,7 @@ class Order(Base):
     origin: Mapped[str] = mapped_column(String(20), default="legacy", server_default="legacy")
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     device_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
 

@@ -280,7 +280,8 @@ def make_order(db, visit, data, *, origin="qr", user=None, delivered=False):
     plans, stock_rows = prepare_order(db, data.items)
     priced = [priced_item(db, i, require_flavors=origin not in {"manual", "counter"}) for i in data.items]
     order = Order(id=uid(), visit_id=visit.id, status=STATUSES[-1] if delivered else STATUSES[0],
-                  origin=origin, created_by=user.id if user else None)
+                  origin=origin, created_by=user.id if user else None,
+                  seen_at=None if origin == "qr" else now())
     db.add(order)
     db.flush()
     for index, (snapshot, price) in enumerate(priced):
@@ -642,7 +643,7 @@ def state_for(db, visits, internal=False):
                 "table": next(v.table_number for v in visits if v.id == o.visit_id),
                 "createdAt": iso(o.created_at),
                 "status": o.status,
-                **({"origin": o.origin, "createdBy": o.created_by, "createdByName": names.get(o.created_by, "")} if internal else {}),
+                **({"origin": o.origin, "seenAt": iso(o.seen_at), "createdBy": o.created_by, "createdByName": names.get(o.created_by, "")} if internal else {}),
                 "items": [
                     {**{k:v for k,v in i.snapshot.items() if k != "stockBatches"}, "id": i.id, "unitPrice": float(i.unit_price)}
                     for i in items

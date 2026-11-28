@@ -32,20 +32,101 @@
 
 /* 2. En marcha / En cocina: Rojo suave informativo */
 .salon-compact .table-card.waiting,
-.salon-compact .table-card.occupied:not(.served):not(.ready):not(.calling) {
+.salon-compact .table-card.occupied:not(.served):not(.ready):not(.calling):not(.qr-new) {
   background: #fff5f5 !important;
   border: 1.5px solid #fecaca !important;
 }
 .salon-compact .table-card.waiting h2,
-.salon-compact .table-card.occupied:not(.served):not(.ready):not(.calling) h2 {
+.salon-compact .table-card.occupied:not(.served):not(.ready):not(.calling):not(.qr-new) h2 {
   color: #b91c1c;
 }
 .salon-compact .table-card.waiting .table-orders-badge,
-.salon-compact .table-card.occupied:not(.served):not(.ready):not(.calling) .table-orders-badge {
+.salon-compact .table-card.occupied:not(.served):not(.ready):not(.calling):not(.qr-new) .table-orders-badge {
   background: #fee2e2;
   color: #991b1b;
   border-radius: 6px;
   padding: 2px 6px;
+}
+
+/* 2b. ¡Nuevo pedido QR sin abrir por la moza!: Violeta brillante */
+.salon-compact .table-card.qr-new {
+  background: #f5f3ff !important;
+  border: 2px solid #7c3aed !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.22), 0 4px 12px rgba(109, 40, 217, 0.14) !important;
+}
+.salon-compact .table-card.qr-new h2 {
+  color: #5b21b6 !important;
+}
+.salon-compact .table-card.qr-new .table-orders-badge {
+  background: #ede9fe !important;
+  color: #5b21b6 !important;
+  border: 1px solid #c4b5fd;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+.badge-qr-new {
+  background: #7c3aed !important;
+  color: #ffffff !important;
+  border-color: #6d28d9 !important;
+  font-weight: 700 !important;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* Banner superior de pedidos QR nuevos en Salón */
+.qr-orders-alert-banner {
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  border: 2px solid #7c3aed;
+  color: #3b0764;
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin: 0 0 18px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.2);
+}
+.qr-quick-open-btn {
+  background: #7c3aed;
+  color: #ffffff;
+  border: 1.5px solid #5b21b6;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.qr-quick-open-btn:hover {
+  background: #6d28d9;
+  transform: translateY(-1px);
+}
+
+/* Destaque del último pedido QR nuevo adentro de la mesa */
+.staff-order-card.qr-just-arrived {
+  border: 2px solid #7c3aed !important;
+  background: #faf5ff !important;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.15) !important;
+}
+.badge-qr-new-inline {
+  background: #7c3aed;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 2px 9px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+}
+.badge-latest-order {
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
 }
 
 /* 3. ¡Comanda lista para llevar a la mesa!: Verde alerta */

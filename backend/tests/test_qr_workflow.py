@@ -110,3 +110,34 @@ def test_product_flavor_options_validation(qr):
    p=db.get(Product,f['product'])
    p.flavor_options=[]
    db.commit()
+
+
+def test_qr_order_seen_at_lifecycle_when_opening_table(qr):
+ f=qr;a=client();staff=f['client']
+ # 1. First QR order arrives -> seenAt is None (table shows purple alert)
+ r1=send(a,f);assert r1.status_code==200
+ o1_id=r1.json()['id']
+ st1=staff.get('/api/state').json()
+ o1_state=next(o for o in st1['orders'] if o['id']==o1_id)
+ assert o1_state['origin']=='qr' and o1_state['seenAt'] is None
+ visit_id=o1_state['accountId']
+
+ # 2. Waitress opens table -> ack-orders marks order #1 as seen automatically (without marking delivered)
+ ack1=staff.post(f'/api/visits/{visit_id}/ack-orders')
+ assert ack1.status_code==200 and ack1.json()['acknowledged']==1
+ st2=staff.get('/api/state').json()
+ o1_after=next(o for o in st2['orders'] if o['id']==o1_id)
+ assert o1_after['seenAt'] is not None and o1_after['status']=='pendiente'
+
+ # 3. Customer orders another item by QR later -> new order #2 has seenAt=None (table turns purple again!)
+ r2=send(a,f);assert r2.status_code==200
+ o2_id=r2.json()['id']
+ st3=staff.get('/api/state').json()
+ o2_state=next(o for o in st3['orders'] if o['id']==o2_id)
+ assert o2_state['seenAt'] is None
+
+ # 4. Waitress opens table again -> order #2 is marked seen
+ ack2=staff.post(f'/api/visits/{visit_id}/ack-orders')
+ assert ack2.status_code==200 and ack2.json()['acknowledged']==1
+ st4=staff.get('/api/state').json()
+ assert all(o['seenAt'] is not None for o in st4['orders'] if o['accountId']==visit_id)

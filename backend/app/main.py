@@ -86,6 +86,11 @@ def ensure_schema():
             if 'shift_type' not in shift_cols:
                 conn.execute(text("ALTER TABLE cash_shifts ADD COLUMN shift_type VARCHAR(50) NULL DEFAULT 'T. Mañana'"))
                 logging.info("Added missing column shift_type to cash_shifts table.")
+            order_cols = [c['name'] for c in inspector.get_columns('orders')]
+            if 'seen_at' not in order_cols:
+                conn.execute(text("ALTER TABLE orders ADD COLUMN seen_at DATETIME NULL"))
+                conn.execute(text("UPDATE orders SET seen_at = created_at WHERE seen_at IS NULL"))
+                logging.info("Added missing column seen_at to orders table.")
     except Exception as e:
         logging.error("Fallback schema check failed: %s", e)
 
@@ -542,6 +547,8 @@ def advance(id: str, data: StatusIn, auth=Depends(current_session), db=Depends(g
         fail("Pedido inexistente.", 404)
     lock_visit(db, order.visit_id)
     db.refresh(order)
+    if not order.seen_at:
+        order.seen_at = now()
     if order.status == data.expectedStatus and order.status != STATUSES[-1]:
         order.status = 'entregado' if order.origin=='qr' and order.status=='en preparación' else STATUSES[STATUSES.index(order.status) + 1]
     db.flush()
@@ -559,6 +566,8 @@ def deliver_order(id: str, auth=Depends(current_session), db=Depends(get_db)):
         fail("Pedido inexistente.", 404)
     lock_visit(db, order.visit_id)
     order.status = "entregado"
+    if not order.seen_at:
+        order.seen_at = now()
     db.flush()
     visit = db.get(Visit, order.visit_id)
     if visit.table_number is None and not db.scalar(
@@ -572,10 +581,28 @@ def deliver_order(id: str, auth=Depends(current_session), db=Depends(get_db)):
 @app.post("/api/visits/{id}/deliver-all")
 def deliver_all(id: str, auth=Depends(current_session), db=Depends(get_db)):
     visit = lock_visit(db, id)
+    current_time = now()
     for order in db.scalars(select(Order).where(Order.visit_id == id, Order.status != "entregado")):
         order.status = "entregado"
+        if not order.seen_at:
+            order.seen_at = current_time
     db.commit()
     return {"ok": True}
+
+
+@app.post("/api/visits/{id}/ack-orders")
+def ack_visit_orders(id: str, auth=Depends(current_session), db=Depends(get_db)):
+    visit = db.get(Visit, id)
+    if not visit:
+        fail("Visita inexistente.", 404)
+    current_time = now()
+    updated = 0
+    for order in db.scalars(select(Order).where(Order.visit_id == id, Order.seen_at == None)):
+        order.seen_at = current_time
+        updated += 1
+    if updated > 0:
+        db.commit()
+    return {"ok": True, "acknowledged": updated}
 
 
 @app.put("/api/orders/{id}")

@@ -138,6 +138,17 @@ function ManageTablesModal({ tables, onClose, onChanged }) {
   );
 }
 
+export function formatElapsed(isoDate) {
+  if (!isoDate) return "";
+  const diffMs = Date.now() - new Date(isoDate).getTime();
+  const mins = Math.max(0, Math.floor(diffMs / 60000));
+  if (mins < 1) return "recién";
+  if (mins < 60) return `hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return rem > 0 ? `hace ${hrs}h ${rem}m` : `hace ${hrs}h`;
+}
+
 export function Salon({
   nav,
   message
@@ -155,6 +166,21 @@ export function Salon({
   const visibleTables = sectorFilter === "all"
     ? allTables
     : allTables.filter(t => t.sector === sectorFilter);
+
+  const unseenQrTables = [];
+  for (const acc of opened) {
+    const accUnseen = s.orders.filter(o => o.accountId === acc.id && o.origin === "qr" && !o.seenAt);
+    if (accUnseen.length > 0) {
+      const latest = accUnseen[accUnseen.length - 1];
+      unseenQrTables.push({
+        table: acc.table,
+        accountId: acc.id,
+        count: accUnseen.length,
+        latestTime: time(latest.createdAt),
+        elapsed: formatElapsed(latest.createdAt),
+      });
+    }
+  }
   return <main className="salon-compact">
     <div className="page-heading"><div className="intro"><span className="eyebrow">ATENCIÓN</span><h1>Mesas y Mostrador</h1><p>{opened.length === 0 ? `Todas las mesas libres (${allTables.length}) · Sin cobros pendientes` : `${opened.length} de ${allTables.length} mesas ocupadas · ${money(opened.reduce((n, a) => n + a.balance, 0))} pendiente`}</p></div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><button className="secondary" onClick={() => nav("/atencion/comandera")}><ClipboardList size={17} /> Mozas · {ready.length} listos</button>{s.user?.role === "admin" && <button className="secondary" onClick={() => setManagingTables(true)}>⚙️ Gestionar mesas</button>}</div></div>
     {message && <p className="success" role="status">{message}</p>}
@@ -183,6 +209,33 @@ export function Salon({
               }}
             >
               ✓ Atender {tableLabel(s, c.table)}
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+    {unseenQrTables.length > 0 && (
+      <div className="qr-orders-alert-banner" role="alert">
+        <div className="calls-alert-content">
+          <span className="calls-alert-icon">📱</span>
+          <div>
+            <strong>¡Nuevo pedido desde la mesa (QR)!</strong>
+            <p>
+              {unseenQrTables.length === 1
+                ? `La ${tableLabel(s, unseenQrTables[0].table)} envió un pedido a las ${unseenQrTables[0].latestTime} (${unseenQrTables[0].elapsed}). Tocá la mesa para verlo.`
+                : `Mesas con pedidos nuevos sin abrir: ${unseenQrTables.map(u => `${tableLabel(s, u.table)} (${u.latestTime})`).join(", ")}.`}
+            </p>
+          </div>
+        </div>
+        <div className="calls-alert-actions">
+          {unseenQrTables.map(u => (
+            <button
+              key={u.table}
+              type="button"
+              className="qr-quick-open-btn"
+              onClick={() => nav("/atencion/mesas/" + u.table)}
+            >
+              👁️ Ver {tableLabel(s, u.table)} · 🕒 {u.latestTime}
             </button>
           ))}
         </div>
@@ -228,12 +281,19 @@ export function Salon({
         const reservation = all.find(x => x.date === date) || (!reservationDate ? all.find(x => x.date > s.calendarToday) || all[0] : null);
         const tableOrders = s.orders.filter(o => o.accountId === a?.id);
         const hasOrders = a && tableOrders.length > 0;
+        const unseenQrOrders = hasOrders ? tableOrders.filter(o => o.origin === "qr" && !o.seenAt) : [];
+        const hasUnseenQr = unseenQrOrders.length > 0;
+        const lastOrder = hasOrders ? tableOrders[tableOrders.length - 1] : null;
+        const lastOrderClock = lastOrder ? time(lastOrder.createdAt) : "";
+        const lastOrderElapsed = lastOrder ? formatElapsed(lastOrder.createdAt) : "";
         const hasWaiting = hasOrders && tableOrders.some(o => o.status === "pendiente" || o.status === "en preparación");
         const allDelivered = hasOrders && !hasWaiting && !r && tableOrders.every(o => o.status === "entregado");
 
         let statusClass = "available";
         if (call) {
           statusClass = "calling";
+        } else if (hasUnseenQr) {
+          statusClass = "qr-new occupied";
         } else if (r) {
           statusClass = "ready";
         } else if (allDelivered) {
@@ -284,6 +344,8 @@ export function Salon({
             </div>
             {call ? (
               <Badge tone="amber">🛎️ ¡Llaman!</Badge>
+            ) : hasUnseenQr ? (
+              <span className="badge badge-qr-new">📱 ¡Pedido nuevo!</span>
             ) : r ? (
               <Badge tone="green">✓ ¡Listo!</Badge>
             ) : allDelivered ? (
@@ -312,11 +374,11 @@ export function Salon({
           {hasOrders && (
             <div className="table-orders-badge">
               <span>
-                {allDelivered
-                  ? `🍽️ ${tableOrders.length} ${tableOrders.length === 1 ? "pedido entregado" : "pedidos entregados"}`
+                {hasUnseenQr
+                  ? `🕒 Pedido ${lastOrderClock} (${lastOrderElapsed})`
                   : r
-                  ? `🛎️ ¡Comanda lista para retirar!`
-                  : `⏳ ${tableOrders.length} ${tableOrders.length === 1 ? "pedido en marcha" : "pedidos en marcha"}`}
+                  ? `🛎️ ¡Comanda lista! · 🕒 ${lastOrderClock}`
+                  : `🕒 Último: ${lastOrderClock} · ${tableOrders.length} ${tableOrders.length === 1 ? "pedido" : "pedidos"}`}
               </span>
             </div>
           )}
@@ -371,6 +433,19 @@ export function Account({
   const lock = useRef(false);
   const orders = s.orders.filter(o => o.accountId === a?.id),
     undelivered = orders.some(o => o.status !== "entregado");
+  const [recentlyUnseenIds, setRecentlyUnseenIds] = useState(() => new Set());
+  useEffect(() => {
+    if (!a?.id) return;
+    const unseen = orders.filter(o => o.origin === "qr" && !o.seenAt);
+    if (unseen.length > 0) {
+      setRecentlyUnseenIds(prev => {
+        const next = new Set(prev);
+        for (const u of unseen) next.add(u.id);
+        return next;
+      });
+      void mutate("/visits/" + a.id + "/ack-orders", {});
+    }
+  }, [a?.id, orders.length, orders.map(o => `${o.id}:${o.seenAt || ""}`).join(",")]);
   const reservation = (s.reservations || []).find(r => r.table === effectiveTable && r.date === s.calendarToday);
   const changed = expectedAccount !== (a?.id || null);
   const tableCalls = (s.calls || []).filter(c => c.table === effectiveTable && (c.status === "pending" || c.pending_table != null));
@@ -550,11 +625,30 @@ export function Account({
               </div>
             </div>
           ) : (
-            orders.map(o => (
-              <article className={"staff-order-card " + (o.status !== "entregado" ? "pending-delivery" : "delivered")} key={o.id}>
+            [...orders].reverse().map((o, revIdx) => {
+              const orderSeq = orders.length - revIdx;
+              const isJustSeen = recentlyUnseenIds.has(o.id) || (o.origin === "qr" && !o.seenAt);
+              const isLatestOrder = revIdx === 0 && orders.length > 1;
+              return (
+              <article
+                className={
+                  "staff-order-card " +
+                  (isJustSeen ? "qr-just-arrived " : "") +
+                  (o.status !== "entregado" ? "pending-delivery" : "delivered")
+                }
+                key={o.id}
+              >
                 <div className="staff-order-header">
                   <div className="order-meta">
-                    <span className="order-time">🕒 {time(o.createdAt)}</span>
+                    <span className="order-time">
+                      🕒 Pedido #{orderSeq} · {time(o.createdAt)} ({formatElapsed(o.createdAt)})
+                    </span>
+                    {isJustSeen && (
+                      <span className="badge-qr-new-inline">🆕 ¡NUEVO PEDIDO!</span>
+                    )}
+                    {!isJustSeen && isLatestOrder && (
+                      <span className="badge-latest-order">Último agregado</span>
+                    )}
                     {o.origin === "qr" ? (
                       <span className="badge-qr-origin">📱 Pedido QR</span>
                     ) : (
@@ -612,7 +706,8 @@ export function Account({
                   </div>
                 </div>
               </article>
-            ))
+              );
+            })
           )}
         </div>
 
