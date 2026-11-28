@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { request, useStore } from "../store";
-import { money, itemInput, operationId, tableLabel } from "../domain";
+import { money, itemInput, operationId, tableLabel, time } from "../domain";
 import { Modal } from "../components";
 
 export function publicDevice() {
@@ -37,7 +37,14 @@ function getAvailableVarieties(product) {
   return [];
 }
 
-export default function PublicCart({ table, cart, setCart, onClose }) {
+export default function PublicCart({
+  table,
+  cart,
+  setCart,
+  sentOrders = [],
+  onRefreshOrders,
+  onClose,
+}) {
   const s = useStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -55,6 +62,7 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
     (n, i) => n + (i.unitPrice || 0) * (Number(i.quantity) || 1),
     0
   );
+  const sentTotal = sentOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
 
   function confirmed(result, kind) {
     localStorage.removeItem(scope);
@@ -64,6 +72,7 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
       setCart([]);
       setOrderSent(true);
       setMessage("");
+      if (onRefreshOrders) void onRefreshOrders();
     } else {
       setMessage(
         "La moza fue avisada. En breve se acercará a la " +
@@ -183,9 +192,18 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
     setEditingVarietyIndex(null);
   }
 
+  const hasSentOrders = sentOrders.length > 0;
+  const chronologicalSent = [...sentOrders].reverse();
+
   return (
     <Modal
-      title={orderSent ? "¡Pedido enviado! · " + tableLabel(null, table) : "Tu selección · " + tableLabel(null, table)}
+      title={
+        orderSent
+          ? "¡Pedido enviado! · " + tableLabel(null, table)
+          : hasSentOrders && !cart.length
+          ? "🧾 Mi pedido y cuenta · " + tableLabel(null, table)
+          : "Tu selección · " + tableLabel(null, table)
+      }
       onClose={() => !busy && onClose()}
     >
       {message && (
@@ -211,54 +229,43 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
         </p>
       )}
 
-      {orderSent ? (
+      {orderSent && (
         <div
           className="order-sent-success-view"
-          style={{ textAlign: "center", padding: "18px 12px 10px" }}
+          style={{
+            textAlign: "center",
+            padding: "14px 12px 12px",
+            background: "#f0fdf4",
+            border: "1.5px solid #86efac",
+            borderRadius: "12px",
+            marginBottom: "16px",
+          }}
         >
-          <div style={{ fontSize: "44px", marginBottom: "12px", lineHeight: 1 }}>✨🍽️</div>
+          <div style={{ fontSize: "34px", marginBottom: "6px", lineHeight: 1 }}>✨🍽️</div>
           <h3
             style={{
-              fontSize: "19px",
-              color: "var(--brand-wood-dark, #3B2417)",
-              marginBottom: "8px",
+              fontSize: "17px",
+              color: "#166534",
+              margin: "0 0 4px",
               fontWeight: 800,
             }}
           >
-            ¡Pedido enviado con éxito!
+            ¡Pedido enviado a recepción!
           </h3>
           <p
             style={{
-              color: "#5A3A22",
-              fontSize: "15px",
-              lineHeight: "1.45",
-              marginBottom: "24px",
+              color: "#14532d",
+              fontSize: "14px",
+              lineHeight: "1.4",
+              margin: 0,
             }}
           >
-            Tu pedido ya fue recibido por el personal.<br />
-            <strong>Pronto se trae el pedido a tu mesa.</strong><br />
-            <small style={{ color: "#78583e", fontSize: "12.5px" }}>¡Muchas gracias por tu visita!</small>
+            Tu pedido ya fue recibido por el personal y queda registrado abajo en tu cuenta de la mesa.
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <button
-              type="button"
-              className="primary full"
-              onClick={onClose}
-              style={{ fontWeight: 700, padding: "12px" }}
-            >
-              Seguir explorando la carta
-            </button>
-            <button
-              type="button"
-              className="secondary full"
-              disabled={busy || !!pending}
-              onClick={() => send("call")}
-            >
-              🛎️ Llamar a la moza a la {tableLabel(null, table)}
-            </button>
-          </div>
         </div>
-      ) : !cart.length ? (
+      )}
+
+      {!cart.length && !hasSentOrders && !orderSent ? (
         <div
           className="empty-cart-view"
           style={{ textAlign: "center", padding: "14px 0" }}
@@ -281,6 +288,25 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
           </button>
         </div>
       ) : null}
+
+      {cart.length > 0 && hasSentOrders && (
+        <div
+          style={{
+            fontSize: "12px",
+            fontWeight: 800,
+            letterSpacing: "0.8px",
+            color: "#9a3412",
+            background: "#fff7ed",
+            border: "1px solid #fed7aa",
+            padding: "6px 10px",
+            borderRadius: "8px",
+            marginBottom: "8px",
+            textTransform: "uppercase",
+          }}
+        >
+          ➕ Nuevo para agregar ahora (sin enviar aún)
+        </div>
+      )}
 
       {cart.map((i, n) => {
         const origProduct = getProductForCartItem(i, s.catalog?.products);
@@ -457,7 +483,7 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
       {!!cart.length && (
         <>
           <div className="total">
-            <span>Total estimado</span>
+            <span>{hasSentOrders ? "Subtotal a enviar ahora" : "Total estimado"}</span>
             <strong>{money(total)}</strong>
           </div>
           <small>
@@ -469,7 +495,11 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
             disabled={busy || !!pending}
             onClick={() => send("orders")}
           >
-            {busy ? "Enviando…" : "Enviar pedido a recepción"}
+            {busy
+              ? "Enviando…"
+              : hasSentOrders
+              ? "Enviar nuevo pedido a mi mesa"
+              : "Enviar pedido a recepción"}
           </button>
           <button
             className="secondary full"
@@ -494,6 +524,154 @@ export default function PublicCart({ table, cart, setCart, onClose }) {
             </div>
           )}
         </>
+      )}
+
+      {hasSentOrders && (
+        <div
+          style={{
+            marginTop: cart.length > 0 ? "22px" : "4px",
+            paddingTop: cart.length > 0 ? "18px" : "0",
+            borderTop: cart.length > 0 ? "2px dashed #e2d5c4" : "none",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "10px",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "12px",
+                fontWeight: 800,
+                letterSpacing: "0.8px",
+                color: "#5A3A22",
+                textTransform: "uppercase",
+              }}
+            >
+              🧾 Pedidos enviados en esta visita ({chronologicalSent.length})
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "14px" }}>
+            {chronologicalSent.map((ord, idx) => (
+              <div
+                key={ord.id}
+                style={{
+                  background: "#faf6f0",
+                  border: "1px solid #e6dac8",
+                  borderRadius: "10px",
+                  padding: "10px 12px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "6px",
+                    paddingBottom: "5px",
+                    borderBottom: "1px solid #ede4d7",
+                    fontSize: "12.5px",
+                  }}
+                >
+                  <strong style={{ color: "#3B2417" }}>
+                    Pedido #{idx + 1} · {ord.createdAt ? time(ord.createdAt) : ""}
+                  </strong>
+                  <span
+                    style={{
+                      background: "#dcfce7",
+                      color: "#166534",
+                      fontWeight: 700,
+                      fontSize: "11px",
+                      padding: "2px 8px",
+                      borderRadius: "999px",
+                    }}
+                  >
+                    ✓ Recibido en salón
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                  {(ord.items || []).map((it) => {
+                    const details = [
+                      it.size,
+                      ...(it.flavors || []),
+                      ...(it.extras || []),
+                      it.notes,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+                    return (
+                      <div
+                        key={it.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "baseline",
+                          gap: "8px",
+                          fontSize: "13.5px",
+                        }}
+                      >
+                        <div style={{ color: "#2b1b10" }}>
+                          <strong>{it.quantity}x</strong> {it.name}
+                          {details && (
+                            <small style={{ display: "block", color: "#78583e", fontSize: "11.5px" }}>
+                              {details}
+                            </small>
+                          )}
+                        </div>
+                        <strong style={{ color: "#3B2417", whiteSpace: "nowrap" }}>
+                          {money((it.unitPrice || 0) * (it.quantity || 1))}
+                        </strong>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            className="total"
+            style={{
+              background: "#f3eadb",
+              padding: "12px 14px",
+              borderRadius: "10px",
+              border: "1.5px solid #d9a94b",
+              marginBottom: "12px",
+            }}
+          >
+            <span style={{ fontWeight: 700, color: "#3B2417" }}>
+              Total acumulado de mi pedido
+            </span>
+            <strong style={{ fontSize: "18px", color: "#3B2417" }}>
+              {money(sentTotal)}
+            </strong>
+          </div>
+
+          {!cart.length && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <button
+                type="button"
+                className="primary full"
+                onClick={onClose}
+                style={{ fontWeight: 700 }}
+              >
+                + Seguir pidiendo de la carta
+              </button>
+              <button
+                type="button"
+                className="secondary full"
+                disabled={busy || !!pending}
+                onClick={() => send("call")}
+              >
+                🛎️ Llamar a la moza a la {tableLabel(null, table)}
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </Modal>
   );

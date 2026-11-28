@@ -437,7 +437,33 @@ export default function DigitalMenu({ table }) {
   });
   const [product, setProduct] = useState(null);
   const [showCart, setShowCart] = useState(false);
+  const [sentOrders, setSentOrders] = useState([]);
   const [smartUpsell, setSmartUpsell] = useState(null);
+
+  const loadSentOrders = async () => {
+    if (!table) return;
+    try {
+      const res = await request("/public/qr/" + table + "/orders", {
+        device: publicDevice(),
+      });
+      if (Array.isArray(res)) {
+        setSentOrders(res);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    void loadSentOrders();
+    const timer = setInterval(() => {
+      void loadSentOrders();
+    }, 6000);
+    const onFocus = () => void loadSentOrders();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [table]);
   const [upsellDismissed, setUpsellDismissed] = useState(false);
   const [shownUpsellCategories, setShownUpsellCategories] = useState(() => new Set());
   const [callingWaiter, setCallingWaiter] = useState(false);
@@ -572,6 +598,11 @@ export default function DigitalMenu({ table }) {
 
   const totalItemsCount = cart.reduce((n, i) => n + i.quantity, 0);
   const totalCartAmount = cart.reduce((n, i) => n + i.unitPrice * i.quantity, 0);
+  const sentItemsCount = sentOrders.reduce(
+    (acc, o) => acc + (o.items || []).reduce((sum, i) => sum + (Number(i.quantity) || 1), 0),
+    0
+  );
+  const sentOrdersTotal = sentOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
 
   return (
     <main
@@ -1047,14 +1078,31 @@ export default function DigitalMenu({ table }) {
         </div>
       )}
 
-      {totalItemsCount > 0 && (
+      {(totalItemsCount > 0 || sentOrders.length > 0) && (
         <button
           className="primary public-cart-bar"
-          onClick={() => setShowCart(true)}
+          onClick={() => {
+            void loadSentOrders();
+            setShowCart(true);
+          }}
         >
-          <span className="cart-bar-badge">{totalItemsCount}</span>
-          <span>Ver mi pedido</span>
-          <span className="cart-bar-total">{money(totalCartAmount)}</span>
+          <span className="cart-bar-badge">
+            {totalItemsCount > 0 && sentOrders.length > 0
+              ? `+${totalItemsCount}`
+              : totalItemsCount > 0
+              ? totalItemsCount
+              : sentItemsCount}
+          </span>
+          <span>
+            {totalItemsCount > 0 && sentOrders.length > 0
+              ? "Agregar a mi pedido · Ver cuenta"
+              : totalItemsCount > 0
+              ? "Ver mi pedido"
+              : "🧾 Ver mi pedido / Mi cuenta"}
+          </span>
+          <span className="cart-bar-total">
+            {money(totalCartAmount + sentOrdersTotal)}
+          </span>
         </button>
       )}
 
@@ -1114,6 +1162,8 @@ export default function DigitalMenu({ table }) {
           table={table}
           cart={cart}
           setCart={setCart}
+          sentOrders={sentOrders}
+          onRefreshOrders={loadSentOrders}
           onClose={() => setShowCart(false)}
         />
       )}
