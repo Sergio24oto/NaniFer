@@ -72,6 +72,8 @@ export default function ComboEditor({ item, data, onClose, onSaved }) {
   const [price, setPrice] = useState(item?.price != null ? String(item.price) : "");
   const [description, setDescription] = useState(item?.description || "");
   const [categoryId, setCategoryId] = useState(item?.categoryId || defaultCategory);
+  const [subcategory, setSubcategory] = useState(item?.subcategory || "Combos & Promos");
+  const [customSubcategoryMode, setCustomSubcategoryMode] = useState(false);
   const [publicCategories, setPublicCategories] = useState(item?.publicCategories || []);
   const [image, setImage] = useState(item?.image || "");
   const [inMenu, setInMenu] = useState(item?.inMenu ?? true);
@@ -300,7 +302,7 @@ export default function ComboEditor({ item, data, onClose, onSaved }) {
       name: name.trim(),
       description: description.trim(),
       categoryId,
-      subcategory: (item?.subcategory || "").trim(),
+      subcategory: (subcategory || "Combos & Promos").trim(),
       publicCategories: (publicCategories || []).filter(cId => cId && cId !== categoryId),
       price: Number(price),
       image: image || null,
@@ -457,6 +459,65 @@ export default function ComboEditor({ item, data, onClose, onSaved }) {
                 />
               </div>
             </div>
+
+            {(() => {
+              const selCat = (data?.categories || []).find(c => c.id === categoryId);
+              let subOptions = selCat?.subcategories ? [...selCat.subcategories] : [];
+              if (!subOptions || subOptions.length === 0) {
+                const cName = (selCat?.name || "").toLowerCase();
+                if (/comida|cena|salado|pizz/.test(cName)) {
+                  subOptions = ["Combos & Promos", "Pizzas", "Empanadas", "Cazuelas", "Picadas y Papas", "Sin TACC", "Tostados y Minutas"];
+                } else if (/desayun|meriend/.test(cName)) {
+                  subOptions = ["Combos & Promos", "Infusiones", "Para acompañar", "Algo dulce"];
+                } else if (/bebid/.test(cName)) {
+                  subOptions = ["Combos & Promos", "Gaseosas y Aguas", "Jugos y Licuados", "Cervezas", "Cervezas 1 Litro"];
+                } else if (/tacc|gluten/.test(cName)) {
+                  subOptions = ["Combos & Promos", "Opciones saladas", "Opciones dulces"];
+                } else {
+                  subOptions = ["Combos & Promos"];
+                }
+              } else if (!subOptions.includes("Combos & Promos")) {
+                subOptions = ["Combos & Promos", ...subOptions];
+              }
+
+              return (
+                <div className="combo-field">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <label>Subcategoría (Botón rápido en la carta)</label>
+                    <button
+                      type="button"
+                      className="text-button"
+                      style={{ fontSize: "11.5px", padding: 0 }}
+                      onClick={() => setCustomSubcategoryMode(prev => !prev)}
+                    >
+                      {customSubcategoryMode ? "Elegir de lista" : "✏️ Escribir otra"}
+                    </button>
+                  </div>
+                  {customSubcategoryMode ? (
+                    <input
+                      type="text"
+                      placeholder="Ej: Combos & Promos..."
+                      value={subcategory}
+                      onChange={e => setSubcategory(e.target.value)}
+                    />
+                  ) : (
+                    <select
+                      value={subcategory}
+                      onChange={e => setSubcategory(e.target.value)}
+                    >
+                      {subOptions.map(sub => (
+                        <option key={sub} value={sub}>
+                          {sub}
+                        </option>
+                      ))}
+                      {subcategory && !subOptions.includes(subcategory) && (
+                        <option value={subcategory}>{subcategory} (Personalizada)</option>
+                      )}
+                    </select>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Categorías adicionales tipo pills */}
             <div className="combo-field">

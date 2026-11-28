@@ -225,6 +225,26 @@ def ensure_schema():
             except Exception as ex:
                 logging.warning("Comidas subcategories seed bypassed: %s", ex)
 
+            # 5b. Default subcategories for Meriendas/Desayunos and Combos
+            try:
+                cat_desayunos = db.scalar(select(Category).where(Category.name.ilike("%merienda%") | Category.name.ilike("%desayun%")))
+                for p in db.scalars(select(Product).where(Product.archived == False)):
+                    if not p.subcategory:
+                        pn = (p.name or "").lower()
+                        is_combo = bool(p.combo_config and p.combo_config.get("is_combo")) or ("combo" in pn)
+                        if is_combo:
+                            p.subcategory = "Combos & Promos"
+                        elif cat_desayunos and p.category_id == cat_desayunos.id:
+                            if any(w in pn for w in ("tostad", "medialuna", "criollo", "canela", "palta", "sandwich", "sándwich", "chipa", "chipá")):
+                                p.subcategory = "Para acompañar"
+                            elif any(w in pn for w in ("torta", "brownie", "cheesecake", "alfajor", "budin", "budín", "tarta", "dulce")):
+                                p.subcategory = "Algo dulce"
+                            elif any(w in pn for w in ("café", "cafe", "cortado", "lagrima", "lágrima", "submarino", "capuchino", "latte")):
+                                p.subcategory = "Infusiones"
+                db.commit()
+            except Exception as ex:
+                logging.warning("Meriendas/Combos subcategories seed bypassed: %s", ex)
+
             from .services import ensure_recarga_virtual
             ensure_recarga_virtual(db)
 

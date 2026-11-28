@@ -1374,7 +1374,28 @@ export default function MenuManagement() {
       if (tab === 'products') {
         if (item.archived !== archived) return false;
         if (filter && item.categoryId !== filter && !item.publicCategories?.includes(filter)) return false;
-        if (subFilter && item.subcategory !== subFilter) return false;
+        if (subFilter) {
+          const itemSub = (item.subcategory || '').trim();
+          const sfLower = subFilter.toLowerCase();
+          const isItemCombo = Boolean(item.comboConfig?.is_combo) || /\bcombo\b/i.test(item.name || '');
+          let matchesSub = itemSub === subFilter;
+          if (!matchesSub) {
+            if (sfLower.includes('combo') && (isItemCombo || itemSub.toLowerCase().includes('combo'))) {
+              matchesSub = true;
+            } else if (!itemSub && !isItemCombo) {
+              const pn = (item.name || '').toLowerCase();
+              const catName = (data.categories.find(c => c.id === item.categoryId)?.name || '').toLowerCase();
+              if (sfLower.includes('acompañ') || sfLower.includes('acompan')) {
+                matchesSub = /tostad|medialuna|criollo|canela|palta|sandwich|sándwich|chipa|chipá/.test(pn);
+              } else if (sfLower.includes('dulce')) {
+                matchesSub = catName.includes('torta') || /torta|brownie|cheesecake|alfajor|budin|budín|tarta|dulce|cookie|pepa/.test(pn);
+              } else if (sfLower.includes('infus')) {
+                matchesSub = catName.includes('caf') || /\b(café|cafe|cortado|lagrima|lágrima|espresso|latte|submarino|capuchino|cappuccino|té|te|mate cocido)\b/.test(pn);
+              }
+            }
+          }
+          if (!matchesSub) return false;
+        }
         if (menuFilter === 'in_menu' && !item.inMenu) return false;
         if (menuFilter === 'off_menu' && item.inMenu) return false;
         return true;
@@ -1558,9 +1579,9 @@ export default function MenuManagement() {
                       </strong>
                       <p>
                         <strong>{data.categories.find(c => c.id === item.categoryId)?.name || 'Sin categoría'}</strong>
-                        {item.subcategory && (
+                        {(item.subcategory || item.comboConfig?.is_combo) && (
                           <span style={{ color: '#0369a1', background: '#e0f2fe', border: '1px solid #bae6fd', padding: '1px 7px', borderRadius: '8px', fontSize: '11px', fontWeight: 700, marginLeft: '6px' }}>
-                            📂 {item.subcategory}
+                            📂 {item.subcategory || 'Combos & Promos'}
                           </span>
                         )}
                         {item.publicCategories?.length > 0 && (
